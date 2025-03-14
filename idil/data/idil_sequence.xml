@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Sequence for Manufacturing Order Reference -->
+        <record id="seq_idil_manufacturing_order" model="ir.sequence">
+            <field name="name">Manufacturing Order Sequence</field>
+            <field name="code">idil.manufacturing.order.sequence</field>
+            <field name="prefix">MO/%(year)s/</field>
+            <field name="number_increment">1</field>
+            <field name="padding">5</field> <!-- Sequence number padding, e.g., 00001 -->
+            <field name="company_id" eval="False"/> <!-- Apply to all companies; set specific company ID if needed -->
+        </record>
+        <!-- Sequence for Manufacturing Order Reference -->
+        <record id="seq_idil_sale_order" model="ir.sequence">
+            <field name="name">Sales Order Sequence</field>
+            <field name="code">idil.sale.order.sequence</field>
+            <field name="prefix">SO/%(year)s/</field>
+            <field name="number_increment">1</field>
+            <field name="padding">5</field> <!-- Sequence number padding, e.g., 00001 -->
+            <field name="company_id" eval="False"/> <!-- Apply to all companies; set specific company ID if needed -->
+        </record>
+    </data>
+</odoo>

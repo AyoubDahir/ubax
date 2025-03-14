@@ -1,0 +1,84 @@
+<odoo>
+    <data noupdate="1">
+        <record id="customer_type_dine_in" model="idil.customer.type.registration">
+            <field name="name">Dine-In</field>
+            <field name="description">Customers who dine in the restaurant.</field>
+        </record>
+        <record id="customer_type_takeaway" model="idil.customer.type.registration">
+            <field name="name">Takeaway</field>
+            <field name="description">Customers who order food to take away.</field>
+        </record>
+        <record id="customer_type_delivery" model="idil.customer.type.registration">
+            <field name="name">Delivery</field>
+            <field name="description">Customers who order food for home delivery.</field>
+        </record>
+        <record id="customer_type_catering" model="idil.customer.type.registration">
+            <field name="name">Catering</field>
+            <field name="description">Customers who order catering services for events.</field>
+        </record>
+        <record id="customer_type_online" model="idil.customer.type.registration">
+            <field name="name">Online Order</field>
+            <field name="description">Customers who place orders online.</field>
+        </record>
+        <record id="customer_type_walk_in" model="idil.customer.type.registration">
+            <field name="name">Walk-In</field>
+            <field name="description">Customers who visit without a prior reservation.</field>
+        </record>
+        <record id="customer_type_reservation" model="idil.customer.type.registration">
+            <field name="name">Reservation</field>
+            <field name="description">Customers who make a reservation in advance.</field>
+        </record>
+        <record id="customer_type_drive_thru" model="idil.customer.type.registration">
+            <field name="name">Drive-Thru</field>
+            <field name="description">Customers who order and pick up food through a drive-thru window.</field>
+        </record>
+        <record id="customer_type_vip" model="idil.customer.type.registration">
+            <field name="name">VIP</field>
+            <field name="description">Customers who are considered very important and may receive special treatment.</field>
+        </record>
+        <record id="customer_type_loyalty_program" model="idil.customer.type.registration">
+            <field name="name">Loyalty Program Members</field>
+            <field name="description">Customers who are part of a loyalty program and may receive discounts or rewards.</field>
+        </record>
+        <record id="customer_type_corporate" model="idil.customer.type.registration">
+            <field name="name">Corporate</field>
+            <field name="description">Customers who represent businesses and may have accounts with the restaurant.</field>
+        </record>
+        <record id="customer_type_tourists" model="idil.customer.type.registration">
+            <field name="name">Tourists</field>
+            <field name="description">Customers who are visiting the area and dining at the restaurant.</field>
+        </record>
+        <record id="customer_type_event_guests" model="idil.customer.type.registration">
+            <field name="name">Event Guests</field>
+            <field name="description">Customers attending a special event or function at the restaurant.</field>
+        </record>
+        <record id="customer_type_group" model="idil.customer.type.registration">
+            <field name="name">Group</field>
+            <field name="description">Customers who visit as part of a large group or party.</field>
+        </record>
+        <record id="customer_type_family" model="idil.customer.type.registration">
+            <field name="name">Family</field>
+            <field name="description">Customers who visit with their family.</field>
+        </record>
+        <record id="customer_type_children" model="idil.customer.type.registration">
+            <field name="name">Children</field>
+            <field name="description">Younger customers who may have special menus or considerations.</field>
+        </record>
+        <record id="customer_type_senior_citizens" model="idil.customer.type.registration">
+            <field name="name">Senior Citizens</field>
+            <field name="description">Older customers who may have special discounts or considerations.</field>
+        </record>
+        <record id="customer_type_students" model="idil.customer.type.registration">
+            <field name="name">Students</field>
+            <field name="description">Customers who are students and may receive special discounts.</field>
+        </record>
+        <record id="customer_type_singles" model="idil.customer.type.registration">
+            <field name="name">Singles</field>
+            <field name="description">Customers dining alone.</field>
+        </record>
+        <record id="customer_type_couples" model="idil.customer.type.registration">
+            <field name="name">Couples</field>
+            <field name="description">Customers dining as a pair.</field>
+        </record>
+    </data>
+</odoo>

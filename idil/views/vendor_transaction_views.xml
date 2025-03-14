@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Tree View -->
+    <record id="view_vendor_transaction_tree" model="ir.ui.view">
+        <field name="name">vendor.transaction.tree</field>
+        <field name="model">idil.vendor_transaction</field>
+        <field name="arch" type="xml">
+            <tree string="Vendor Transactions" create="false" delete="false" decoration-danger="remaining_amount > 0">
+
+                <field name="transaction_date" string="Date"/>
+                <field name="reffno" string="Reff"/>
+                <field name="transaction_number" string="TRS NO"/>
+                <field name="order_number" string="Order No"/>
+                <field name="vendor_id"/>
+                <field name="vendor_name"/>
+                <field name="vendor_phone" optional="show"/>
+                <field name="vendor_email" optional="hide"/>
+                <field name="amount" string="Amount"/>
+                <field name="paid_amount" string="Paid"/>
+                <field name="remaining_amount" string="Due"/>
+                <field name="payment_method" string="Method" optional="hide"/>
+                <field name="payment_status" string="Status" widget="statusbar" statusbar_visible="pending,partial_paid,paid"
+                       decoration-danger="payment_status == 'pending'"
+                       decoration-warning="payment_status == 'partial_paid'"
+                       decoration-primary="payment_status == 'paid'"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_vendor_transaction_form" model="ir.ui.view">
+        <field name="name">idil.vendor.transaction.form</field>
+        <field name="model">idil.vendor_transaction</field>
+        <field name="arch" type="xml">
+            <form string="Vendor Transaction">
+                <header>
+                    <field name="payment_status" widget="statusbar" statusbar_visible="pending,partial_paid,paid"
+                           decoration-danger="payment_status == 'pending'"
+                           decoration-warning="payment_status == 'partial_paid'"
+                           decoration-primary="payment_status == 'paid'"/>
+                </header>
+                <sheet>
+                    <sheet>
+                        <group>
+                            <field name="cash_account_id"/>
+                        </group>
+                    </sheet>
+
+                    <hr style="height:2px;border-width:0;color:gray;background-color:gray"/>
+                    <group>
+                        <group>
+                            <field name="order_number" readonly="1"/>
+                            <field name="transaction_number" readonly="1"/>
+                            <field name="transaction_date" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="vendor_id" readonly="1"/>
+                            <field name="vendor_name" readonly="1"/>
+                            <field name="vendor_phone" readonly="1"/>
+                            <field name="vendor_email" readonly="1"/>
+                        </group>
+                    </group>
+                    <hr style="height:2px;border-width:0;color:gray;background-color:gray"/>
+                    <group>
+                        <group>
+                            <field name="amount" readonly="1"/>
+                            <field name="paid_amount" readonly="1"/>
+                            <field name="remaining_amount" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="payment_method" readonly="1"/>
+                            <field name="payment_status" readonly="1"/>
+                            <field name="reffno" readonly="1"/>
+                        </group>
+                    </group>
+                    <hr style="height:2px;border-width:0;color:gray;background-color:gray"/>
+                    <group>
+                        <field name="amount_paying"/>
+                    </group>
+                    <notebook>
+                        <page string="Payments">
+                            <field name="payment_ids" editable="bottom" create="false">
+                                <tree string="Vendor Payments" editable="bottom">
+                                    <field name="payment_date" readonly="1"/>
+                                    <field name="reffno" readonly="1"/>
+                                    <field name="vendor_id" readonly="1"/>
+                                    <field name="amount_paid"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="view_vendor_transaction_search" model="ir.ui.view">
+        <field name="model">idil.vendor_transaction</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="order_number" widget="avatar" string="Order Number"/>
+                <field name="transaction_number" widget="avatar" string="Transaction Number"/>
+
+                <field name="vendor_id" widget="Vendor ID" string="Vendor ID"/>
+                <field name="vendor_name" widget="Vendor Name" string="Vendor Name"/>
+
+                <filter name="filter_pending" string="Pending Transactions"
+                        domain="[('payment_status', '=', 'pending')]"/>
+                <filter name="filter_paid" string="Paid Transactions" domain="[('payment_status', '=', 'paid')]"/>
+                <filter name="filter_partial" string="Partial Transactions"
+                        domain="[('payment_status', '=', 'partial_paid')]"/>
+
+                <separator/>
+                <group expand="0" string="Group By">
+                    <filter string="Vendor Name" name='group_by_vendor_id' context="{'group_by':'vendor_id'}"/>
+                    <separator orientation="vertical"/>
+                    <filter string="Transaction Date" name="group_by_transaction_date"
+                            context="{'group_by':'transaction_date'}"/>
+                    <filter string="Payment Status" name='group_by_payment_status'
+                            context="{'group_by':'payment_status'}"/>
+
+                </group>
+                <searchpanel>
+                    <field name="vendor_id" string="Vendor Name" widget="button_icon"
+                           icon="fa-suitcase" options="{'icon_classes': 'fa fa-suitcase'}"
+                           enable_counters="1"/>
+                    <!-- Using Font Awesome icon for customer type -->
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+
+    <!-- Action -->
+    <record id="action_vendor_transaction" model="ir.actions.act_window">
+        <field name="name">Vendor Transactions</field>
+        <field name="res_model">idil.vendor_transaction</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="oe_view_nocontent_create">
+                Click to create a new vendor transaction.
+            </p>
+        </field>
+    </record>
+    s
+
+</odoo>

@@ -1,0 +1,53 @@
+<odoo>
+    <!-- Action to open the Stock Adjustment model -->
+    <record id="action_stock_adjustment" model="ir.actions.act_window">
+        <field name="name">Stock Adjustments</field>
+        <field name="res_model">idil.stock.adjustment</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No stock adjustments yet.
+            </p>
+            <p>
+                Create your first stock adjustment.
+            </p>
+        </field>
+    </record>
+
+
+
+    <!-- Tree view for Stock Adjustment -->
+    <record id="view_stock_adjustment_tree" model="ir.ui.view">
+        <field name="name">idil.stock.adjustment.tree</field>
+        <field name="model">idil.stock.adjustment</field>
+        <field name="arch" type="xml">
+            <tree string="Stock Adjustments">
+                <field name="item_id"/>
+                <field name="adjustment_qty"/>
+                <field name="adjustment_type"/>
+                <field name="adjustment_date"/>
+                <field name="reason"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form view for Stock Adjustment -->
+    <record id="view_stock_adjustment_form" model="ir.ui.view">
+        <field name="name">idil.stock.adjustment.form</field>
+        <field name="model">idil.stock.adjustment</field>
+        <field name="arch" type="xml">
+            <form string="Stock Adjustment">
+                <sheet>
+                    <group>
+                        <field name="item_id"/>
+                        <field name="adjustment_qty" />
+                         <field name="cost_price"/>
+                        <field name="adjustment_type"/>
+                        <field name="adjustment_date"/>
+                        <field name="reason"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

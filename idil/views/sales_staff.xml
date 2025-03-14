@@ -1,0 +1,77 @@
+<odoo>
+    <!-- Define form view for Sales Personnel -->
+    <record id="view_sales_personnel_form" model="ir.ui.view">
+        <field name="name">sales_personnel.form</field>
+        <field name="model">idil.sales.sales_personnel</field>
+        <field name="arch" type="xml">
+            <form string="Sales Personnel Form">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <div class="oe_image">
+                        <field name="image" widget="image" options="{'size': (150, 150)}"/>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="phone"/>
+                            <field name="email"/>
+                        </group>
+                        <group>
+                            <field name="address"/>
+                            <field name="currency_id"/>
+                            <field name="account_receivable_id"/>
+
+                        </group>
+                        <notebook>
+                            <!-- Other tabs -->
+                            <page string="Transactions">
+                                <field name="transaction_ids" readonly="1">
+                                    <tree string="Transactions" create="false" delete="false" edit="false">
+                                        <field name="date" readonly="1"/>
+                                        <field name="transaction_type" readonly="1"/>
+                                        <field name="order_id" readonly="1"/>
+                                        <field name="description" readonly="1"/>
+                                        <field name="amount" readonly="1"/>
+                                        <field name="running_balance" readonly="1"/>
+
+
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <!-- Define tree view for Sales Personnel -->
+    <record id="view_sales_personnel_tree" model="ir.ui.view">
+        <field name="name">sales_personnel.tree</field>
+        <field name="model">idil.sales.sales_personnel</field>
+        <field name="arch" type="xml">
+            <tree>
+
+                <field name="image" widget="image" options="{'size': (20, 20)}"/> <!-- Adjust size here -->
+
+                <field name="name"/>
+                <field name="phone"/>
+                <field name="email"/>
+                <field name="address"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Define action for Sales Personnel -->
+    <record id="action_sales_personnel" model="ir.actions.act_window">
+        <field name="name">Sales Personnel</field>
+        <field name="res_model">idil.sales.sales_personnel</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+
+</odoo>

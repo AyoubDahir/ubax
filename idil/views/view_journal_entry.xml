@@ -1,0 +1,90 @@
+<odoo>
+    <data>
+        <record id="view_journal_entry_form" model="ir.ui.view">
+            <field name="name">journal.entry.form</field>
+            <field name="model">idil.journal.entry</field>
+            <field name="arch" type="xml">
+                <form string="Journal Entry">
+                    <sheet>
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                        <group>
+                            <field name="date"/>
+                            <field name="currency_id"/>
+                        </group>
+                        <notebook>
+                            <page string="Journal Lines">
+                                <field name="line_ids" mode="tree" options="{'footer': 'total'}">
+                                    <tree editable="bottom">
+                                        <field name="account_id" domain="[('currency_id', '=', parent.currency_id)]"/>
+                                        <field name="debit"/>
+                                        <field name="credit"/>
+                                        <field name="description"/>
+                                        <field name="name"/>
+                                    </tree>
+                                    <form>
+                                        <group>
+                                            <field name="account_id"
+                                                   domain="[('currency_id', '=', parent.currency_id)]"/>
+                                            <field name="currency_id" invisible="1"/>
+                                            <field name="debit"/>
+                                            <field name="credit"/>
+                                            <field name="description"/>
+                                            <field name="name"/>
+                                        </group>
+                                    </form>
+                                </field>
+                            </page>
+                        </notebook>
+                        <group>
+                            <group>
+                                <h1>
+                                    <label for="total_debit" string="Total Debit"/>
+                                    <field name="total_debit"/>
+                                </h1>
+                            </group>
+                            <group>
+                                <h1>
+                                    <label for="total_credit" string="Total Credit"/>
+                                    <field name="total_credit"/>
+                                </h1>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_journal_entry_tree" model="ir.ui.view">
+            <field name="name">journal.entry.tree</field>
+            <field name="model">idil.journal.entry</field>
+            <field name="arch" type="xml">
+                <tree string="Journal Entries">
+                    <field name="date"/>
+                    <field name="name"/>
+
+                    <field name="total_debit" string="Amount"/>
+                    <field name="currency_id"/>
+
+                    <field name="line_ids"/>
+
+
+                </tree>
+            </field>
+        </record>
+
+        <record id="action_journal_entry" model="ir.actions.act_window">
+            <field name="name">Journal Entries</field>
+            <field name="res_model">idil.journal.entry</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Create your first journal entry
+                </p>
+            </field>
+        </record>
+
+
+    </data>
+</odoo>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+  
+    <data>
+        <!-- Form View for Sales Receipt -->
+        <record id="view_form_sales_receipt" model="ir.ui.view">
+            <field name="name">sales.receipt.form</field>
+            <field name="model">idil.sales.receipt</field>
+            <field name="arch" type="xml">
+                <form string="Sales Receipt" class="o_form_custom">
+                    <header>
+                        <button string="Process Receipt" type="object" class="oe_highlight oe_button"
+                                name="action_process_receipt"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group string="Sales Details" col="2">
+                                <field name="sales_order_id" readonly="1"/>
+                                <field name="salesperson_id" readonly="1"/>
+                                <field name="receipt_date"/>
+                                <field name="payment_account_currency_id"/>
+                                <field name="payment_account"/>
+                            </group>
+                           
+                            <group string="Payment Details" col="2">
+                                <field name="due_amount" readonly="1"/>
+                                <field name="payment_status" readonly="1"/>
+                                <field name="paid_amount" readonly="1"/>
+                                <field name="remaining_amount" readonly="1"/>
+                                <field name="amount_paying"/>
+                            </group>
+                        </group>
+                          <!-- Associated Payments -->
+                        <separator string="Associated Payments"/>
+                        <field name="payment_ids">
+                            <tree editable="bottom">
+                                <field name="payment_date" readonly="1"/>
+                                <field name="paid_amount" readonly="1"/>
+                                <field name="payment_account" readonly="1"/>
+                            </tree>
+                        </field>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+
+        <!-- Tree View for Sales Receipt -->
+        <record id="view_tree_sales_receipt" model="ir.ui.view">
+            <field name="name">sales.receipt.tree</field>
+            <field name="model">idil.sales.receipt</field>
+            <field name="arch" type="xml">
+                <tree string="Sales Receipt">
+                    <field name="sales_order_id"/>
+                    <field name="salesperson_id"/>
+                    <field name="receipt_date"/>
+                    <field name="due_amount"/>
+                    <field name="payment_status"/>
+                    <field name="paid_amount"/>
+                    <field name="remaining_amount"/>
+                    <field name="amount_paying"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Action for Sales Receipt -->
+        <record id="action_sales_receipt" model="ir.actions.act_window">
+            <field name="name">Sales Receipts</field>
+            <field name="res_model">idil.sales.receipt</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+
+    </data>
+</odoo>

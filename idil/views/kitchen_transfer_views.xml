@@ -1,0 +1,66 @@
+<odoo>
+    <data>
+        <!-- Kitchen Transfer Form View -->
+        <record id="view_kitchen_transfer_form" model="ir.ui.view">
+            <field name="name">kitchen.transfer.form</field>
+            <field name="model">idil.kitchen.transfer</field>
+            <field name="arch" type="xml">
+                <form string="Kitchen Transfer">
+                    <header>
+
+                        <field name="state" widget="statusbar" statusbar_visible="draft,processed"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="transfer_date"/>
+                            <field name="kitchen_id"/>
+                            <field name="transferred_by"/>
+                        </group>
+                        <group>
+                            <field name="transfer_line_ids">
+                                <tree editable="bottom">
+                                    <field name="item_id"/>
+                                    <field name="uom_id"/>
+                                    <field name="quantity_item" string="Available Item QTY" readonly="1"/>
+                                    <field name="unit_price" string="Unit Cost"/>
+                                    <field name="quantity"/>
+                                    <field name="total"/>
+
+
+                                </tree>
+                            </field>
+                        </group>
+                    </sheet>
+                    <footer>
+                        <button string="Save" type="object" name="write" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Kitchen Transfer Tree View -->
+        <record id="view_kitchen_transfer_tree" model="ir.ui.view">
+            <field name="name">kitchen.transfer.tree</field>
+            <field name="model">idil.kitchen.transfer</field>
+            <field name="arch" type="xml">
+                <tree string="Kitchen Transfers">
+                    <field name="name"/>
+                    <field name="transfer_date"/>
+                    <field name="kitchen_id"/>
+                    <field name="transferred_by"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Kitchen Transfer Action -->
+        <record id="action_kitchen_transfer" model="ir.actions.act_window">
+            <field name="name">Kitchen Transfers</field>
+            <field name="res_model">idil.kitchen.transfer</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+
+    </data>
+</odoo>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <!-- Define the action to open the POS configuration screen -->
+        <record id="action_pos_config" model="ir.actions.act_window">
+            <field name="name">POS Configuration</field>
+            <field name="res_model">pos.config</field>
+            <field name="view_mode">kanban,form</field>
+            <field name="context">{}</field>
+        </record>
+
+
+    </data>
+</odoo>

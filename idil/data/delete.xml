@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="model_a_form_view" model="ir.ui.view">
+        <field name="name">model.a.form</field>
+        <field name="model">model.a</field>
+        <field name="arch" type="xml">
+            <form string="Model A">
+                <header>
+                    <button string="Delete Data" type="object" name="delete_other_models_data" class="oe_highlight"/>
+                   
+
+                    <!-- oe_highlight gives the button a prominent style -->
+                </header>
+                <!-- Your form fields here -->
+            </form>
+        </field>
+    </record>
+    <odoo>
+        <record id="action_delete_models" model="ir.actions.act_window">
+            <field name="name">Model A</field>
+            <field name="res_model">model.a</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Delete modles
+                </p>
+            </field>
+        </record>
+    </odoo>
+
+</odoo>
+

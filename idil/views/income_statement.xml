@@ -1,0 +1,46 @@
+<odoo>
+    <record id="view_income_statement_tree" model="ir.ui.view">
+        <field name="name">income.statement.tree</field>
+        <field name="model">idil.income.statement.report</field>
+        <field name="arch" type="xml">
+            <tree string="Income Statement" create="false" edit="false" delete="false" class="no_selection">
+                <field name="account_number"/>
+                <field name="account_type"/>
+                <field name="currency_id"/>
+                <field name="amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_open_income_statement_report" model="ir.actions.act_window">
+        <field name="name">Income Statement</field>
+        <field name="res_model">idil.income.statement.report</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_income_statement_tree"/>
+        <field name="target">new</field>
+    </record>
+    <record id="view_income_statement_wizard_form" model="ir.ui.view">
+        <field name="name">income.statement.wizard.form</field>
+        <field name="model">idil.income.statement.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Generate Income Statement">
+                <group>
+                    <field name="company_id" required="1"/>
+                    <footer>
+                        <button string="View" type="object" name="action_compute_income_statement" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </group>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_open_income_statement_wizard" model="ir.actions.act_window">
+        <field name="name">Compute Income Statement</field>
+        <field name="res_model">idil.income.statement.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_income_statement_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+</odoo>

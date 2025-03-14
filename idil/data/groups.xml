@@ -1,0 +1,47 @@
+<odoo>
+    <!-- Define User Groups -->
+    <record id="group_idil_customers_management" model="res.groups">
+        <field name="name">Customers Management</field>
+    </record>
+
+    <record id="group_idil_inventory_management" model="res.groups">
+        <field name="name">Inventory Management</field>
+    </record>
+
+    <record id="group_idil_accounting_management" model="res.groups">
+        <field name="name">Accounting Management</field>
+    </record>
+
+    <record id="group_idil_purchases_management" model="res.groups">
+        <field name="name">Purchases Management</field>
+    </record>
+
+    <record id="group_idil_manufacturing_management" model="res.groups">
+        <field name="name">Manufacturing Management</field>
+    </record>
+
+    <record id="group_idil_sales_management" model="res.groups">
+        <field name="name">Sales Management</field>
+    </record>
+
+    <record id="group_idil_reports_management" model="res.groups">
+        <field name="name">Reports Management</field>
+    </record>
+
+    <record id="group_idil_pos_management" model="res.groups">
+        <field name="name">POS Management</field>
+    </record>
+
+    <record id="group_idil_employees_management" model="res.groups">
+        <field name="name">Employees Management</field>
+    </record>
+
+    <record id="group_idil_kitchen_management" model="res.groups">
+        <field name="name">Kitchen Management</field>
+    </record>
+
+     <record id="group_idil_for_basic_sales" model="res.groups">
+        <field name="name">Basic Access for Sales Team Management</field>
+    </record>
+
+</odoo>

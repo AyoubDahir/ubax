@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+
+    <record id="view_item_category_tree" model="ir.ui.view">
+        <field name="model">idil.item.category</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" string="Item Category"/>
+                <field name="description" string="Category Description"/>
+
+
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_item_category_search" model="ir.ui.view">
+        <field name="model">idil.item.category</field>
+        <field name="arch" type="xml">
+            <search>
+
+                <field name="name" string="Item Category"/>
+                <field name="description" string="Category Description"/>
+
+            </search>
+        </field>
+    </record>
+
+
+    <record id="view_item_category_form" model="ir.ui.view">
+        <field name="model">idil.item.category</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name" string="Item Category"/>
+                        <field name="description" string="Category Description"/>
+
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                    <field name="activity_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="action_item_category" model="ir.actions.act_window">
+        <field name="name">Customer Type</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">idil.item.category</field>
+        <field name="view_mode">tree,form</field> <!-- Corrected case for view modes -->
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create Your First Customer Type
+            </p>
+        </field>
+    </record>
+</odoo>

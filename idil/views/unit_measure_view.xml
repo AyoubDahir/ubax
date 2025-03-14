@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+
+
+
+    <record id="view_unit_measure_tree" model="ir.ui.view">
+        <field name="model">idil.unit.measure</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" string="Customer Type"/>
+                <field name="description" string="Type Description"/>
+
+
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_unit_measure_search" model="ir.ui.view">
+        <field name="model">idil.unit.measure</field>
+        <field name="arch" type="xml">
+            <search>
+
+                <field name="name" string="Customer Type"/>
+                <field name="description" string="Type Description"/>
+
+            </search>
+        </field>
+    </record>
+
+
+    <record id="view_unit_measure_form" model="ir.ui.view">
+        <field name="model">idil.unit.measure</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name" string="Customer Type"/>
+                        <field name="description" string="Type Description"/>
+
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                    <field name="activity_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="action_unit_measure" model="ir.actions.act_window">
+        <field name="name">Customer Type</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">idil.unit.measure</field>
+        <field name="view_mode">tree,form</field> <!-- Corrected case for view modes -->
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create Your First Customer Type
+            </p>
+        </field>
+    </record>
+</odoo>

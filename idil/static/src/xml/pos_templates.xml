@@ -1,0 +1,16 @@
+<templates>
+    <t t-extend="ClientListScreenWidget">
+        <t t-jquery=".client-list" t-operation="replace">
+            <div class='client-list'>
+                <t t-foreach='clients' t-as='client'>
+                    <div class='client-line' t-att-data-id='client.id'>
+                        <span class='client-name' t-esc='client.name'/>
+                        <span class='client-phone' t-esc='client.phone'/>
+                        <span class='client-email' t-esc='client.email'/>
+                        <!-- Add any additional fields here -->
+                    </div>
+                </t>
+            </div>
+        </t>
+    </t>
+</templates>

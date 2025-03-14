@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Action for Sales Return -->
+    <record id="action_sales_return" model="ir.actions.act_window">
+        <field name="name">Sales Return</field>
+        <field name="res_model">idil.sale.return</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+
+    <!-- Tree View for Sales Return -->
+    <record id="view_sales_return_tree" model="ir.ui.view">
+        <field name="name">idil.sale.return.tree</field>
+        <field name="model">idil.sale.return</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="salesperson_id"/>
+                <field name="sale_order_id"/>
+                <field name="return_date"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View for Sales Return -->
+    <record id="view_sales_return_form" model="ir.ui.view">
+        <field name="name">idil.sale.return.form</field>
+        <field name="model">idil.sale.return</field>
+        <field name="arch" type="xml">
+            <form string="Sales Return">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,cancelled"/>
+                    <button name="action_confirm" type="object" string="Confirm" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="salesperson_id" required="1"/>
+                            <field name="sale_order_id" required="1"
+                                   domain="[('sales_person_id', '=', salesperson_id)]"/>
+
+                            <field name="currency_id"/>
+                            <field name="rate"/>    
+                            <field name="return_date" required="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Return Lines">
+                            <field name="return_lines" context="{'default_return_id': id}">
+                                <tree editable="bottom">
+                                    <field name="product_id" required="1"/>
+                                    <field name="quantity" string="Original Quantity" readonly="1" force_save="1"/>
+                                    <field name="returned_quantity" required="1"/>
+                                    <field name="price_unit" required="1"/>
+                                    <field name="subtotal" readonly="1"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View for Sales Return Lines (Optional) -->
+    <record id="view_sales_return_line_tree" model="ir.ui.view">
+        <field name="name">idil.sale.return.line.tree</field>
+        <field name="model">idil.sale.return.line</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="product_id"/>
+                <field name="quantity"/>
+                <field name="returned_quantity"/>
+                <field name="price_unit"/>
+                <field name="subtotal"/>
+            </tree>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,229 @@
+<odoo>
+    <data>
+        <!-- Headers -->
+        <record id="header_assets" model="idil.chart.account.header">
+            <field name="code">100</field>
+            <field name="name">Assets</field>
+        </record>
+        <record id="header_liabilities" model="idil.chart.account.header">
+            <field name="code">200</field>
+            <field name="name">Liabilities</field>
+        </record>
+        <record id="header_equity" model="idil.chart.account.header">
+            <field name="code">300</field>
+            <field name="name">Owner's Equity</field>
+        </record>
+        <record id="header_income" model="idil.chart.account.header">
+            <field name="code">400</field>
+            <field name="name">Income</field>
+        </record>
+        <record id="header_expenses" model="idil.chart.account.header">
+            <field name="code">500</field>
+            <field name="name">Expenses</field>
+        </record>
+
+        <!-- Sub-Headers for Assets -->
+        <record id="subheader_cash" model="idil.chart.account.subheader">
+            <field name="sub_header_code">100100</field>
+            <field name="name">Cash</field>
+            <field name="header_id" ref="header_assets"/>
+        </record>
+        <record id="subheader_inventory" model="idil.chart.account.subheader">
+            <field name="sub_header_code">100200</field>
+            <field name="name">Inventory</field>
+            <field name="header_id" ref="header_assets"/>
+        </record>
+
+        <!-- Sub-Headers for Liabilities -->
+        <record id="subheader_accounts_payable" model="idil.chart.account.subheader">
+            <field name="sub_header_code">200100</field>
+            <field name="name">Accounts Payable</field>
+            <field name="header_id" ref="header_liabilities"/>
+        </record>
+        <record id="subheader_loans" model="idil.chart.account.subheader">
+            <field name="sub_header_code">200200</field>
+            <field name="name">Loans</field>
+            <field name="header_id" ref="header_liabilities"/>
+        </record>
+
+        <!-- Sub-Headers for Owner's Equity -->
+        <record id="subheader_capital" model="idil.chart.account.subheader">
+            <field name="sub_header_code">300100</field>
+            <field name="name">Capital</field>
+            <field name="header_id" ref="header_equity"/>
+        </record>
+        <record id="subheader_retained_earnings" model="idil.chart.account.subheader">
+            <field name="sub_header_code">300200</field>
+            <field name="name">Retained Earnings</field>
+            <field name="header_id" ref="header_equity"/>
+        </record>
+
+        <!-- Sub-Headers for Income -->
+        <record id="subheader_sales" model="idil.chart.account.subheader">
+            <field name="sub_header_code">400100</field>
+            <field name="name">Sales</field>
+            <field name="header_id" ref="header_income"/>
+        </record>
+
+        <!-- Sub-Headers for Expenses -->
+        <record id="subheader_food_cost" model="idil.chart.account.subheader">
+            <field name="sub_header_code">500100</field>
+            <field name="name">Food Cost</field>
+            <field name="header_id" ref="header_expenses"/>
+        </record>
+        <record id="subheader_rent" model="idil.chart.account.subheader">
+            <field name="sub_header_code">500200</field>
+            <field name="name">Rent</field>
+            <field name="header_id" ref="header_expenses"/>
+        </record>
+        <record id="subheader_utilities" model="idil.chart.account.subheader">
+            <field name="sub_header_code">500300</field>
+            <field name="name">Utilities</field>
+            <field name="header_id" ref="header_expenses"/>
+        </record>
+
+        <!-- Accounts for Assets -->
+        <record id="account_cash_on_hand" model="idil.chart.account">
+            <field name="code">100101</field>
+            <field name="name">Cash on Hand</field>
+            <field name="subheader_id" ref="subheader_cash"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="account_type">cash</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        <record id="account_bank_account" model="idil.chart.account">
+            <field name="code">100102</field>
+            <field name="name">Bank Account</field>
+            <field name="subheader_id" ref="subheader_cash"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="account_type">bank_transfer</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+         <record id="account_bank_account" model="idil.chart.account">
+            <field name="code">100880</field>
+            <field name="name">Inventory Opening Balance</field>
+            <field name="subheader_id" ref="subheader_cash"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="account_type">bank_transfer</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        
+        <record id="account_food_inventory" model="idil.chart.account">
+            <field name="code">100201</field>
+            <field name="name">Food Inventory</field>
+            <field name="subheader_id" ref="subheader_inventory"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+         <record id="account_food_inventory" model="idil.chart.account">
+            <field name="code">100301</field>
+            <field name="name">Raw Material Inventory Account</field>
+            <field name="subheader_id" ref="subheader_inventory"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="currency_id" ref="base.USD"/>
+        </record>
+        <record id="account_supplies_inventory" model="idil.chart.account">
+            <field name="code">100202</field>
+            <field name="name">Supplies Inventory</field>
+            <field name="subheader_id" ref="subheader_inventory"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+
+        <!-- Accounts for Liabilities -->
+        <record id="account_accounts_payable" model="idil.chart.account">
+            <field name="code">200101</field>
+            <field name="name">Accounts Payable</field>
+            <field name="subheader_id" ref="subheader_accounts_payable"/>
+            <field name="sign">Cr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="account_type">payable</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        <record id="account_short_term_loan" model="idil.chart.account">
+            <field name="code">200201</field>
+            <field name="name">Short-term Loan</field>
+            <field name="subheader_id" ref="subheader_loans"/>
+            <field name="sign">Cr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        <record id="account_long_term_loan" model="idil.chart.account">
+            <field name="code">200202</field>
+            <field name="name">Long-term Loan</field>
+            <field name="subheader_id" ref="subheader_loans"/>
+            <field name="sign">Cr</field>
+            <field name="FinancialReporting">BS</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+
+        <!-- Accounts for Owner's Equity -->
+        <record id="account_owner_capital" model="idil.chart.account">
+            <field name="code">300101</field>
+            <field name="name">Owner's Capital</field>
+            <field name="subheader_id" ref="subheader_capital"/>
+            <field name="sign">Cr</field>
+            <field name="account_type">Owners Equity</field>
+            
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        <record id="account_retained_earnings" model="idil.chart.account">
+            <field name="code">300201</field>
+            <field name="name">Retained Earnings</field>
+            <field name="subheader_id" ref="subheader_retained_earnings"/>
+            <field name="sign">Cr</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+
+        <!-- Accounts for Income -->
+        <record id="account_food_sales" model="idil.chart.account">
+            <field name="code">400101</field>
+            <field name="name">Food Sales</field>
+            <field name="subheader_id" ref="subheader_sales"/>
+            <field name="sign">Cr</field>
+            <field name="FinancialReporting">PL</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        <record id="account_beverage_sales" model="idil.chart.account">
+            <field name="code">400102</field>
+            <field name="name">Beverage Sales</field>
+            <field name="subheader_id" ref="subheader_sales"/>
+            <field name="sign">Cr</field>
+            <field name="FinancialReporting">PL</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+
+        <!-- Accounts for Expenses -->
+        <record id="account_food_cost" model="idil.chart.account">
+            <field name="code">500101</field>
+            <field name="name">Food Cost</field>
+            <field name="subheader_id" ref="subheader_food_cost"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">PL</field>
+            <field name="account_type">COGS</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        <record id="account_rent_expense" model="idil.chart.account">
+            <field name="code">500201</field>
+            <field name="name">Rent Expense</field>
+            <field name="subheader_id" ref="subheader_rent"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">PL</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+        <record id="account_utilities_expense" model="idil.chart.account">
+            <field name="code">500301</field>
+            <field name="name">Utilities Expense</field>
+            <field name="subheader_id" ref="subheader_utilities"/>
+            <field name="sign">Dr</field>
+            <field name="FinancialReporting">PL</field>
+            <field name="currency_id" ref="base.SOS"/>
+        </record>
+    </data>
+</odoo>

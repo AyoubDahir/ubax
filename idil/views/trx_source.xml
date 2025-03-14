@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_trx_source_tree" model="ir.ui.view">
+            <field name="name">idil.transaction.source.tree</field>
+            <field name="model">idil.transaction.source</field>
+            <field name="arch" type="xml">
+                <tree string="Transaction Sources">
+                    <field name="name"/>
+                    <field name="description"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_trx_source_form" model="ir.ui.view">
+            <field name="name">idil.transaction.source.form</field>
+            <field name="model">idil.transaction.source</field>
+            <field name="arch" type="xml">
+                <form string="Transaction Source">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+         <record id="action_trx_source" model="ir.actions.act_window">
+            <field name="name">Transaction Sources</field>
+            <field name="res_model">idil.transaction.source</field>
+            <field name="view_mode">tree,form</field>
+            <field name="view_id" ref="view_trx_source_tree"/>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+
+    <record id="view_account_balance_report_tree" model="ir.ui.view">
+        <field name="name">account.balance.report.tree</field>
+        <field name="model">idil.account.balance.report</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="type"/>
+                 <field name="subtype"/>
+                <field name="account_name"/>
+                <field name="account_id"/>
+                <field name="balance"/>
+            </tree>
+        </field>
+    </record>
+
+
+    <record id="action_generate_account_balances" model="ir.actions.server">
+        <field name="name">Generate Account Balances</field>
+        <field name="model_id" ref="model_idil_account_balance_report"/>
+        <field name="binding_model_id" ref="model_idil_chart_account"/> <!-- This is optional and for context -->
+        <field name="state">code</field>
+        <field name="code">
+            action = env['idil.account.balance.report'].generate_account_balances_report()
+        </field>
+
+    </record>
+
+
+    <!--    <record id="view_account_balance_report_tree" model="ir.ui.view">-->
+    <!--        <field name="name">account.balance.report.tree</field>-->
+    <!--        <field name="model">idil.account.balance.report</field>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--            <tree>-->
+    <!--                <field name="type"/>-->
+    <!--                <field name="account_name"/>-->
+    <!--                <field name="account_code"/>-->
+    <!--                <field name="balance"/>-->
+    <!--            </tree>-->
+    <!--        </field>-->
+    <!--    </record>-->
+
+    <!--    &lt;!&ndash; Define an action to open the tree view with default grouping by 'type' &ndash;&gt;-->
+    <!--    <record id="action_account_balance_report" model="ir.actions.act_window">-->
+    <!--        <field name="name">Account Balances</field>-->
+    <!--        <field name="res_model">idil.account.balance.report</field>-->
+    <!--        <field name="view_mode">tree</field>-->
+    <!--        <field name="context">{'group_by': 'type'}</field>-->
+    <!--    </record>-->
+
+</odoo>

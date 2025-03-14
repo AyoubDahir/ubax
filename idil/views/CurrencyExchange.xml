@@ -1,0 +1,79 @@
+<odoo>
+    <!-- Tree View for Currency Exchange -->
+    <record id="view_currency_exchange_tree" model="ir.ui.view">
+        <field name="name">currency.exchange.tree</field>
+        <field name="model">idil.currency.exchange</field>
+        <field name="arch" type="xml">
+            <tree string="Currency Exchange">
+                <field name="name"/>
+                <field name="transaction_date"/>
+                <field name="source_account_id"/>
+                <field name="target_account_id"/>
+                <field name="amount"/>
+                <field name="exchange_rate"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View for Currency Exchange -->
+    <record id="view_currency_exchange_form" model="ir.ui.view">
+        <field name="name">currency.exchange.form</field>
+        <field name="model">idil.currency.exchange</field>
+        <field name="arch" type="xml">
+            <form string="Currency Exchange">
+                <header>
+                    <button string="Perform Exchange" type="object" name="perform_exchange" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <field name="transaction_date" widget="date"/>
+                    </group>
+
+                    <!-- Horizontal Layout for Source and Target Account Information -->
+                    <group style="display: flex; flex-direction: row; justify-content: space-between;">
+                        <!-- Source Account Information -->
+                        <group string="Source Account"
+                               style="flex: 1; border: 1px solid #d3d3d3; margin: 5px; padding: 10px;">
+                            <field name="source_account_id" widget="many2one"/>
+                            <field name="source_currency_id" readonly="1" widget="selection"/>
+                            <field name="source_account_balance" readonly="1" widget="monetary"/>
+                        </group>
+                        <!-- Target Account Information -->
+                        <group string="Target Account"
+                               style="flex: 1; border: 1px solid #d3d3d3; margin: 5px; padding: 10px;">
+                            <field name="target_account_id" widget="many2one"/>
+                            <field name="target_currency_id" readonly="1" widget="selection"/>
+                            <field name="target_account_balance" readonly="1" widget="monetary"/>
+                        </group>
+                    </group>
+
+                    <!-- Transaction Details -->
+                    <group string="Transaction Details" style="border: 1px solid #d3d3d3; margin: 5px; padding: 10px;">
+                        <field name="amount" widget="monetary"/>
+                        <field name="exchange_rate" widget="float" options="{'digits': (12, 4)}"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for Currency Exchange -->
+    <record id="action_currency_exchange" model="ir.actions.act_window">
+        <field name="name">Currency Exchanges</field>
+        <field name="res_model">idil.currency.exchange</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="oe_view_nocontent_create">
+                Click to create a new currency exchange.
+            </p>
+        </field>
+    </record>
+
+
+</odoo>

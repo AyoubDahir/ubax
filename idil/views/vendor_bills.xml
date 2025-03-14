@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- views/transaction_booking_view.xml -->
+<odoo>
+    <!-- If the intention was to create a form view instead -->
+    <record id="view_transaction_booking_tree" model="ir.ui.view">
+        <field name="name">transaction.booking.tree</field>
+        <field name="model">idil.transaction_booking</field>
+        <field name="arch" type="xml">
+            <tree string="Transaction Booking">
+                <field name="trx_date"/>
+                <field name="reffno"/>
+                <field name="transaction_number"/>
+                <field name="order_number"/>
+                <field name="vendor_id"/>
+                <field name="amount"/>
+                <field name="payment_status"/>
+
+            </tree>
+        </field>
+    </record>
+
+
+    <record id="view_idil_transaction_booking_form" model="ir.ui.view">
+        <field name="name">idil.transaction.booking.form</field>
+        <field name="model">idil.transaction_booking</field>
+        <field name="arch" type="xml">
+            <form string="Transaction Booking" create="False">
+                <sheet>
+                    <notebook>
+                        <page string="Transaction Details">
+                            <group string="General Information" colspan="4">
+                                <field name="cash_account_id" widget="selection"/>
+                                <field name="reffno" string="Reference Number" readonly="1"/>
+                                <field name="transaction_number" readonly="1"/>
+                            </group>
+
+                            <group string="Vendor Information" colspan="2">
+                                <field name="vendor_id" readonly="1"/>
+                                <field name="vendor_phone" readonly="1"/>
+                                <field name="vendor_email" readonly="1"/>
+                            </group>
+
+
+                            <group string="Payment Information" colspan="2">
+                                <field name="order_number" readonly="1"/>
+                                <field name="payment_status" readonly="1"/>
+                                <field name="trx_date" readonly="1"/>
+                                <field name="amount" readonly="1"/>
+
+                            </group>
+                        </page>
+
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="action_pay_transaction_booking" model="ir.actions.act_window">
+        <field name="name">View Transaction Booking</field>
+        <field name="res_model">idil.transaction_booking</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('payment_status', '=', 'pending'), ('payment_method', '=', 'ap')]</field>
+        <field name="context">{'create': False, 'delete': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+                                   (0, 0, {'view_mode': 'tree', 'view_id': ref('view_transaction_booking_tree')}),
+                                   (0, 0, {'view_mode': 'form', 'view_id': ref('view_idil_transaction_booking_form')})]"/>
+    </record>
+    <!-- The action definition remains the same if it should open the form view -->
+</odoo>
+

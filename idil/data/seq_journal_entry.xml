@@ -1,0 +1,11 @@
+<odoo>
+    <data noupdate="1">
+        <record id="seq_journal_entry" model="ir.sequence">
+            <field name="name">Journal Entry</field>
+            <field name="code">idil.journal.entry</field>
+            <field name="prefix">JE/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>

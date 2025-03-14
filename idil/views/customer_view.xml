@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+
+    <record id="view_idil_customer_kanban" model="ir.ui.view">
+        <field name="name">idil.customer.kanban</field>
+        <field name="model">idil.customer.registration</field>
+        <field name="priority">10</field>
+        <field name="arch" type="xml">
+            <kanban class="o_hr_employee_kanban" sample="1">
+                <field name="id"/>
+                <field name="name"/>
+                <field name="type_id"/>
+                <field name="image"/>
+                <field name="phone"/>
+                <field name="email"/>
+                <field name="gender"/>
+                <field name="status"/>
+                <field name="activity_ids" widget="kanban_activity"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_global_click o_kanban_record_has_image_fill o_hr_kanban_record">
+                            <t t-if="record.image.raw_value">
+                                <field name="image" class="o_kanban_image_fill_left d-block"
+                                       widget="image" options="{'zoom': true, 'zoom_delay': 1000}"/>
+                            </t>
+                            <t t-else="">
+                                <!-- Placeholder image -->
+                                <div class="o_kanban_image_fill_left d-flex align-items-center justify-content-center bg-100 bg-gradient">
+                                    <svg class="w-75 h-75 opacity-50" viewBox="0 0 20 20"
+                                         xmlns="http://www.w3.org/2000/svg">
+                                        <g fill="currentColor">
+                                            <path d="M 10 11 C 4.08 11 2 14 2 16 L 2 19 L 18 19 L 18 16 C 18 14 15.92 11 10 11 Z"/>
+                                            <circle cx="10" cy="5.5" r="4.5"/>
+                                        </g>
+                                    </svg>
+                                </div>
+                            </t>
+                            <div class="oe_kanban_details">
+                                <p class="o_kanban_record_subtitle">
+                                    <strong>Name</strong>:
+                                    <field name="name" placeholder="Customer's Name"/>
+                                    <br/>
+                                    <strong>Customer Type</strong>:
+                                    <field name="type_id"/>
+                                    <br/>
+                                    <strong>Phone</strong>:
+                                    <field name="phone"/>
+                                    <br/>
+                                    <strong>Email</strong>
+                                    :
+                                    <field name="email"/>
+                                    <br/>
+                                    <strong>Gender</strong>:
+                                    <field name="gender"/>
+                                    <br/>
+                                    <!-- Include other fields if needed -->
+                                </p>
+                            </div>
+                            <!-- Kanban content -->
+                            <div class="oe_kanban_content o_hr_employee_kanban_bottom position-absolute bottom-0 start-0 end-0">
+                                <!-- Additional information -->
+                                <!-- Include other fields if needed -->
+                            </div>
+                        </div>
+
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+
+    <record id="view_idil_customer_tree" model="ir.ui.view">
+        <field name="model">idil.customer.registration</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="image" widget="image" options="{'size': (20, 20)}"/> <!-- Adjust size here -->
+                <field name="name" widget="avatar" string="Customer"/>
+                <field name="type_id" widget="avatar" string="Customer type"/>
+
+                <field name="phone" widget="phone" string="Customer Phone"/>
+                <field name="email" widget="email" string="Customer Email"/>
+                <field name="gender" class="oe_edit_only"/>
+                <field name="status" widget="boolean"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_idil_customer_search" model="ir.ui.view">
+        <field name="model">idil.customer.registration</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" widget="avatar" string="Customer"/>
+                <field name="type_id" widget="avatar" string="Customer type"/>
+
+                <field name="phone" widget="phone" string="Customer Phone"/>
+                <field name="email" widget="email" string="Customer Email"/>
+                <field name="gender" class="oe_edit_only"/>
+                <filter name="filter_male" string="Male" domain="[('gender', '=' , 'male')]"/>
+                <filter name="filter_female" string="Female" domain="[('gender', '=' , 'female')]"/>
+                <separator/>
+                <filter name="filter_phone" string="Phone" domain="[('phone', '=' , 'phone')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Name" name='group_by_name' context="{'group_by':'name'}"/>
+                    <separator orientation="vertical"/>
+                    <filter string="Phone" name="group_by_phone" context="{'group_by':'phone'}"/>
+                </group>
+                <searchpanel>
+                    <field name="type_id" string="Customer Type" widget="button_icon"
+                           icon="fa-suitcase" options="{'icon_classes': 'fa fa-suitcase'}"
+                           enable_counters="1"/>
+                    <!-- Using Font Awesome icon for customer type -->
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+
+    <record id="view_idil_customer_form" model="ir.ui.view">
+        <field name="model">idil.customer.registration</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+
+                    <group>
+                        <group class="oe_title">
+                            <field name="name" string="Customer Name"/>
+                            <field name="type_id" string="Customer type"/>
+                            <field name="phone" string="Customer phone"/>
+
+                        </group>
+                        <group>
+                            <field name="email" widget="email"/>
+                            <field name="gender" class="oe_edit_only"/>
+                            <field name="status" widget="boolean_button"/>
+                            <field name="active"/>
+                            <field name="image" widget="image"
+                                   options="{'size': (150, 150)}"/> <!-- Adjust size here -->
+                        </group>
+                        <group class="oe_title">
+                            <field name="currency_id"/>
+                            <field name="account_receivable_id"/>
+                             <field name="account_cash_id"/>
+                            
+                        </group>
+
+                    </group>
+                    <notebook>
+                        <page string="Sale Orders">
+                            <field name="sale_order_ids">
+                                <tree>
+                                <field name="name" string="Sales Ref"/>
+                                <field name="order_date" string="Order Date"/>
+                                <field name="order_total" string="Total"/>
+                                <field name="state" string="Status"/>
+                                </tree>
+                                <form>
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="order_date"/>
+                                        <field name="order_total"/>
+                                        <field name="state"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+            </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                    <field name="activity_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="action_idil_customer" model="ir.actions.act_window">
+        <field name="name">Customer Registration</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">idil.customer.registration</field>
+        <field name="view_mode">kanban,tree,form</field> <!-- Set Kanban as default -->
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create Your First Customer
+            </p>
+        </field>
+    </record>
+
+
+</odoo>

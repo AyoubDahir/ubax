@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <menuitem id="menu_idil_home"
+              name="Idil Bakery  &amp; Sweets"
+              web_icon="Idil,static/description/icon.png"
+              sequence="1"/>
+
+    <menuitem id="menu_idil_customers"
+              name="Customers"
+              parent="menu_idil_home"
+              sequence="2"/>
+
+    <menuitem id="menu_idil_customers_registration"
+              name="Customer Registration"
+              parent="menu_idil_customers"
+              action="action_idil_customer"
+              sequence="1"/>
+
+    <menuitem id="menu_action_customer_type"
+              name="Customer Type"
+              parent="menu_idil_customers"
+              action="action_customer_type"
+              sequence="2"/>
+
+
+    <menuitem id="menu_idil_Inventory"
+              name="Inventory"
+              parent="menu_idil_home"
+              sequence="3"/>
+
+    <menuitem id="menu_idil_vendors"
+              name="Vendors"
+              parent="menu_idil_Inventory"
+              sequence="1"/>
+
+    <menuitem id="menu_idil_vendors_registration"
+              name="Vendor Registration"
+              parent="menu_idil_vendors"
+              action="action_idil_vendor"
+              sequence="2"/>
+
+    <menuitem id="menu_idil_Items"
+              name="Items"
+              parent="menu_idil_Inventory"
+              sequence="4"/>
+    <!-- Menu item to access Stock Adjustment -->
+    <menuitem id="menu_stock_adjustment"
+              name="Stock Adjustments"
+              parent="menu_idil_Inventory"
+              action="action_stock_adjustment"
+              sequence="10"/>
+
+    <menuitem id="menu_idil_Items_registration"
+              name="Item Registration"
+              parent="menu_idil_Items"
+              action="action_idil_item"
+              sequence="2"/>
+
+    <menuitem id="menu_idil_unit_measure"
+              name="Unit Measurement"
+              parent="menu_idil_Items"
+              action="action_unit_measure"
+              sequence="3"/>
+
+    <menuitem id="menu_idil_item_category"
+              name="Unit Category"
+              parent="menu_idil_Items"
+              action="action_item_category"
+              sequence="3"/>
+
+    <menuitem id="menu_idil_accounting"
+              name="Accounting"
+              parent="menu_idil_home"
+              sequence="4"/>
+
+
+    <menuitem id="menu_idil_chart_account_tree"
+              name="Chart of Accounts"
+              parent="menu_idil_accounting"
+              action="action_idil_chart_account"
+              sequence="1"/>
+
+    <menuitem id="menu_idil_journal_entry"
+              name="360 -- All Transactions"
+              parent="menu_idil_accounting"
+              action="action_transaction_booking"
+
+              sequence="2"/>
+
+    <menuitem id="menu_journal_entry"
+              name="Journal Entries"
+              parent="menu_idil_accounting"
+              action="action_journal_entry"/>
+
+    <!-- Menu Item for Currency Exchange -->
+    <menuitem id="menu_currency_exchange"
+              name="Currency Exchange"
+              parent="menu_idil_accounting"
+              action="action_currency_exchange"/>
+
+    <menuitem id="menu_idil_trx_source"
+              name="Transaction Sources"
+              parent="menu_idil_accounting"
+              action="action_trx_source"
+              sequence="3"/>
+
+    <menuitem id="menu_payment_method"
+              name="Payment Methods"
+              parent="menu_idil_accounting"
+              action="action_payment_method" sequence="4"/>
+
+
+    <menuitem id="menu_purchase"
+              name="Purchases"
+              parent="menu_idil_home"
+              sequence="5"/>
+
+    <menuitem id="menu_purchase_orders"
+              name="Purchase Orders"
+              parent="menu_purchase"
+              sequence="1"
+              action="action_purchase_order"/>
+
+    <menuitem id="menu_idil_view_purchase_order"
+              name="View Purchase Oder"
+              action="action_view_purchase_order"
+              sequence="2"
+              parent="menu_purchase"/>
+
+    <!--    <menuitem id="menu_pending_transactions"-->
+    <!--              name="Vendor Bills"-->
+    <!--              action="action_pay_transaction_booking"-->
+    <!--              sequence="3"-->
+    <!--              parent="menu_purchase"/>-->
+
+    <menuitem id="menu_vendor_transaction"
+              name="Vendor Transactions"
+              parent="menu_purchase"
+              action="action_vendor_transaction"
+              sequence="4"/>
+
+
+    <menuitem id="Manufacturing"
+              name="Manufacturing"
+              parent="menu_idil_home"
+              sequence="6"/>
+
+    <menuitem id="Manufacturing_products"
+              name="Products"
+              parent="Manufacturing"
+              sequence="1"
+              action="action_view_product"/>
+    <!-- Menu Item for BOM Creation -->
+
+    <menuitem id="menu_bom_creation"
+              name="Create BOM"
+              parent="Manufacturing"
+              sequence="2"
+              action="action_view_bom"/>
+
+    <menuitem id="menu_bom_type_creation"
+              name="Create BOM Type"
+              parent="Manufacturing"
+              sequence="3"
+              action="action_view_bom_type"/>
+
+    <menuitem id="menu_manufacturing_order"
+              name="Manufacturing Order"
+              parent="Manufacturing"
+              sequence="4"
+              action="action_manufacturing_orders"/>
+
+    <!-- Menu Item for Commissions -->
+    <menuitem id="menu_commissions"
+              name="Commissions"
+              parent="Manufacturing"
+              action="action_commissions"/>
+
+
+    <!-- Main Sales Menu -->
+    <menuitem id="menu_sales"
+              name="Sales"
+              parent="menu_idil_home"
+              sequence="6"/>
+
+    <!-- Orders Menu -->
+    <menuitem id="menu_orders"
+              name="Orders"
+              parent="menu_sales"
+              sequence="1"/>
+
+    <!-- Sales Orders Menu -->
+    <menuitem id="menu_sales_orders"
+              name="Sales Orders"
+              parent="menu_orders"
+              sequence="1"
+              action="action_sale_order"/>
+
+
+    <!-- Sales Receipt Balance Menu -->
+    <menuitem id="menu_sales_receipt_balance"
+              name="Sales Receipt"
+              parent="menu_orders"
+              sequence="5"
+              action="action_sales_receipt"/>
+
+    <menuitem id="menu_sale_return"
+              name="Sales Returns"
+              parent="menu_orders"
+              sequence="6"
+              action="action_sales_return"/>
+
+
+
+    <menuitem id="menu_orders_customer"
+                name="Customer Orders"
+                parent="menu_sales"
+                sequence="1"/>
+
+    <menuitem id="menu_cusotmer_sales_orders"
+                name="Customeor Orders"
+                parent="menu_orders_customer"
+                sequence="1"
+                action="action_customer_idsale_order"/>
+              
+
+
+
+
+
+
+    <!-- Order Operations Menu -->
+    <menuitem id="menu_Order_Operations"
+              name="Order Operations"
+              parent="menu_sales"
+              sequence="2"/>
+
+    <!-- Place an Order Menu -->
+    <menuitem id="menu_place_an_order"
+              name="Place an Order"
+              parent="menu_Order_Operations"
+              sequence="1"
+              action="action_salesperson_order_tree"/>
+
+    <!-- Register Sales Personnel Menu -->
+    <menuitem id="menu_sales_personnel_list"
+              name="Register Sales Personnel"
+              parent="menu_Order_Operations"
+              sequence="2"
+              action="action_sales_personnel"/>
+
+    <menuitem id="menu_salesperson_order_summary"
+              name="Order Summary"
+              parent="menu_Order_Operations"
+              sequence="3"
+              action="action_salesperson_order_summary"/>
+
+
+    <menuitem id="Reports"
+              name="Reports"
+              parent="menu_idil_home"
+              sequence="7"/>
+
+    <menuitem id="FinancialReports"
+              name="Financial Reports"
+              parent="Reports"
+              sequence="1"/>
+
+    <menuitem id="menu_by_company"
+              name="By Company"
+              parent="FinancialReports"
+              sequence="2"/>
+
+    <menuitem id="menu_company_trial_balance"
+              name="Trial Balance -- By Company"
+              parent="menu_by_company"
+              sequence="1"
+              action="action_open_company_trial_balance_wizard"/>
+
+    <menuitem id="menu_company_income_statement"
+              name="Income statement -- By Company"
+              parent="menu_by_company"
+              sequence="-2"
+              action="action_open_income_statement_wizard"/>
+
+    <menuitem id="menu_company_balance_sheet_report"
+              name="Balance Sheet -- By Company"
+              parent="menu_by_company"
+              sequence="3"/>
+
+
+    <menuitem id="menu_by_currency"
+              name="By Currency"
+              parent="FinancialReports"
+              sequence="2"/>
+
+    <menuitem id="menu_trial_balance"
+              name="Trial Balance -- By Currency"
+              parent="menu_by_currency"
+              sequence="1"
+              action="action_open_trial_balance_wizard"/>
+
+    <!-- Menu Item Definition -->
+    <menuitem id="menu_balance_sheet_report"
+              name="Balance Sheet -- By Currency"
+              parent="menu_by_currency"
+              action="action_report_currency_wizard"
+              sequence="2"/>
+
+
+    <menuitem id="OtherReports"
+              name="System Reports"
+              parent="Reports"
+              sequence="4"/>
+
+    <menuitem id="Reports_bs"
+              name="Account Balances"
+              parent="OtherReports"
+              sequence="5"
+              action="action_generate_account_balances"
+    />
+     <menuitem id="menu_transaction_report_root"
+              name="Account Statement Report"
+              parent="OtherReports"
+              sequence="1"
+              action="action_transaction_report_wizard"/>
+              
+    <menuitem id="Reports_vendor"
+              name="Vendor Balances"
+              parent="OtherReports"
+              sequence="6"
+              action="action_generate_vendor_balances"
+    />
+    <menuitem id="menu_vendor_transaction_report"
+              name="Vendor Transaction Report"
+              parent="OtherReports"
+              action="action_generate_vendor_transaction"
+              sequence="7"/>
+
+
+    <menuitem id="menu_sales_person_report"
+              name="Sales Person Balance Report"
+              parent="OtherReports"
+              action="action_generate_sales_person_balances"
+              sequence="8"/>
+
+
+    <menuitem id="menu_sales_personnel_balance"
+              name="Sales Receipt"
+              parent="OtherReports"
+              action="action_sales_receipt_balance"
+              sequence="9"/>
+
+
+    <menuitem id="model_a_menu"
+              name="Delete Models"
+              action="action_delete_models"
+              parent="menu_idil_home"
+              sequence="1000"/>
+
+    <!-- Add the custom menu item -->
+    <menuitem id="menu_custom_pos"
+              name="Custom POS"
+              parent="menu_idil_home"
+              action="action_pos_config"
+              sequence="1020"/>
+
+    <menuitem id="menu_pos_session"
+              name="POS Sessions"
+              parent="menu_idil_home"
+              action="action_pos_session"/>
+
+    >>>>>>> origin/master
+    <menuitem id="menu_idil_employee"
+              name="Employees"
+              parent="menu_idil_home"
+              action="action_idil_employee"/>
+    <!-- Kitchen Menu Item -->
+    <menuitem id="menu_kitchen_root"
+              name="Kitchens"
+              parent="menu_idil_home"
+              sequence="8"/>
+
+    <menuitem id="menu_kitchen"
+              parent="menu_kitchen_root"
+              name="Kitchen Creation"
+              action="action_kitchen" sequence="1"/>
+    <!-- Kitchen Transfer Menu Item -->
+    <menuitem id="menu_kitchen_transfer"
+              parent="menu_kitchen_root"
+              name="Kitchen Transfers"
+              action="action_kitchen_transfer"
+              sequence="2"/>
+    <!-- Menu Item to Access Kitchen Transfers -->
+    <menuitem id="menu_kitchen_transfer_2"
+              name="Kitchen Cooking Process"
+              parent="menu_kitchen_root"
+              action="action_kitchen_cook_process"
+              sequence="20"/>
+
+
+    <!-- ________________________________________________________________________________ -->
+
+    <menuitem id="model_a_menu"
+              name="Delete Models"
+              action="action_delete_models"
+              parent="menu_idil_home"
+              sequence="1000"/>
+</odoo>

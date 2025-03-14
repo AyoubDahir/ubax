@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- BOM Type Tree View -->
+        <record id="view_bom_type_tree" model="ir.ui.view">
+            <field name="name">bom.type.tree</field>
+            <field name="model">idil.bom.type</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="name"/>
+                    <field name="description"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- BOM Type Form View -->
+        <record id="view_bom_type_form" model="ir.ui.view">
+            <field name="name">bom.type.form</field>
+            <field name="model">idil.bom.type</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="description"/>
+                        </group>
+                        <div class="oe_chatter">
+                            <field name="message_follower_ids"/>
+                            <field name="message_ids"/>
+                            <field name="activity_ids"/>
+                        </div>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- BOM Type Action -->
+        <record id="action_view_bom_type" model="ir.actions.act_window">
+            <field name="name">BOM Types</field>
+            <field name="res_model">idil.bom.type</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="oe_view_nocontent_create">
+                    Click to create a new BOM Type.
+                </p>
+            </field>
+        </record>
+    </data>
+</odoo>

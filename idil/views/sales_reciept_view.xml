@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_sales_receipt_balance_form" model="ir.ui.view">
+        <field name="name">sales.receipt.balance.form</field>
+        <field name="model">idil.sales.balance.report</field>
+        <field name="arch" type="xml">
+            <form string="Sales Receipt Balance Report">
+
+                <sheet> 
+                    <group>
+                        <separator string="Sales Person Information"/>
+                        <group>
+                            <field name="sales_person_name"  readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="sales_person_phone" srting="Phone Number" readonly="1"/>
+                        </group>
+                    </group>
+                    <separator string="Account Information"/>
+                    <group>
+                        <group>
+                            <field name="account_code" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="account_name" readonly="1"/>
+                        </group>
+
+                    </group>
+                    <separator string="Balance Information"/>
+                    <group>
+
+                        <group>
+                            <field name="amount_paid"/>
+                        </group>
+                        <group>
+                            <field name="remaining_amount" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_sales_person_balance_report_tree" model="ir.ui.view">
+        <field name="name">sales.receipt.balance.tree</field>
+        <field name="model">idil.sales.balance.report</field>
+        <field name="arch" type="xml">
+            <tree string="Sales Receipt Balances">
+                <field name="sales_person_name"/>
+                <field name="sales_person_phone"/>
+                <field name="account_name"/>
+                <field name="account_code"/>
+                <field name="balance"/>
+                <field name="amount_paid"/>
+                <field name="remaining_amount"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sales_receipt_balance_search" model="ir.ui.view">
+        <field name="name">sales.receipt.balance.search</field>
+        <field name="model">idil.sales.balance.report</field>
+        <field name="arch" type="xml">
+            <search string="Search Sales Receipt Balances">
+                <field name="sales_person_name"/>
+                <field name="sales_person_phone"/>
+                <field name="account_name"/>
+                <field name="balance"/>
+                <group expand="0" string="Group By">
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action to Open the Tree View -->
+    <record id="action_sales_receipt_balance" model="ir.actions.act_window">
+        <field name="name">Sales Receipt Balance</field>
+        <field name="res_model">idil.sales.balance.report</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="oe_view_nocontent_create">
+                Click to create a new Sales Personnel Balance Report.
+            </p>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Transaction Booking Views Configuration -->
+
+    <!-- Tree View: Displaying a list of transaction bookings -->
+    <record id="view_journal_transaction_booking_tree" model="ir.ui.view">
+        <field name="name">transaction.booking.tree</field>
+        <field name="model">idil.transaction_booking</field>
+        <field name="arch" type="xml">
+
+            <tree string="Transaction Bookings" delete="False" decoration-danger="payment_status == 'pending'">
+
+                <field name="transaction_number"/>
+                <field name="reffno"/>
+                <field name="payment_method"/>
+                <field name="payment_status"/>
+                <field name="trx_date"/>
+                <field name="amount"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Search View: Facilitates searching through transaction bookings -->
+    <record id="view_transaction_booking_search" model="ir.ui.view">
+        <field name="name">transaction.booking.search</field>
+        <field name="model">idil.transaction_booking</field>
+        <field name="arch" type="xml">
+            <search string="Search Transaction Bookings">
+                <field name="transaction_number" string="Transaction Number"/>
+                <field name="trx_date" string="Transaction Date"/>
+                <!-- Additional searchable fields can be added here -->
+            </search>
+        </field>
+    </record>
+
+    <!-- Form View: For creating or editing individual transaction bookings -->
+    <record id="view_transaction_booking_form" model="ir.ui.view">
+        <field name="name">transaction.booking.form</field>
+        <field name="model">idil.transaction_booking</field>
+        <field name="arch" type="xml">
+            <form string="Transaction Booking">
+                <sheet>
+
+                    <group>
+                        <group>
+                            <field name="reffno"/>
+                            <field name="transaction_number"/>
+                        </group>
+                        <group>
+                            <field name="payment_method"/>
+                            <field name="payment_status"/>
+                            <field name="trx_date"/>
+                            <field name="amount"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Transaction Lines">
+                            <field name="booking_lines">
+                                <tree editable="bottom" delete="False">
+                                    <field name="account_number"/>
+                                    <field name="transaction_type"/>
+                                    <field name="dr_amount"/>
+                                    <field name="cr_amount"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

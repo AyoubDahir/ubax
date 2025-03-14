@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo>
+<!--    <record id="view_idil_chart_account_search" model="ir.ui.view">-->
+    <!--        <field name="model">idil.chart.account</field>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--            <search>-->
+    <!--                <field name="name" string="Account Name"/>-->
+    <!--                <field name="code" string="Account Number"/>-->
+    <!--                <field name="subheader_code" string="Sub-header Code"/>-->
+    <!--                <field name="subheader_name" string="Sub-header Name"/>-->
+    <!--                <field name="header_code" string="Header Code"/>-->
+    <!--                <field name="header_name" string="Header Name"/>-->
+    <!--                <group expand="0" string="Group By">-->
+    <!--                    <filter string="Header Name" name="group_by_header_name" context="{'group_by': 'header_name'}"/>-->
+    <!--                    <separator orientation="vertical"/>-->
+    <!--                    <filter string="Name" name="group_by_name" domain="[]" context="{'group_by':'name'}"/>-->
+
+    <!--                </group>-->
+    <!--                <searchpanel>-->
+    <!--                    <field name="subheader_id" string="Sub-Header" context="{'search_default_header': 1}"/>-->
+    <!--                </searchpanel>-->
+    <!--            </search>-->
+    <!--        </field>-->
+    <!--    </record>-->
+
+
+
+
+
+
+    <record id="view_idil_chart_account_search" model="ir.ui.view">
+    <field name="name">idil.chart.account.search</field>
+    <field name="model">idil.chart.account</field>
+    <field name="arch" type="xml">
+        <search>
+            <field name="name" string="Account Name"/>
+            <field name="code" string="Account Number"/>
+            <field name="subheader_code" string="Sub-header Code"/>
+            <field name="subheader_name" string="Sub-header Name"/>
+            <field name="header_code" string="Header Code"/>
+            <field name="header_name" string="Header Name"/>
+            <group expand="0" string="Group By">
+                <filter string="Header Name" name="group_by_header_name" context="{'group_by': 'header_name'}"/>
+                <separator orientation="vertical"/>
+                <filter string="Name" name="group_by_name" domain="[]" context="{'group_by':'name'}"/>
+            </group>
+            <searchpanel>
+                <field name="subheader_id" string="Sub-Header" context="{'search_default_header': 1}"/>
+            </searchpanel>
+        </search>
+    </field>
+</record>
+
+
+
+
+
+
+    <record id="view_custom_chart_account_header_form" model="ir.ui.view">
+        <field name="name">idil.chart.account.header.form</field>
+        <field name="model">idil.chart.account.header</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="code"/>
+                    <field name="name"/>
+
+                </group>
+                <notebook>
+                    <page string="Sub Headers">
+                        <field name="sub_header_ids">
+                            <tree>
+                                <field name="name"/>
+                            </tree>
+                        </field>
+                    </page>
+                </notebook>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_idil_chart_account_subheader_form" model="ir.ui.view">
+        <field name="name">idil.chart.account.subheader.form</field>
+        <field name="model">idil.chart.account.subheader</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="sub_header_code"/>
+                    <field name="name"/>
+                    <field name="header_id"/>
+                </group>
+                <notebook>
+                    <page string="Accounts">
+                        <field name="account_ids">
+                            <tree>
+                                <field name="name"/>
+                                <field name="code"/>
+                            </tree>
+                        </field>
+                    </page>
+                </notebook>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="view_idil_chart_account_tree" model="ir.ui.view">
+        <field name="name">idil.chart.account.tree</field>
+        <field name="model">idil.chart.account</field>
+        <field name="arch" type="xml">
+            <tree string="Chart of Accounts">
+                <!-- Account Fields -->
+                <field name="name"/>
+                <field name="code"/>
+                <field name="sign" optional="show"/>
+                <field name="FinancialReporting" optional="show"/>
+                <field name="currency_id"/>
+                <field name="subheader_code" optional="show"/>
+                <field name="subheader_name" optional="show"/>
+                <field name="header_code" optional="show"/>
+                <field name="header_name" optional="show"/>
+                <field name="balance" string="Current Balance" optional="show" sum="Total"/>
+
+
+            </tree>
+        </field>
+    </record>
+
+
+    <record id="view_idil_chart_account_form" model="ir.ui.view">
+        <field name="name">idil.chart.account.form</field>
+        <field name="model">idil.chart.account</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="code"/>
+                                <field name="currency_id"/>
+                            </group>
+                            <group>
+                                <field name="account_type"/>
+                            </group>
+
+                        </group>
+                        <group>
+                            <field name="sign" widget="icon" options='{"icon": "fa-book"}'/>
+                            <field name="FinancialReporting" widget="icon" options='{"icon": "fa-file"}'/>
+                        </group>
+                        <group>
+                            <field name="subheader_id"/>
+                        </group>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                    <field name="activity_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+
+    <!--    <record id="action_idil_chart_account" model="ir.actions.act_window">-->
+    <!--        <field name="name">Chart of Accounts</field>-->
+    <!--        <field name="res_model">idil.chart.account</field>-->
+    <!--        <field name="view_mode">tree,form</field>-->
+    <!--        <field name="help" type="html">-->
+    <!--            <p class="o_view_nocontent_smiling_face">-->
+    <!--                Create your first chart of account-->
+    <!--            </p>-->
+    <!--        </field>-->
+    <!--        <field name="context">{'search_default_group_by_name': 1}</field>-->
+    <!--    </record>-->
+
+    <record id="action_idil_chart_account" model="ir.actions.act_window">
+        <field name="name">Chart of Accounts</field>
+        <field name="res_model">idil.chart.account</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first chart of account
+            </p>
+        </field>
+        <field name="context">{'search_default_group_by_header_name': 1, 'search_default_group_by_name': 1}
+        </field>
+    </record>
+</odoo>

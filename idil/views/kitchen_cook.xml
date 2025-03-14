@@ -1,0 +1,67 @@
+<odoo>
+    <record id="view_kitchen_cook_process_tree" model="ir.ui.view">
+        <field name="name">kitchen.cook.process.tree</field>
+        <field name="model">idil.kitchen.cook.process</field>
+        <field name="arch" type="xml">
+            <tree string="Kitchen Cook Processes">
+                <field name="name"/>
+                <field name="process_date"/>
+                <field name="kitchen_transfer_id"/>
+                <field name="subtotal"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_kitchen_cook_process_form" model="ir.ui.view">
+        <field name="name">kitchen.cook.process.form</field>
+        <field name="model">idil.kitchen.cook.process</field>
+        <field name="arch" type="xml">
+            <form string="Kitchen Cook Process">
+                <header>
+                    <button name="action_process" string="Process" type="object"
+                            modifiers="{'invisible': [('state', '!=', 'draft')], 'readonly': [('state', '=', 'processed')]}"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,processed"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="process_date"/>
+                            <field name="kitchen_transfer_id"/>
+                        </group>
+                        <group>
+                            <field name="subtotal" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Cook Lines">
+                            <field name="cook_line_ids">
+                                <tree editable="bottom" string="Cook Lines" create="false" delete="false">
+                                    <field name="item_id"/>
+                                    <field name="uom_id"/>
+                                    <field name="unit_price"/>
+                                    <field name="transfer_qty" readonly="1"/>
+                                    <field name="transfer_amount" readonly="1"/>
+                                    <field name="cooked_qty"/>
+
+                                    <field name="cooked_amount"/>
+
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_kitchen_cook_process" model="ir.actions.act_window">
+        <field name="name">Kitchen Cook Processes</field>
+        <field name="res_model">idil.kitchen.cook.process</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_kitchen_cook_process_tree"/>
+    </record>
+
+
+</odoo>

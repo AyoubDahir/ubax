@@ -1,0 +1,42 @@
+<odoo>
+    <record id="view_salesperson_order_summary_tree" model="ir.ui.view">
+        <field name="name">salesperson.order.summary.tree</field>
+        <field name="model">idil.salesperson.order.summary</field>
+        <field name="arch" type="xml">
+            <tree string="Salesperson Order Summary">
+                <field name="order_date"/>
+                <field name="product_name"/>
+                <field name="salesperson_name"/>
+                <field name="quantity"/>
+
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_salesperson_order_summary" model="ir.actions.act_window">
+        <field name="name">Salesperson Order Summary</field>
+        <field name="res_model">idil.salesperson.order.summary</field>
+        <field name="view_mode">tree</field>
+        <field name="context">{'group_by': ['create_uid', 'order_date:day', 'product_name']}</field>
+
+    </record>
+
+    <record id="view_salesperson_order_summary_search" model="ir.ui.view">
+        <field name="name">salesperson.order.summary.search</field>
+        <field name="model">idil.salesperson.order.summary</field>
+        <field name="arch" type="xml">
+            <search string="Salesperson Order Summary Search">
+                <field name="salesperson_name"/>
+                <field name="product_name"/>
+                <field name="order_date"/>
+
+                <group expand="1" string="Group By">
+                    <filter string="Order Date (Day)" name="group_by_order_date_day"
+                            context="{'group_by':'order_date:day'}"/>
+                    <filter string="Product Name" name="group_by_product_name" context="{'group_by':'product_name'}"/>
+
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

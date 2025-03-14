@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <record id="trx_source_receipt" model="idil.transaction.source">
+            <field name="name">Receipt</field>
+            <field name="description">Transaction for receiving payments</field>
+        </record>
+
+        <record id="trx_source_pay_vendor" model="idil.transaction.source">
+            <field name="name">Pay Vendor</field>
+            <field name="description">Transaction for vendor payments</field>
+        </record>
+
+        <record id="trx_source_sales_order" model="idil.transaction.source">
+            <field name="name">Sales Order</field>
+            <field name="description">Transaction for sales orders</field>
+        </record>
+
+        <record id="trx_source_purchase_order" model="idil.transaction.source">
+            <field name="name">Purchase Order</field>
+            <field name="description">Transaction for purchase orders</field>
+        </record>
+
+        <record id="trx_source_pos" model="idil.transaction.source">
+            <field name="name">Point of Sale</field>
+            <field name="description">Transaction for point of sale operations</field>
+        </record>
+
+        <record id="trx_source_manual" model="idil.transaction.source">
+            <field name="name">Manual Transaction</field>
+            <field name="description">Manual transaction entry</field>
+        </record>
+
+        <record id="trx_source_manual" model="idil.transaction.source">
+            <field name="name">Inventory Opening Balance</field>
+            <field name="description">Inventory Opening Balance</field>
+        </record>
+        <record id="trx_source_manual" model="idil.transaction.source">
+            <field name="name">Vendor Balance</field>
+            <field name="description">Vendor Balance</field>
+        </record>
+        <record id="trx_source_manual" model="idil.transaction.source">
+            <field name="name">Inventory Opening Balance</field>
+            <field name="description">Inventory Opening Balance</field>
+        </record>
+
+
+
+        <!-- Add more records as needed -->
+    </data>
+</odoo>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo>
+    <data>
+
+        <!-- Product Tree View -->
+        <record id="view_product_tree" model="ir.ui.view">
+            <field name="name">product.tree</field>
+            <field name="model">my_product.product</field>
+            <field name="arch" type="xml">
+                <tree string="view_product_tree" delete="False" decoration-danger="stock_quantity &lt; 10">
+                    <field name="name"/>
+                    <field name="internal_reference"/>
+                    <field name="stock_quantity" readonly="1"/>
+                    <field name="category_id"/>
+                    <field name="detailed_type"/>
+                    <field name="sale_price"/>
+                    <field name="is_commissionable"/>
+
+                    <field name="account_id"/>
+
+
+                </tree>
+            </field>
+        </record>
+
+        <!-- Product Form View -->
+        <record id="view_product_form" model="ir.ui.view">
+            <field name="name">product.form</field>
+            <field name="model">my_product.product</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button string="Product Information" class="oe_highlight" colspan="4"/>
+                        <button name="export_movements_to_excel" type="object"
+                                string="Export Movements to Excel"
+                                class="oe_highlight"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="internal_reference"/>
+                            </group>
+                            <group>
+                                <field name="image_1920" class="o_kanban_image_fill_left d-block"
+                                       widget="image" options="{'size': [200, 200], 'zoom': true, 'zoom_delay': 5}"
+                                       style="width: 200px; height: 200px;"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <!-- Inventory Information Page -->
+                            <page string="Inventory Information">
+                                <group>
+                                    <field name="detailed_type"/>
+                                    <field name="category_id"/>
+                                    <field name="pos_categ_ids" widget="many2many_tags" string="POS Menu"/>
+                                    <field name="uom_id"/>
+                                    <field name="asset_currency_id"/>
+                                    <field name="asset_account_id"/>
+
+                                    <field name="is_quantity_discount"/>
+                                    <field name="discount_currency_id"/>
+                                    <field name="sales_discount_id"/>
+                                    <field name="discount"/>
+
+                                </group>
+                            </page>
+
+                            <!-- Sales Information Page -->
+                            <page string="Sales Information">
+
+                                <group>
+                                    <field name="stock_quantity" readonly="1"/>
+
+                                </group>
+
+                                <group>
+                                    <field name="sale_price"/>
+
+                                    <field name="income_account_id"/>
+                                </group>
+
+
+                                <group>
+                                    <field name="sales_currency_id"/>
+                                    <field name="sales_account_id"/>
+                                    <field name="is_sales_commissionable"/>
+                                    <field name="commission"/>
+
+                                </group>
+
+
+                            </page>
+
+                            <!-- Costing Information Page -->
+                            <page string="Costing Information">
+                                <group>
+                                    <field name="bom_id"/>
+                                </group>
+                                <group>
+                                    <field name="cost" readonly="1"/>
+                                    <field name="currency_cogs_id"/>
+                                    <field name="account_cogs_id"/>
+                                    <field name="purchase_description"/>
+                                </group>
+                            </page>
+                            <page string="Commission Information">
+                                <group>
+                                    <field name="currency_id"/>
+                                    <field name="is_commissionable"/>
+                                    <field name="account_id"/>
+                                </group>
+                            </page>
+                            <page string="Movement History">
+                                <group>
+                                    <field name="start_date"/>
+                                    <field name="end_date"/>
+                                </group>
+
+                                <field name="movement_ids">
+
+                                    <tree create="false" delete="false" editable="false">
+                                        <field name="date" readonly="1"/>
+                                        <field name="movement_type" readonly="1"/>
+                                        <field name="quantity" readonly="1" sum="Total"/>
+                                        <field name="source_document" readonly="1"/>
+                                        <field name="sales_person_id" readonly="1"/>
+
+
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        Product Form View
+
+
+        <!-- Product Action -->
+        <record id="action_view_product" model="ir.actions.act_window">
+            <field name="name">Products</field>
+            <field name="res_model">my_product.product</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="oe_view_nocontent_create">
+                    Click to create a new product.
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

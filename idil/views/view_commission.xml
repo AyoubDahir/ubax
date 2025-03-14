@@ -1,0 +1,126 @@
+<odoo>
+    <!-- Commission Tree View -->
+    <record id="view_tree_commission" model="ir.ui.view">
+        <field name="name">idil.commission.tree</field>
+        <field name="model">idil.commission</field>
+        <field name="arch" type="xml">
+            <tree string="Commissions" create="false">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="manufacturing_order_id"/>
+                <field name="employee_id"/>
+                <field name="commission_amount"/>
+                <field name="commission_paid"/>
+                <field name="commission_remaining"/>
+                <field name="payment_status" widget="statusbar" statusbar_visible="pending,partial_paid,paid"
+                       decoration-danger="payment_status == 'pending'"
+                       decoration-warning="payment_status == 'partial_paid'"
+                       decoration-primary="payment_status == 'paid'"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Commission Form View -->
+    <record id="view_form_commission" model="ir.ui.view">
+        <field name="name">idil.commission.form</field>
+        <field name="model">idil.commission</field>
+        <field name="arch" type="xml">
+            <form string="Commission" create="false">
+                <header>
+                    <button name="pay_commission" type="object" string="Pay" class="btn-primary"/>
+                    <field name="payment_status" widget="statusbar" statusbar_visible="pending,partial_paid,paid"
+                           decoration-danger="payment_status == 'pending'"
+                           decoration-warning="payment_status == 'partial_paid'"
+                           decoration-primary="payment_status == 'paid'"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="manufacturing_order_id"/>
+                            <field name="employee_id"/>
+                        </group>
+
+                        <group>
+                            <field name="commission_amount"/>
+                            <field name="commission_paid"/>
+                            <field name="commission_remaining"/>
+                        </group>
+
+                        <group>
+                            <field name="cash_account_id"/>
+                            <field name="amount"/>
+                        </group>
+
+                        <group>
+                            <field name="payment_status"/>
+                            <field name="date"/>
+                        </group>
+
+                    </group>
+                    <notebook>
+                        <page string="Commission Payments">
+                            <field name="commission_payment_ids" widget="one2many_list"
+                                   context="{'default_commission_id': active_id}">
+                                <tree editable="bottom">
+                                    <field name="employee_id"/>
+                                    <field name="amount"/>
+                                    <field name="date"/>
+                                    <button name="unlink" type="object" string="Delete" class="btn-danger"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action to Open Commission View -->
+    <record id="action_commissions" model="ir.actions.act_window">
+        <field name="name">Commissions</field>
+        <field name="res_model">idil.commission</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_tree_commission"/>
+    </record>
+
+    <!-- Commission Payment Tree View -->
+    <record id="view_tree_commission_payment" model="ir.ui.view">
+        <field name="name">idil.commission.payment.tree</field>
+        <field name="model">idil.commission.payment</field>
+        <field name="arch" type="xml">
+            <tree string="Commission Payments" create="false">
+                <field name="commission_id"/>
+                <field name="employee_id"/>
+                <field name="amount"/>
+                <field name="date"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Commission Payment Form View -->
+    <record id="view_form_commission_payment" model="ir.ui.view">
+        <field name="name">idil.commission.payment.form</field>
+        <field name="model">idil.commission.payment</field>
+        <field name="arch" type="xml">
+            <form string="Commission Payment" create="false">
+                <sheet>
+                    <group>
+                        <field name="commission_id"/>
+                        <field name="employee_id"/>
+                        <field name="amount"/>
+                        <field name="date"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action to Open Commission Payment View -->
+    <record id="action_commission_payments" model="ir.actions.act_window">
+        <field name="name">Commission Payments</field>
+        <field name="res_model">idil.commission.payment</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_tree_commission_payment"/>
+    </record>
+</odoo>

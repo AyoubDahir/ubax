@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- BOM Form View -->
+        <record id="view_bom_form" model="ir.ui.view">
+            <field name="name">bom.form</field>
+            <field name="model">idil.bom</field>
+            <field name="arch" type="xml">
+
+                <form>
+                    <sheet>
+
+                        <group>
+                            <group>
+                                <field name="name" class="oe_inline"/>
+                                <field name="type_id" class="oe_inline"/>
+                                  <field name="product_id" class="oe_inline"/>
+                                <field name="total_cost" class="oe_inline"/>
+                            </group>
+                            <notebook>
+                                <page string="Bill of Materials">
+                                    <field name="bom_line_ids" widget="one2many_list" options="{'editable': true}">
+                                        <tree editable="bottom">
+                                            <field name="Item_id"/>
+                                            <field name="quantity"/>
+                                        </tree>
+                                    </field>
+                                </page>
+                            </notebook>
+                        </group>
+                        <div class="oe_chatter">
+                            <field name="message_follower_ids"/>
+                            <field name="message_ids"/>
+                            <field name="activity_ids"/>
+                        </div>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- BOM Line Form View -->
+        <record id="view_bom_line_form" model="ir.ui.view">
+            <field name="name">bom_line.form</field>
+            <field name="model">idil.bom.line</field>
+            <field name="arch" type="xml">
+                <form>
+                    <group>
+                        <field name="Item_id"/>
+                        <field name="quantity"/>
+                        <field name="bom_id" invisible="1"/>
+                    </group>
+                </form>
+            </field>
+        </record>
+
+        <!-- Action to Open BOM -->
+        <record id="action_view_bom" model="ir.actions.act_window">
+            <field name="name">BOMs</field>
+            <field name="res_model">idil.bom</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="oe_view_nocontent_create">
+                    Click to create a new Bill of Materials.
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

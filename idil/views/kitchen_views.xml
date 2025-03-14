@@ -1,0 +1,60 @@
+<odoo>
+    <data>
+        <!-- Kitchen Form View -->
+        <record id="view_kitchen_form" model="ir.ui.view">
+            <field name="name">kitchen.form</field>
+            <field name="model">idil.kitchen</field>
+            <field name="arch" type="xml">
+                <form string="Kitchen">
+                    <sheet>
+                        <sheet>
+                            <group>
+                                <group>
+                                    <field name="name"/>
+                                    <field name="location"/>
+                                </group>
+                                <group>
+                                    <field name="contact_person"/>
+                                    <field name="contact_email"/>
+                                    <field name="contact_phone"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="notes"/>
+                            </group>
+                        </sheet>
+                        <notebook>
+                            <page string="Inventory Accounting">
+                                <group>
+                                    <field name="inventory_account" string="Inventory Account"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Kitchen Tree View -->
+        <record id="view_kitchen_tree" model="ir.ui.view">
+            <field name="name">kitchen.tree</field>
+            <field name="model">idil.kitchen</field>
+            <field name="arch" type="xml">
+                <tree string="Kitchen">
+                    <field name="name"/>
+                    <field name="location"/>
+                    <field name="contact_person"/>
+                    <field name="contact_email"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Kitchen Action -->
+        <record id="action_kitchen" model="ir.actions.act_window">
+            <field name="name">Kitchen</field>
+            <field name="res_model">idil.kitchen</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+    </data>
+</odoo>

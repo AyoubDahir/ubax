@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Define the action -->
+
+    <!-- Define the action -->
+    <record id="action_salesperson_order_tree" model="ir.actions.act_window">
+        <field name="name">Salesperson Orders</field>
+        <field name="res_model">idil.salesperson.place.order</field>
+        <field name="view_mode">tree,form</field>
+<!--        <field name="context">{'group_by': ['order_date']}</field>-->
+    </record>
+
+    <!-- Define the menu -->
+
+    <!-- Define the views -->
+    <record id="view_salesperson_order_tree" model="ir.ui.view">
+        <field name="name">salesperson.order.tree</field>
+        <field name="model">idil.salesperson.place.order</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="salesperson_id"/>
+                <field name="order_date" sum="Total Order Date Quantity"/>
+                <field name="state"/>
+                <field name="total_quantity" string="Total Quantity" sum="Total Quantity"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Define the form view -->
+    <record id="view_salesperson_order_form" model="ir.ui.view">
+        <field name="name">salesperson.order.form</field>
+        <field name="model">idil.salesperson.place.order</field>
+        <field name="arch" type="xml">
+            <form string="Salesperson Place Order">
+                <sheet>
+                    <group>
+                        <field name="salesperson_id"/>
+                        <field name="order_date"/>
+                        <field name="state" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Order Lines">
+                            <field name="order_lines" widget="many2many_list">
+                                <tree>
+                                    <field name="product_id"/>
+                                    <field name="quantity" sum="Total Quantity"/>
+                                </tree>
+                                <form>
+                                    <group>
+                                        <field name="product_id"/>
+                                        <field name="quantity"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

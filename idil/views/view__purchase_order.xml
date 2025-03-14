@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo>
+    <data>
+        <!-- Tree view for idil.transaction_booking -->
+        <record id="view_readonly_transaction_booking_tree" model="ir.ui.view">
+            <field name="name">Purchase.Order.View.tree</field>
+            <field name="model">idil.transaction_booking</field>
+            <field name="arch" type="xml">
+                <tree string="Transaction Booking" decoration-info="payment_status=='pending'"
+                      decoration-muted="payment_status=='completed'" class="custom-tree-view">
+                    <field name="reffno" string="Reffno #" readonly="1"/>
+                    <field name="transaction_number" string="Transaction #" readonly="1"/>
+                    <field name="order_number" string="Order #" readonly="1"/>
+                    <field name="vendor_id" string="Vendor ID" readonly="1"/>
+
+                    <field name="payment_method" string="Payment Method" readonly="1" widget="selection"/>
+                    <field name="payment_status" string="Payment Status" readonly="1" widget="statusbar"
+                           statusbar_visible="draft,done"/>
+                    <field name="trx_date" string="Transaction Date" readonly="1" widget="date"/>
+                    <field name="booking_lines" string="booking_lines" readonly="1"/>
+                    <field name="amount" string="Amount" readonly="1" widget="monetary"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_readonly_transaction_booking_form" model="ir.ui.view">
+            <field name="name">view.purchase.order.form</field>
+            <field name="model">idil.transaction_booking</field>
+            <field name="arch" type="xml">
+                <form string="Transaction Booking" readonly="1">
+                    <sheet>
+
+                        <group>
+                            <group string="Transaction Info" colspan="2" readonly="1">
+                                <label for="reffno" string="Reff No#"/>
+                                <field name="reffno" readonly="1"/>
+                                <group string="Vendor Details" readonly="1">
+                                    <field name="vendor_id" readonly="1"/>
+                                    <!-- Include the related fields for phone and email -->
+                                    <field name="vendor_phone" readonly="1"/>
+                                    <field name="vendor_email" readonly="1"/>
+                                </group>
+                                <group string="Transaction Details" readonly="1">
+                                    <field name="order_number" readonly="1"/>
+                                   
+
+                                    <field name="transaction_number" readonly="1"/>
+                                    <field name="trx_date" readonly="1"/>
+                                    <field name="payment_method" readonly="1"/>
+                                    <field name="payment_status" readonly="1"/>
+                                </group>
+                                <group string="Financials" colspan="2" readonly="1">
+                                    <field name="amount" readonly="1"/>
+                                </group>
+                            </group>
+
+                        </group>
+                        <notebook>
+                            <page string="Details" readonly="1">
+                                <group string="Transaction Details" readonly="1">
+                                    <field name="booking_lines" widget="one2many_list" readonly="1">
+                                        <tree editable="bottom">
+                                            <field name="transaction_booking_id" readonly="1"/>
+                                            <field name="order_line" readonly="1"/>
+                                            <field name="item_id" readonly="1"/>
+                                            <field name="account_number" readonly="1"/>
+                                            <field name="transaction_type" readonly="1"/>
+                                            <field name="dr_amount" readonly="1"/>
+                                            <field name="cr_amount" readonly="1"/>
+                                            <field name="transaction_date" readonly="1"/>
+                                        </tree>
+                                    </field>
+                                </group>
+                            </page>
+
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+
+        <record id="action_view_purchase_order" model="ir.actions.act_window">
+            <field name="name">View Purchase Order</field>
+            <field name="res_model">idil.transaction_booking</field>
+            <field name="view_mode">tree,form</field>
+            <field name="domain">[('vendor_id', '!=', False)]</field>
+            <field name="context">{'create': False, 'delete': False, 'group_by': 'vendor_id'}</field>
+            <field name="view_ids" eval="[(5, 0, 0),
+                                   (0, 0, {'view_mode': 'tree', 'view_id': ref('view_readonly_transaction_booking_tree')}),
+                                   (0, 0, {'view_mode': 'form', 'view_id': ref('view_readonly_transaction_booking_form')})]"/>
+        </record>
+
+
+    </data>
+</odoo>

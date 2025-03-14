@@ -1,0 +1,213 @@
+<odoo>
+
+    <!-- Tree view -->
+    <record id="view_idil_item_tree" model="ir.ui.view">
+        <field name="name">idil.item.tree</field>
+        <field name="model">idil.item</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="image" widget="image" options="{'size': (20, 20)}"/> <!-- Adjust size here -->
+
+                <field name="name"/>
+                <field name="description" optional="hide"/>
+                <field name="unitmeasure_id" string="UOM" optional="show"/>
+                <field name="item_category_id" string="Category" optional="show"/>
+                <field name="quantity" string="QTY"/>
+                <field name="currency_id" string="Currency"/>
+                <field name="cost_price" string="Cost"/>
+
+                <field name="total_price" string="Total" widget="monetary"
+                       options="{'currency_field': 'currency_id'}" sum="Total"/>
+
+
+                <field name="min" string="Re-Order" optional="show"/>
+                <field name="purchase_account_id" string="COGS" optional="show"/>
+                <field name="sales_account_id" string="Revenue" optional="hide"/>
+                <field name="asset_account_id" string="Inventory" optional="show"/>
+                <field name="allergens" optional="hide"/>
+                <field name="purchase_date" string="Date" optional="show"/>
+                <field name="expiration_date" optional="show"/>
+                <field name="days_until_expiration" string="Expiration" optional="show"/>
+
+                <field name="order_information" optional="hide"/>
+                <field name="bar_code" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Kanban view -->
+    <record id="view_idil_item_kanban" model="ir.ui.view">
+        <field name="name">idil.item.kanban</field>
+        <field name="model">idil.item</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <field name="name"/>
+                <field name="unitmeasure_id"/>
+                <field name="item_category_id"/>
+                <field name="quantity"/>
+                <field name="cost_price"/>
+                <field name="image"/>
+
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card rectangular_card">
+                            <div class="rectangular_image">
+                                <img t-if="record.image.raw_value"
+                                     t-att-src="kanban_image('idil.item', 'image', record.id.raw_value)"
+                                     class="oe_kanban_avatar"/>
+                            </div>
+                            <div class="rectangular_body">
+                                <strong class="rectangular_text" t-esc="record.name.value"/>
+
+                                <div class="rectangular_text">
+                                    <b>[</b>
+                                    <t t-esc="record.item_category_id.value"/>
+                                    <b>]</b>
+                                </div>
+
+                                <div class="rectangular_text">
+                                    <b>Quantity:</b>
+                                    <t t-esc="record.quantity.value"/>
+                                </div>
+                                <div class="rectangular_text">
+                                    <b>Cost Price: $</b>
+                                    <t t-esc="record.cost_price.value"/>
+                                </div>
+
+
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Search view -->
+    <record id="view_idil_item_search" model="ir.ui.view">
+        <field name="name">idil.item.search</field>
+        <field name="model">idil.item</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" string="Item Name"/>
+                <field name="description" string="Description"/>
+                <field name="unitmeasure_id" string="Unit of Measure"/>
+                <field name="item_category_id" string="Item Category"/>
+                <field name="quantity" string="Quantity"/>
+                <field name="cost_price" string="Price per Unit"/>
+                <field name="allergens" string="Allergens/Ingredients"/>
+                <field name="purchase_date" string="Purchase Date"/>
+                <field name="expiration_date" string="Expiration Date"/>
+                <field name="order_information" string="Order Information"/>
+                <field name="bar_code" string="Bar Code"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Form view -->
+    <record id="view_idil_item_form" model="ir.ui.view">
+        <field name="name">idil.item.form</field>
+        <field name="model">idil.item</field>
+        <field name="arch" type="xml">
+            <form>
+
+                <sheet>
+                    <group>
+                        <group>
+                            <div class="oe_title">
+                                <label for="name" string="Item Name"/>
+                                <h1>
+                                    <field name="name" placeholder="e.g. Cheese Burger" class="oe_inline"/>
+                                </h1>
+                            </div>
+                        </group>
+                        <group>
+                            <field name="image" widget="image" options="{'size': (150, 150)}"/>
+
+                        </group>
+                    </group>
+                    <hr>
+
+                    </hr>
+                    <notebook>
+                        <page string="Details">
+                            <group>
+                                <group>
+                                    <field name="item_type" string="Item Type" class="oe_inline"/>
+
+                                    <field name="unitmeasure_id" string="Unit of Measure"/>
+                                    <field name="item_category_id" string="Item Category"/>
+                                </group>
+                                <group>
+                                    <field name="quantity"/>
+                                    <field name="min"/>
+                                    <field name="cost_price" string="Cost Price"/>
+                                    <field name="is_tfg" string="TFG"/>
+                                    <field name="is_commission" string="Commission"/>
+
+                                </group>
+
+                            </group>
+                        </page>
+                        <page string="Additional Information">
+                            <group>
+                                <group>
+                                    <field name="purchase_date" string="Purchase Date"/>
+                                    <field name="expiration_date" string="Expiration Date"/>
+                                </group>
+                                <group>
+                                    <field name="order_information" string="Order Information"/>
+                                    <field name="bar_code" string="Bar Code"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Account Information">
+                            <group>
+                                <group>
+                                    <field name="purchase_account_id" string="Purchase Account"/>
+                                    <field name="sales_account_id" string="Sales Account"/>
+                                    <field name="asset_account_id" string="Asset Account"/>
+                                    <field name="adjustment_account_id" string="Adjustment Account"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Item Movements">
+                            <field name="movement_ids" readonly="1">
+                                <tree string="Item Movements" create="false" delete="false" edit="false">
+
+                                    <field name="date" readonly="1"/>
+                                    <field name="transaction_number" readonly="1"/>
+                                    <field name="quantity" readonly="1" sum="Total"/>
+                                    <field name="source" readonly="1"/>
+                                    <field name="vendor_id" readonly="1"/>
+                                    <field name="destination" readonly="1"/>
+                                    <field name="product_id" readonly="1"/>
+                                    <field name="movement_type" readonly="1"/>
+                                    <field name="related_document" readonly="1"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids"/>
+                        <field name="message_ids"/>
+                        <field name="activity_ids"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for idil.item model -->
+    <record id="action_idil_item" model="ir.actions.act_window">
+        <field name="name">Items</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">idil.item</field>
+        <field name="view_mode">tree,kanban,form</field>
+        <field name="view_id" ref="view_idil_item_tree"/>
+        <field name="search_view_id" ref="view_idil_item_search"/>
+        <field name="context">{}</field>
+
+    </record>
+
+</odoo>

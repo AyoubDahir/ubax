@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Grandparent Tree View -->
+        <!-- Grandparent Tree View -->
+        <!-- Grandparent Tree View -->
+        <record id="view_grandparent_tree" model="ir.ui.view">
+            <field name="name">grandparent.tree</field>
+            <field name="model">grandparent.model</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="name" string="Grandparent"/>
+                    <field name="parent_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
+                    <button string="Open Parents" type="object" name="open_parents"/>
+                </tree>
+            </field>
+        </record>
+
+
+        <!-- Parent Tree View -->
+        <record id="view_parent_tree" model="ir.ui.view">
+            <field name="name">parent.tree</field>
+            <field name="model">parent.model</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="name" string="Parent"/>
+                    <field name="child_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Child Tree View -->
+        <record id="view_child_tree" model="ir.ui.view">
+            <field name="name">child.tree</field>
+            <field name="model">child.model</field>
+            <field name="arch" type="xml">
+                <tree>
+                    <field name="name" string="Child"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- Action to Open Parent Tree View -->
+        <record id="action_open_parent_tree" model="ir.actions.act_window">
+            <field name="name">Parents</field>
+            <field name="res_model">parent.model</field>
+            <field name="view_mode">tree</field>
+            <field name="view_id" ref="your_module.view_parent_tree"/>
+        </record>
+
+        <!-- Action to Open Child Tree View -->
+        <record id="action_open_child_tree" model="ir.actions.act_window">
+            <field name="name">Children</field>
+            <field name="res_model">child.model</field>
+            <field name="view_mode">tree</field>
+            <field name="view_id" ref="your_module.view_child_tree"/>
+        </record>
+
+
+    </data>
+</odoo>

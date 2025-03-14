@@ -1,0 +1,9 @@
+<odoo>
+    <record id="seq_commission" model="ir.sequence">
+        <field name="name">Commission</field>
+        <field name="code">idil.commission</field>
+        <field name="prefix">COM-</field>
+        <field name="padding">5</field>
+        <field name="number_increment">1</field>
+    </record>
+</odoo>

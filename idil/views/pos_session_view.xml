@@ -1,0 +1,43 @@
+<odoo>
+    <record id="view_pos_session_form" model="ir.ui.view">
+        <field name="name">pos.session.form</field>
+        <field name="model">pos.session1</field>
+        <field name="arch" type="xml">
+            <form string="POS Session">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="user_id"/>
+                        <field name="start_time"/>
+                        <field name="end_time"/>
+                        <field name="customer_id"/>
+                    </group>
+                    <notebook>
+                        <page string="Orders">
+                            <field name="order_ids">
+                                <tree editable="bottom">
+                                    <field name="name"/>
+                                    <field name="product_id"/>
+                                    <field name="quantity"/>
+                                    <field name="price_unit"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_pos_session" model="ir.actions.act_window">
+        <field name="name">POS Sessions</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">pos.session1</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new POS Session
+            </p>
+        </field>
+    </record>
+</odoo>

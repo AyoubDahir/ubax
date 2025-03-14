@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_purchase_order_tree" model="ir.ui.view">
+        <field name="name">purchase.order.tree</field>
+        <field name="model">idil.purchase_order</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="reffno" string="Reff No#" readonly="1"/>
+                <field name="vendor_id"/>
+                <field name="payment_method" string="Reff No#" readonly="1"/>
+                <field name="account_number"/>
+                <field name="amount"/>
+                <field name="order_lines"/>
+
+                <!-- Add other fields here as needed -->
+            </tree>
+        </field>
+    </record>
+
+    <record id="idil_view_purchase_order_form" model="ir.ui.view">
+        <field name="name">purchase.order.form</field>
+        <field name="model">idil.purchase_order</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="reffno" string="Reff No#" readonly="1"/>
+                    </group>
+                    <notebook>
+
+
+                        <page string="Vendor Information">
+                            <row>
+                                <group class="oe_inline">
+                                    <field name="vendor_id"/>
+                                </group>
+
+                                <group class="oe_inline">
+                                    <field name="payment_method"/>
+                                </group>
+
+                                <group class="oe_inline">
+                                    <field name="account_number"/>
+                                </group>
+
+
+                            </row>
+                            <group class="oe_inline">
+                                <field name="description"/>
+                            </group>
+
+                            <group string="Item Information">
+                                <!-- Enhance the display of items -->
+                                <field name="order_lines" widget="one2many_list" options="{'no_delete': True}">
+
+                                    <tree>
+                                        <field name="item_id" widget="many2one_tags"
+                                               options="{'no_create': True, 'style': 'text-align:center'}"
+                                               string="Item"/>
+                                        <field name="quantity" string="Quantity"
+                                               options="{'style': 'text-align:center'}"/>
+                                        <field name="amount" string="Total Price" readonly="1"
+                                               options="{'style': 'text-align:center'}"/>
+                                        <field name="expiration_date" string="Expiration Date"
+                                               options="{'style': 'text-align:center'}"/>
+                                        <!-- Add more fields as needed -->
+                                    </tree>
+                                    <form>
+                                        <group string="Item Information">
+                                            <field name="item_id"/>
+                                            <field name="quantity"/>
+                                            <field name="cost_price"/>
+                                            
+                                            <field name="amount" readonly="1"/>
+                                            <field name="expiration_date"/>
+
+                                        </group>
+
+
+                                        <div class="oe_chatter">
+                                            <field name="message_follower_ids"/>
+                                            <field name="message_ids"/>
+                                            <field name="activity_ids"/>
+                                        </div>
+                                    </form>
+                                </field>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                    <field name="activity_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_purchase_order" model="ir.actions.act_window">
+        <field name="name">Purchase Orders</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">idil.purchase_order</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_purchase_order_tree"/>  <!-- Set the view_id to the tree view -->
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create Your First Purchase Orders
+            </p>
+        </field>
+    </record>
+
+
+</odoo>

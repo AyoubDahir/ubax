@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+
+    <record id="view_sales_person_balance_report_tree" model="ir.ui.view">
+        <field name="name">sales.balance.report.tree</field>
+        <field name="model">idil.sales.balance.report</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="sales_person_name"/>
+                <field name="sales_person_phone"/>
+                <field name="account_code"/>
+                <field name="account_name"/>
+                <field name="balance"/>
+            </tree>
+        </field>
+    </record>
+
+
+    <record id="action_generate_sales_person_balances" model="ir.actions.server">
+        <field name="name">Generate Sales Person Balances</field>
+        <field name="model_id" ref="model_idil_sales_balance_report"/>
+        <field name="binding_model_id" ref="model_idil_chart_account"/> <!-- This is optional and for context -->
+        <field name="state">code</field>
+        <field name="code">
+            action = env['idil.sales.balance.report'].generate_sales_person_balances_report()
+        </field>
+
+
+    </record>
+
+</odoo>
+

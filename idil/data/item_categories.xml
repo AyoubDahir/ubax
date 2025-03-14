@@ -1,0 +1,247 @@
+<odoo>
+    <data noupdate="1">
+        <!-- Dairy Products -->
+        <record id="category_milk" model="idil.item.category">
+            <field name="name">Milk</field>
+            <field name="description">Includes all types of milk products</field>
+        </record>
+        <record id="category_cheese" model="idil.item.category">
+            <field name="name">Cheese</field>
+            <field name="description">Includes all types of cheese products</field>
+        </record>
+        <record id="category_butter" model="idil.item.category">
+            <field name="name">Butter</field>
+            <field name="description">Includes butter and similar products</field>
+        </record>
+        <record id="category_yogurt" model="idil.item.category">
+            <field name="name">Yogurt</field>
+            <field name="description">Includes all types of yogurt</field>
+        </record>
+        <record id="category_cream" model="idil.item.category">
+            <field name="name">Cream</field>
+            <field name="description">Includes all types of cream</field>
+        </record>
+
+        <!-- Meat Products -->
+        <record id="category_beef" model="idil.item.category">
+            <field name="name">Beef</field>
+            <field name="description">Includes all types of beef products</field>
+        </record>
+        <record id="category_pork" model="idil.item.category">
+            <field name="name">Pork</field>
+            <field name="description">Includes all types of pork products</field>
+        </record>
+        <record id="category_chicken" model="idil.item.category">
+            <field name="name">Chicken</field>
+            <field name="description">Includes all types of chicken products</field>
+        </record>
+        <record id="category_lamb" model="idil.item.category">
+            <field name="name">Lamb</field>
+            <field name="description">Includes all types of lamb products</field>
+        </record>
+        <record id="category_sausages" model="idil.item.category">
+            <field name="name">Sausages</field>
+            <field name="description">Includes all types of sausages</field>
+        </record>
+
+        <!-- Seafood -->
+        <record id="category_fish" model="idil.item.category">
+            <field name="name">Fish</field>
+            <field name="description">Includes all types of fish products</field>
+        </record>
+        <record id="category_shellfish" model="idil.item.category">
+            <field name="name">Shellfish</field>
+            <field name="description">Includes all types of shellfish</field>
+        </record>
+        <record id="category_crustaceans" model="idil.item.category">
+            <field name="name">Crustaceans</field>
+            <field name="description">Includes crabs, lobsters, and other crustaceans</field>
+        </record>
+        <record id="category_mollusks" model="idil.item.category">
+            <field name="name">Mollusks</field>
+            <field name="description">Includes clams, oysters, and other mollusks</field>
+        </record>
+
+        <!-- Produce -->
+        <record id="category_vegetables" model="idil.item.category">
+            <field name="name">Vegetables</field>
+            <field name="description">Includes all types of vegetables</field>
+        </record>
+        <record id="category_fruits" model="idil.item.category">
+            <field name="name">Fruits</field>
+            <field name="description">Includes all types of fruits</field>
+        </record>
+        <record id="category_herbs" model="idil.item.category">
+            <field name="name">Herbs</field>
+            <field name="description">Includes all types of herbs</field>
+        </record>
+
+        <!-- Grains and Cereals -->
+        <record id="category_rice" model="idil.item.category">
+            <field name="name">Rice</field>
+            <field name="description">Includes all types of rice</field>
+        </record>
+        <record id="category_pasta" model="idil.item.category">
+            <field name="name">Pasta</field>
+            <field name="description">Includes all types of pasta</field>
+        </record>
+        <record id="category_bread" model="idil.item.category">
+            <field name="name">Bread</field>
+            <field name="description">Includes all types of bread</field>
+        </record>
+        <record id="category_flour" model="idil.item.category">
+            <field name="name">Flour</field>
+            <field name="description">Includes all types of flour</field>
+        </record>
+        <record id="category_oats" model="idil.item.category">
+            <field name="name">Oats</field>
+            <field name="description">Includes all types of oats</field>
+        </record>
+
+        <!-- Spices and Seasonings -->
+        <record id="category_salt" model="idil.item.category">
+            <field name="name">Salt</field>
+            <field name="description">Includes all types of salt</field>
+        </record>
+        <record id="category_pepper" model="idil.item.category">
+            <field name="name">Pepper</field>
+            <field name="description">Includes all types of pepper</field>
+        </record>
+        <record id="category_herbs_spices" model="idil.item.category">
+            <field name="name">Herbs &amp; Spices</field>
+            <field name="description">Includes all types of herbs and spices</field>
+        </record>
+        <record id="category_seasoning_mixes" model="idil.item.category">
+            <field name="name">Seasoning Mixes</field>
+            <field name="description">Includes all types of seasoning mixes</field>
+        </record>
+
+        <!-- Baking Supplies -->
+        <record id="category_sugar" model="idil.item.category">
+            <field name="name">Sugar</field>
+            <field name="description">Includes all types of sugar</field>
+        </record>
+        <record id="category_baking_powder" model="idil.item.category">
+            <field name="name">Baking Powder</field>
+            <field name="description">Includes baking powder</field>
+        </record>
+        <record id="category_baking_soda" model="idil.item.category">
+            <field name="name">Baking Soda</field>
+            <field name="description">Includes baking soda</field>
+        </record>
+        <record id="category_yeast" model="idil.item.category">
+            <field name="name">Yeast</field>
+            <field name="description">Includes all types of yeast</field>
+        </record>
+        <record id="category_cocoa_powder" model="idil.item.category">
+            <field name="name">Cocoa Powder</field>
+            <field name="description">Includes cocoa powder</field>
+        </record>
+
+        <!-- Oils and Fats -->
+        <record id="category_vegetable_oil" model="idil.item.category">
+            <field name="name">Vegetable Oil</field>
+            <field name="description">Includes all types of vegetable oil</field>
+        </record>
+        <record id="category_olive_oil" model="idil.item.category">
+            <field name="name">Olive Oil</field>
+            <field name="description">Includes all types of olive oil</field>
+        </record>
+        <record id="category_butter_oils" model="idil.item.category">
+            <field name="name">Butter</field>
+            <field name="description">Includes butter and similar fats</field>
+        </record>
+        <record id="category_margarine" model="idil.item.category">
+            <field name="name">Margarine</field>
+            <field name="description">Includes all types of margarine</field>
+        </record>
+        <record id="category_lard" model="idil.item.category">
+            <field name="name">Lard</field>
+            <field name="description">Includes all types of lard</field>
+        </record>
+
+        <!-- Nuts and Seeds -->
+        <record id="category_almonds" model="idil.item.category">
+            <field name="name">Almonds</field>
+            <field name="description">Includes all types of almonds</field>
+        </record>
+        <record id="category_walnuts" model="idil.item.category">
+            <field name="name">Walnuts</field>
+            <field name="description">Includes all types of walnuts</field>
+        </record>
+        <record id="category_sunflower_seeds" model="idil.item.category">
+            <field name="name">Sunflower Seeds</field>
+            <field name="description">Includes all types of sunflower seeds</field>
+        </record>
+        <record id="category_chia_seeds" model="idil.item.category">
+            <field name="name">Chia Seeds</field>
+            <field name="description">Includes all types of chia seeds</field>
+        </record>
+        <record id="category_pumpkin_seeds" model="idil.item.category">
+            <field name="name">Pumpkin Seeds</field>
+            <field name="description">Includes all types of pumpkin seeds</field>
+        </record>
+
+        <!-- Beverage Ingredients -->
+        <record id="category_coffee_beans" model="idil.item.category">
+            <field name="name">Coffee Beans</field>
+            <field name="description">Includes all types of coffee beans</field>
+        </record>
+        <record id="category_tea_leaves" model="idil.item.category">
+            <field name="name">Tea Leaves</field>
+            <field name="description">Includes all types of tea leaves</field>
+        </record>
+        <record id="category_syrups" model="idil.item.category">
+            <field name="name">Syrups</field>
+            <field name="description">Includes all types of syrups used in beverages</field>
+        </record>
+        <record id="category_juices" model="idil.item.category">
+            <field name="name">Juices</field>
+            <field name="description">Includes all types of fruit and vegetable juices</field>
+        </record>
+
+        <!-- Canned and Preserved Goods -->
+        <record id="category_canned_vegetables" model="idil.item.category">
+            <field name="name">Canned Vegetables</field>
+            <field name="description">Includes all types of canned vegetables</field>
+        </record>
+        <record id="category_canned_fruits" model="idil.item.category">
+            <field name="name">Canned Fruits</field>
+            <field name="description">Includes all types of canned fruits</field>
+        </record>
+        <record id="category_preserves" model="idil.item.category">
+            <field name="name">Preserves</field>
+            <field name="description">Includes all types of preserved foods</field>
+        </record>
+        <record id="category_jams" model="idil.item.category">
+            <field name="name">Jams</field>
+            <field name="description">Includes all types of jams and jellies</field>
+        </record>
+        <record id="category_pickles" model="idil.item.category">
+            <field name="name">Pickles</field>
+            <field name="description">Includes all types of pickled products</field>
+        </record>
+
+        <!-- Condiments and Sauces -->
+        <record id="category_ketchup" model="idil.item.category">
+            <field name="name">Ketchup</field>
+            <field name="description">Includes all types of ketchup</field>
+        </record>
+        <record id="category_mayonnaise" model="idil.item.category">
+            <field name="name">Mayonnaise</field>
+            <field name="description">Includes all types of mayonnaise</field>
+        </record>
+        <record id="category_mustard" model="idil.item.category">
+            <field name="name">Mustard</field>
+            <field name="description">Includes all types of mustard</field>
+        </record>
+        <record id="category_soy_sauce" model="idil.item.category">
+            <field name="name">Soy Sauce</field>
+            <field name="description">Includes all types of soy sauce</field>
+        </record>
+        <record id="category_hot_sauce" model="idil.item.category">
+            <field name="name">Hot Sauce</field>
+            <field name="description">Includes all types of hot sauce</field>
+        </record>
+    </data>
+</odoo>

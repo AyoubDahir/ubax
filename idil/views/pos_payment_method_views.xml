@@ -1,0 +1,70 @@
+<odoo>
+    <record id="view_payment_method_form" model="ir.ui.view">
+        <field name="name">payment.method.form</field>
+        <field name="model">idil.payment.method</field>
+        <field name="arch" type="xml">
+            <form string="Payment Method">
+                <sheet>
+                    <group>
+                        <group>
+
+
+                            <field name="name"/>
+                            <field name="type"/>
+                            <field name="account_number" domain="[('account_type', '=', account_type_filter)]"/>
+                            <field name="customer_type_id" invisible="type != 'credit'"/>
+
+                            <field name="pos_config_ids"/>
+                        </group>
+                        <group>
+                            <field name="image" class="o_kanban_image_fill_left d-block"
+                                   widget="image" options="{'size': [200, 200], 'zoom': true, 'zoom_delay': 5}"
+                                   style="width: 200px; height: 200px;"/>
+                        </group>
+                    </group>
+                    <!-- Hidden field to include account_type_filter in the view -->
+                    <field name="account_type_filter" invisible="1"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_payment_method_tree" model="ir.ui.view">
+        <field name="name">payment.method.tree</field>
+        <field name="model">idil.payment.method</field>
+        <field name="arch" type="xml">
+            <tree string="Payment Method">
+                <field name="image" widget="image" options="{'size': (20, 20)}"/> <!-- Adjust size here -->
+
+                <field name="name"/>
+                <field name="type"/>
+                <field name="account_number"/>
+                <field name="customer_type_id" invisible="type != 'credit'"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_payment_method_search" model="ir.ui.view">
+        <field name="name">payment.method.search</field>
+        <field name="model">idil.payment.method</field>
+        <field name="arch" type="xml">
+            <search string="Search Payment Methods">
+                <field name="name"/>
+                <field name="type"/>
+                <field name="account_number"/>
+                <field name="customer_type_id"/>
+            </search>
+        </field>
+    </record>
+    <record id="action_payment_method" model="ir.actions.act_window">
+        <field name="name">Payment Methods</field>
+        <field name="res_model">idil.payment.method</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_payment_method_tree"/>
+        <field name="help" type="html">
+            <p class="oe_view_nocontent_create">
+                Click to create a new payment method.
+            </p>
+        </field>
+    </record>
+</odoo>

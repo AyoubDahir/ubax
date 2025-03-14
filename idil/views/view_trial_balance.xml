@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <record id="view_trial_balance_tree" model="ir.ui.view">
+        <field name="name">trial.balance.tree</field>
+        <field name="model">idil.trial.balance</field>
+        <field name="arch" type="xml">
+            <tree string="Trial Balance" create="false" edit="false" delete="false" class="no_selection">
+                <field name="account_number"/>
+                <field name="header_name"/>
+                <field name="label" string="Description" widget="char"/>
+                <field name="currency_id"/>
+                <field name="dr_balance" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="cr_balance" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_trial_balance_wizard_form" model="ir.ui.view">
+        <field name="name">trial.balance.wizard.form</field>
+        <field name="model">idil.trial.balance.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Trial Balance ( Select Report Currency)">
+                <group>
+                    <field name="report_currency_id" required="1"/>
+                    <footer>
+                        <button string="View" type="object" name="action_compute_trial_balance" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </group>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_open_trial_balance_wizard" model="ir.actions.act_window">
+        <field name="name">Compute Trial Balance</field>
+        <field name="res_model">idil.trial.balance.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_trial_balance_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+
+
+</odoo>

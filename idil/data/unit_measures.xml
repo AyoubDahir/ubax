@@ -1,0 +1,103 @@
+<odoo>
+    <data noupdate="1">
+        <!-- Weight Units -->
+        <record id="unit_gram" model="idil.unit.measure">
+            <field name="name">g</field>
+            <field name="description">Gram - Basic unit of weight in the metric system</field>
+        </record>
+        <record id="unit_kilogram" model="idil.unit.measure">
+            <field name="name">kg</field>
+            <field name="description">Kilogram - Equivalent to 1,000 grams</field>
+        </record>
+        <record id="unit_milligram" model="idil.unit.measure">
+            <field name="name">mg</field>
+            <field name="description">Milligram - One thousandth of a gram</field>
+        </record>
+        <record id="unit_pound" model="idil.unit.measure">
+            <field name="name">lb</field>
+            <field name="description">Pound - Commonly used unit of weight in the imperial system</field>
+        </record>
+        <record id="unit_ounce" model="idil.unit.measure">
+            <field name="name">oz</field>
+            <field name="description">Ounce - One sixteenth of a pound</field>
+        </record>
+
+        <!-- Volume Units -->
+        <record id="unit_milliliter" model="idil.unit.measure">
+            <field name="name">mL</field>
+            <field name="description">Milliliter - One thousandth of a liter</field>
+        </record>
+        <record id="unit_liter" model="idil.unit.measure">
+            <field name="name">L</field>
+            <field name="description">Liter - Basic unit of volume in the metric system</field>
+        </record>
+        <record id="unit_fluid_ounce" model="idil.unit.measure">
+            <field name="name">fl oz</field>
+            <field name="description">Fluid Ounce - Unit of volume commonly used for liquids</field>
+        </record>
+        <record id="unit_cup" model="idil.unit.measure">
+            <field name="name">cup</field>
+            <field name="description">Cup - Common unit of volume used in cooking</field>
+        </record>
+        <record id="unit_pint" model="idil.unit.measure">
+            <field name="name">pt</field>
+            <field name="description">Pint - Equivalent to 2 cups</field>
+        </record>
+        <record id="unit_quart" model="idil.unit.measure">
+            <field name="name">qt</field>
+            <field name="description">Quart - Equivalent to 2 pints</field>
+        </record>
+        <record id="unit_gallon" model="idil.unit.measure">
+            <field name="name">gal</field>
+            <field name="description">Gallon - Equivalent to 4 quarts</field>
+        </record>
+        <record id="unit_teaspoon" model="idil.unit.measure">
+            <field name="name">tsp</field>
+            <field name="description">Teaspoon - Common unit of volume used in cooking</field>
+        </record>
+        <record id="unit_tablespoon" model="idil.unit.measure">
+            <field name="name">tbsp</field>
+            <field name="description">Tablespoon - Equivalent to 3 teaspoons</field>
+        </record>
+
+        <!-- Length Units -->
+        <record id="unit_millimeter" model="idil.unit.measure">
+            <field name="name">mm</field>
+            <field name="description">Millimeter - One thousandth of a meter</field>
+        </record>
+        <record id="unit_centimeter" model="idil.unit.measure">
+            <field name="name">cm</field>
+            <field name="description">Centimeter - One hundredth of a meter</field>
+        </record>
+        <record id="unit_meter" model="idil.unit.measure">
+            <field name="name">m</field>
+            <field name="description">Meter - Basic unit of length in the metric system</field>
+        </record>
+        <record id="unit_inch" model="idil.unit.measure">
+            <field name="name">in</field>
+            <field name="description">Inch - Common unit of length in the imperial system</field>
+        </record>
+        <record id="unit_foot" model="idil.unit.measure">
+            <field name="name">ft</field>
+            <field name="description">Foot - Equivalent to 12 inches</field>
+        </record>
+
+        <!-- Area Units -->
+        <record id="unit_square_centimeter" model="idil.unit.measure">
+            <field name="name">cm²</field>
+            <field name="description">Square Centimeter - Unit of area in the metric system</field>
+        </record>
+        <record id="unit_square_meter" model="idil.unit.measure">
+            <field name="name">m²</field>
+            <field name="description">Square Meter - Basic unit of area in the metric system</field>
+        </record>
+        <record id="unit_square_inch" model="idil.unit.measure">
+            <field name="name">in²</field>
+            <field name="description">Square Inch - Unit of area in the imperial system</field>
+        </record>
+        <record id="unit_square_foot" model="idil.unit.measure">
+            <field name="name">ft²</field>
+            <field name="description">Square Foot - Unit of area in the imperial system</field>
+        </record>
+    </data>
+</odoo>

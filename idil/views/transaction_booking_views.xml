@@ -1,0 +1,81 @@
+<odoo>
+    <!-- Tree view -->
+    <record id="view_transaction_booking_tree" model="ir.ui.view">
+        <field name="name">idil.transaction.booking.tree</field>
+        <field name="model">idil.transaction_booking</field>
+        <field name="arch" type="xml">
+            <tree string="Transaction Booking" create="false" delete="false"
+                  decoration-danger="payment_status == 'pending'">
+
+                <field name="transaction_number" optional="show"/>
+                <field name="reffno" optional="show"/>
+                <field name="journal_entry_id" optional="show"/>
+                <field name="vendor_id" optional="show"/>
+                <field name="vendor_phone" optional="hide"/>
+                <field name="vendor_email" optional="hide"/>
+                <field name="sales_person_id" optional="hide"/>
+                <field name="sale_order_id" optional="hide"/>
+                <field name="order_number" optional="show"/>
+                <field name="Sales_order_number" optional="hide"/>
+                <field name="payment_method" optional="show"/>
+                <field name="pos_payment_method" optional="hide"/>
+                <field name="payment_status" optional="show"/>
+                <field name="trx_date" optional="show"/>
+                <field name="trx_source_id" optional="hide"/>
+                <field name="amount" optional="show"/>
+                <field name="amount_paid" optional="show"/>
+                <field name="remaining_amount" optional="show"/>
+                <field name="cash_account_id" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Search view -->
+    <record id="view_transaction_booking_search" model="ir.ui.view">
+        <field name="name">idil.transaction.booking.search</field>
+        <field name="model">idil.transaction_booking</field>
+        <field name="arch" type="xml">
+            <search string="Transaction Booking Search">
+                <field name="transaction_number"/>
+                <field name="reffno"/>
+                <field name="journal_entry_id"/>
+                <field name="vendor_id"/>
+                <field name="vendor_phone"/>
+                <field name="vendor_email"/>
+                <field name="sales_person_id"/>
+                <field name="sale_order_id"/>
+                <field name="order_number"/>
+                <field name="Sales_order_number"/>
+                <field name="payment_method"/>
+                <field name="pos_payment_method"/>
+                <field name="payment_status"/>
+                <field name="trx_date"/>
+                <field name="trx_source_id"/>
+                <field name="amount"/>
+                <field name="amount_paid"/>
+                <field name="remaining_amount"/>
+                <field name="debit_total"/>
+                <field name="credit_total"/>
+                <field name="cash_account_id"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_vendor" string="Vendor" domain="[]" context="{'group_by': 'vendor_id'}"/>
+                    <filter name="group_by_sales_person" string="Sales Person" domain="[]"
+                            context="{'group_by': 'sales_person_id'}"/>
+                    <filter name="group_by_payment_status" string="Payment Status" domain="[]"
+                            context="{'group_by': 'payment_status'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+
+    <!-- Action for idil.transaction_booking model -->
+    <record id="action_transaction_booking" model="ir.actions.act_window">
+        <field name="name">Transaction Booking</field>
+        <field name="res_model">idil.transaction_booking</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_transaction_booking_tree"/>
+        <field name="search_view_id" ref="view_transaction_booking_search"/>
+        <field name="context">{}</field>
+    </record>
+</odoo>
