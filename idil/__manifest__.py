@@ -4,7 +4,7 @@
     "category": "Idil",
     "license": "LGPL-3",
     "summary": "Idil Management System",
-    "description": "Mohamed Dahir cali jamac",
+    "description": "Mohamed",
     "depends": ["mail", "point_of_sale", "web"],
     "application": True,
     "sequence": -100,
