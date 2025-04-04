@@ -130,6 +130,11 @@ class TransactionBooking(models.Model):
         tracking=True,
         ondelete="cascade",  # Add this to enable automatic deletion
     )
+    sale_return_id = fields.Many2one(
+        "idil.sale.return",
+        string="Sales Return",
+        ondelete="cascade",
+    )
 
     @api.constrains("amount_paid")
     def _check_amount_paid(self):
@@ -344,6 +349,12 @@ class TransactionBookingline(models.Model):
         string="Sales Payment",
         ondelete="cascade",
         help="The sales payment this transaction booking line is associated with.",
+    )
+
+    sale_return_id = fields.Many2one(
+        "idil.sale.return",
+        string="Sales Return",
+        ondelete="cascade",
     )
 
     @api.depends("account_number")

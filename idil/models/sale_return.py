@@ -129,6 +129,7 @@ class SaleReturn(models.Model):
             transaction_booking = self.env["idil.transaction_booking"].create(
                 {
                     "sales_person_id": return_order.salesperson_id.id,
+                    "sale_return_id": return_order.id,
                     "sale_order_id": return_order.sale_order_id.id,  # Link to the original SaleOrder's ID
                     "trx_source_id": 3,
                     "Sales_order_number": return_order.sale_order_id.id,
@@ -168,6 +169,7 @@ class SaleReturn(models.Model):
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": transaction_booking.id,
+                        "sale_return_id": return_order.id,
                         "description": f"Sales Return for -- Expanses COGS Account ( {product.name} ) ",
                         "product_id": product.id,
                         "account_number": product.account_cogs_id.id,
@@ -182,6 +184,7 @@ class SaleReturn(models.Model):
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": transaction_booking.id,
+                        "sale_return_id": return_order.id,
                         "description": f"Sales Return for -- Product Inventory Account ( {product.name} ) ",
                         "product_id": product.id,
                         "account_number": product.asset_account_id.id,
@@ -197,6 +200,7 @@ class SaleReturn(models.Model):
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": transaction_booking.id,
+                        "sale_return_id": return_order.id,
                         "description": f"Sales Return for -- Account Receivable Account ( {product.name} ) ",
                         "product_id": product.id,
                         "account_number": return_order.salesperson_id.account_receivable_id.id,
@@ -212,6 +216,7 @@ class SaleReturn(models.Model):
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": transaction_booking.id,
+                        "sale_return_id": return_order.id,
                         "description": f"Sales Return for -- Revenue Account Account ( {product.name} ) ",
                         "product_id": product.id,
                         "account_number": product.income_account_id.id,
@@ -228,6 +233,7 @@ class SaleReturn(models.Model):
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": transaction_booking.id,
+                        "sale_return_id": return_order.id,
                         "description": f"Sales Return for -- Commission Expense Account ( {product.name} ) ",
                         "product_id": product.id,
                         "account_number": product.sales_account_id.id,
@@ -244,6 +250,7 @@ class SaleReturn(models.Model):
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": transaction_booking.id,
+                        "sale_return_id": return_order.id,
                         "description": f"Sales Return for -- Discount Expense Account ( {product.name} ) ",
                         "product_id": product.id,
                         "account_number": product.sales_discount_id.id,
