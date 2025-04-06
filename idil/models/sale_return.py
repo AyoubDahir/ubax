@@ -233,37 +233,42 @@ class SaleReturn(models.Model):
 
                 # Reversed Debit entry (now as Credit) for commission expenses
 
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "sale_return_id": return_order.id,
-                        "description": f"Sales Return for -- Commission Expense Account ( {product.name} ) ",
-                        "product_id": product.id,
-                        "account_number": product.sales_account_id.id,
-                        "transaction_type": "cr",  # Reversed transaction (Credit)
-                        "dr_amount": 0,
-                        "cr_amount": commission_amount,
-                        "transaction_date": fields.Date.context_today(self),
-                        # Include other necessary fields
-                    }
-                )
+                if (
+                    product.is_sales_commissionable
+                    and return_line.commission_amount > 0
+                ):
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_booking_id": transaction_booking.id,
+                            "sale_return_id": return_order.id,
+                            "description": f"Sales Return for -- Commission Expense Account ( {product.name} ) ",
+                            "product_id": product.id,
+                            "account_number": product.sales_account_id.id,
+                            "transaction_type": "cr",  # Reversed transaction (Credit)
+                            "dr_amount": 0,
+                            "cr_amount": commission_amount,
+                            "transaction_date": fields.Date.context_today(self),
+                            # Include other necessary fields
+                        }
+                    )
 
                 # Reversed Debit entry (now as Credit) for discount expenses
 
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "sale_return_id": return_order.id,
-                        "description": f"Sales Return for -- Discount Expense Account ( {product.name} ) ",
-                        "product_id": product.id,
-                        "account_number": product.sales_discount_id.id,
-                        "transaction_type": "cr",  # Reversed transaction (Credit)
-                        "dr_amount": 0,
-                        "cr_amount": discount_amount,
-                        "transaction_date": fields.Date.context_today(self),
-                        # Include other necessary fields
-                    }
-                )
+                if return_line.discount_amount > 0:
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_booking_id": transaction_booking.id,
+                            "sale_return_id": return_order.id,
+                            "description": f"Sales Return for -- Discount Expense Account ( {product.name} ) ",
+                            "product_id": product.id,
+                            "account_number": product.sales_discount_id.id,
+                            "transaction_type": "cr",  # Reversed transaction (Credit)
+                            "dr_amount": 0,
+                            "cr_amount": discount_amount,
+                            "transaction_date": fields.Date.context_today(self),
+                            # Include other necessary fields
+                        }
+                    )
                 # Create a Salesperson Transaction
 
                 self.env["idil.salesperson.transaction"].create(
