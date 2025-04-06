@@ -8,7 +8,7 @@
     "depends": ["mail", "point_of_sale", "web"],
     "application": True,
     "sequence": -100,
-    "author": "Mslts",
+    "author": "MSLTS",
     "assets": {
         "web.assets_common": [
             # 'idil/static/src/scss/primary_variables.scss',
