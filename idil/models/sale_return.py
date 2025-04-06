@@ -233,10 +233,7 @@ class SaleReturn(models.Model):
 
                 # Reversed Debit entry (now as Credit) for commission expenses
 
-                if (
-                    product.is_sales_commissionable
-                    and return_line.commission_amount > 0
-                ):
+                if product.is_sales_commissionable and commission_amount > 0:
                     self.env["idil.transaction_bookingline"].create(
                         {
                             "transaction_booking_id": transaction_booking.id,
@@ -254,7 +251,7 @@ class SaleReturn(models.Model):
 
                 # Reversed Debit entry (now as Credit) for discount expenses
 
-                if return_line.discount_amount > 0:
+                if discount_amount > 0:
                     self.env["idil.transaction_bookingline"].create(
                         {
                             "transaction_booking_id": transaction_booking.id,
