@@ -291,7 +291,7 @@ class SaleReturn(models.Model):
                         "sales_person_id": return_order.salesperson_id.id,
                         "date": fields.Date.today(),
                         "order_id": return_order.sale_order_id.id,
-                        "transaction_type": "out",  # Assuming 'out' for sales
+                        "transaction_type": "out",  # Assuming 'out' for sales --
                         "amount": discount_amount,
                         "description": f"Sales Discount Amount of - Order Line for  {product.name} (Qty: {return_line.returned_quantity})",
                     }
