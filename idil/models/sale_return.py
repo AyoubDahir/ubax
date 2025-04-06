@@ -164,6 +164,9 @@ class SaleReturn(models.Model):
                 product_cost_amount = (
                     product.cost * return_line.returned_quantity * self.rate
                 )
+                product.stock_quantity = (
+                    product.stock_quantity + return_line.returned_quantity
+                )
                 # ------------------------------------------------------------------------------------------------------
                 # Reversed Credit entry Expanses inventory of COGS account for the product
                 self.env["idil.transaction_bookingline"].create(
@@ -259,6 +262,48 @@ class SaleReturn(models.Model):
                         "cr_amount": discount_amount,
                         "transaction_date": fields.Date.context_today(self),
                         # Include other necessary fields
+                    }
+                )
+                # Create a Salesperson Transaction
+
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": return_order.salesperson_id.id,
+                        "date": fields.Date.today(),
+                        "order_id": return_order.sale_order_id.id,
+                        "transaction_type": "in",  # Assuming 'out' for sales
+                        "amount": subtotal + discount_amount + commission_amount,
+                        "description": f"Sales Retund of - Order Line for {product.name} (Qty: {return_line.returned_quantity})",
+                    }
+                )
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": return_order.salesperson_id.id,
+                        "date": fields.Date.today(),
+                        "order_id": return_order.sale_order_id.id,
+                        "transaction_type": "out",  # Assuming 'out' for sales
+                        "amount": commission_amount,
+                        "description": f"Sales Commission Amount of - Order Line for  {product.name} (Qty: {return_line.returned_quantity})",
+                    }
+                )
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": return_order.salesperson_id.id,
+                        "date": fields.Date.today(),
+                        "order_id": return_order.sale_order_id.id,
+                        "transaction_type": "out",  # Assuming 'out' for sales
+                        "amount": discount_amount,
+                        "description": f"Sales Discount Amount of - Order Line for  {product.name} (Qty: {return_line.returned_quantity})",
+                    }
+                )
+                self.env["idil.product.movement"].create(
+                    {
+                        "product_id": product.id,
+                        "movement_type": "in",
+                        "quantity": return_line.returned_quantity,
+                        "date": fields.Datetime.now(),
+                        "source_document": return_order.id,
+                        "sales_person_id": return_order.salesperson_id.id,
                     }
                 )
 
