@@ -22,6 +22,7 @@
             <form string="Company Trial Balance ( Select Company)">
                 <group>
                     <field name="company_id" required="1"/>
+                    <field name="as_of_date" required="1"/>
                     <footer>
                         <button string="View" type="object" name="action_compute_company_trial_balance"
                                 class="btn-primary"/>

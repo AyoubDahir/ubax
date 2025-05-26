@@ -448,29 +448,31 @@ class TransactionBookingline(models.Model):
             "target": "new",
         }
 
-    def compute_company_trial_balance(self, report_currency_id, company_id):
+    def compute_company_trial_balance(self, report_currency_id, company_id, as_of_date):
         self.env.cr.execute(
             """
-                SELECT
-                    tb.account_number,
-                    ca.currency_id,
-                    tb.company_id,
-                    tb.transaction_date,
-                    SUM(tb.dr_amount) AS dr_total,
-                    SUM(tb.cr_amount) AS cr_total
-                FROM
-                    idil_transaction_bookingline tb
-                JOIN idil_chart_account ca ON tb.account_number = ca.id
-                WHERE
-                    tb.company_id = %s
-                    AND ca.name != 'Exchange Clearing Account'
-                GROUP BY
-                    tb.account_number, ca.currency_id, tb.company_id, tb.transaction_date
-                HAVING
-                    SUM(tb.dr_amount) - SUM(tb.cr_amount) <> 0
-            """,
-            (company_id.id,),
+            SELECT
+                tb.account_number,
+                ca.currency_id,
+                SUM(tb.dr_amount) AS dr_total,
+                SUM(tb.cr_amount) AS cr_total
+            FROM
+                idil_transaction_bookingline tb
+            JOIN idil_chart_account ca ON tb.account_number = ca.id
+            WHERE
+                tb.company_id = %s  -- Filter by company
+                AND tb.transaction_date <= %s  -- Filter by as_of_date
+                AND ca.name != 'Exchange Clearing Account'  -- Exclude Exchange Clearing Account
+            GROUP BY
+                tb.account_number,ca.code, ca.currency_id
+            HAVING
+                SUM(tb.dr_amount) - SUM(tb.cr_amount) <> 0  -- Exclude accounts with zero net balance
+            ORDER BY
+                ca.code
+        """,
+            (company_id.id, as_of_date),
         )
+
         result = self.env.cr.dictfetchall()
 
         total_dr_balance = 0
@@ -480,46 +482,37 @@ class TransactionBookingline(models.Model):
         self.env["idil.company.trial.balance"].search([]).unlink()
 
         usd_currency = self.env["res.currency"].search([("name", "=", "USD")], limit=1)
-        precision_digits = usd_currency.decimal_places
 
         for line in result:
             account = self.env["idil.chart.account"].browse(line["account_number"])
-            dr_total = float_round(line["dr_total"], precision_digits=precision_digits)
-            cr_total = float_round(line["cr_total"], precision_digits=precision_digits)
-            transaction_date = line["transaction_date"]
+            dr_total = line["dr_total"]
+            cr_total = line["cr_total"]
 
+            # Convert amounts to USD using the as_of_date
             if line["currency_id"] != usd_currency.id:
                 currency = self.env["res.currency"].browse(line["currency_id"])
-                dr_total = float_round(
-                    currency._convert(
-                        dr_total,
-                        usd_currency,
-                        self.env.user.company_id,
-                        transaction_date,
-                    ),
-                    precision_digits=precision_digits,
+                dr_total = currency._convert(
+                    dr_total, usd_currency, self.env.user.company_id, as_of_date
                 )
-                cr_total = float_round(
-                    currency._convert(
-                        cr_total,
-                        usd_currency,
-                        self.env.user.company_id,
-                        transaction_date,
-                    ),
-                    precision_digits=precision_digits,
+                cr_total = currency._convert(
+                    cr_total, usd_currency, self.env.user.company_id, as_of_date
                 )
 
+            # Calculate the net balance
             net_balance = dr_total - cr_total
 
             if net_balance > 0:
+                # Positive net balance indicates a debit balance
                 dr_balance = net_balance
                 cr_balance = 0
                 total_dr_balance += dr_balance
             else:
+                # Negative net balance indicates a credit balance
                 dr_balance = 0
                 cr_balance = abs(net_balance)
                 total_cr_balance += cr_balance
 
+            # Create the trial balance record
             self.env["idil.company.trial.balance"].create(
                 {
                     "account_number": account.id,
@@ -530,16 +523,7 @@ class TransactionBookingline(models.Model):
                 }
             )
 
-        total_dr_balance = float_round(
-            total_dr_balance, precision_digits=precision_digits
-        )
-        total_cr_balance = float_round(
-            total_cr_balance, precision_digits=precision_digits
-        )
-
-        if abs(total_dr_balance - total_cr_balance) <= 0.01:
-            total_cr_balance = total_dr_balance
-
+        # Add a grand total row
         self.env["idil.company.trial.balance"].create(
             {
                 "account_number": None,
@@ -751,14 +735,16 @@ class CompanyTrialBalanceWizard(models.TransientModel):
     _description = "Company Trial Balance Wizard"
 
     company_id = fields.Many2one("res.company", string="Company", required=True)
+    as_of_date = fields.Date(string="As of Date", required=True)
 
     def action_compute_company_trial_balance(self):
         self.ensure_one()
         usd_currency = self.env["res.currency"].search([("name", "=", "USD")], limit=1)
         action = self.env["idil.transaction_bookingline"].compute_company_trial_balance(
-            usd_currency, self.company_id
+            usd_currency, self.company_id, self.as_of_date
         )
         action["context"] = {
-            "default_name": f"Company Trial Balance for {self.company_id.name}"
+            "default_name": f"Company Trial Balance for {self.company_id.name} as of {self.as_of_date}"
         }
+
         return action
