@@ -226,9 +226,15 @@
               
 
 
+  <menuitem id="menu_product_adjuemnt_root"
+              name="Product Adjustment"
+              parent="menu_sales"
+              sequence="2"/>
 
-
-
+  <menuitem id="menu_product_adjustment" name="Product Adjustments"
+              parent="menu_product_adjuemnt_root"
+              action="action_product_adjustment"
+              sequence="10"/>
 
     <!-- Order Operations Menu -->
     <menuitem id="menu_Order_Operations"

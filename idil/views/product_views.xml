@@ -102,6 +102,7 @@
                                     <field name="cost" readonly="1"/>
                                     <field name="currency_cogs_id"/>
                                     <field name="account_cogs_id"/>
+                                    <field name="account_adjustment_id"/>
                                     <field name="purchase_description"/>
                                 </group>
                             </page>
