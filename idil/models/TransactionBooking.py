@@ -126,7 +126,6 @@ class TransactionBooking(models.Model):
     manufacturing_order_id = fields.Many2one(
         "idil.manufacturing.order",
         string="Manufacturing Order",
-        required=True,
         tracking=True,
         ondelete="cascade",  # Add this to enable automatic deletion
     )
@@ -302,7 +301,8 @@ class TransactionBookingline(models.Model):
     )
 
     # order_line = fields.Char(string='Order Line')
-    order_line = fields.Integer(string="Order Line")
+    # order_line = fields.Integer(string="Order Line")
+    order_line = fields.Many2one("idil.purchase_order.line", ondelete="cascade")
 
     description = fields.Char(string="Description")
     item_id = fields.Many2one("idil.item", string="Item")

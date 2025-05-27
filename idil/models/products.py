@@ -106,6 +106,13 @@ class Product(models.Model):
         "('currency_id', '=', currency_cogs_id)]",
     )
 
+    account_adjustment_id = fields.Many2one(
+        "idil.chart.account",
+        string="Adjustment Account (Expense)",
+        domain="[('account_type', 'like', 'Adjustment'), ('code', 'like', '5%'), "
+        "('currency_id', '=', currency_cogs_id)]",
+    )
+
     is_commissionable = fields.Boolean(string="Commissionable", default=False)
 
     sales_currency_id = fields.Many2one(

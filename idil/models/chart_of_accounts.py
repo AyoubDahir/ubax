@@ -513,15 +513,16 @@ class Account(models.Model):
         ('PL', 'Profit and Loss'),
     ]
     account_type = [
-        ('cash', 'Cash'),
-        ('bank_transfer', 'Bank'),
-        ('payable', 'Account Payable'),
-        ('discount', 'Account Discount'),
-        ('commission', 'Account Commission'),
-        ('receivable', 'Account Receivable'),
-        ('COGS', 'COGS'),
-        ('kitchen', 'kitchen'),
-        ('Owners Equity', 'Owners Equity'),
+        ("cash", "Cash"),
+        ("bank_transfer", "Bank"),
+        ("payable", "Account Payable"),
+        ("discount", "Account Discount"),
+        ("commission", "Account Commission"),
+        ("receivable", "Account Receivable"),
+        ("COGS", "COGS"),
+        ("kitchen", "kitchen"),
+        ("Owners Equity", "Owners Equity"),
+        ("Adjustment", "Adjustment"),
     ]
 
     code = fields.Char(string='Account Code', required=True, tracking=True)
