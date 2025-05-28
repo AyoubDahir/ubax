@@ -10,5 +10,12 @@
             <field name="padding">5</field> <!-- Sequence number padding, e.g., 00001 -->
             <field name="company_id" eval="False"/> <!-- Apply to all companies; set specific company ID if needed -->
         </record>
+
+        <record id="seq_product_purchase_order" model="ir.sequence">
+            <field name="name">Product Purchase Order</field>
+            <field name="code">product.purchase.order.seq</field>
+            <field name="prefix">Purchase Product/</field>
+            <field name="padding">4</field>
+        </record>
     </data>
 </odoo>

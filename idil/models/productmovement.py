@@ -25,3 +25,8 @@ class ProductMovement(models.Model):
         "idil.sales.sales_personnel", string="Salesperson"
     )
     customer_id = fields.Many2one("idil.customer.registration", string="Customer Id")
+    product_purchase_order_id = fields.Many2one(
+        "idil.product.purchase.order",
+        string="Product Purchase Order",
+        ondelete="cascade",
+    )

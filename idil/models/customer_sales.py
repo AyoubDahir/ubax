@@ -242,6 +242,21 @@ class CustomerSaleOrder(models.Model):
                         f"Actual currency: {product.income_account_id.currency_id.name}."
                     )
                 # ------------------------------------------------------------------------------------------------------
+                # Validate that the product has a COGS account
+                if not product.account_cogs_id:
+                    raise ValidationError(
+                        f"No COGS (Cost of Goods Sold) account assigned for the product '{product.name}'.\n"
+                        f"Please configure 'COGS Account' in the product settings before continuing."
+                    )
+                # === Validate all required accounts ===
+                if not product.asset_account_id:
+                    raise ValidationError(
+                        f"Product '{product.name}' has no Asset account."
+                    )
+                if not product.income_account_id:
+                    raise ValidationError(
+                        f"Product '{product.name}' has no Income account."
+                    )
                 # Credit entry Expanses inventory of COGS account for the product
                 self.env["idil.transaction_bookingline"].create(
                     {

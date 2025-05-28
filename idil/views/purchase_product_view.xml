@@ -1,0 +1,50 @@
+<!-- Form view -->
+<odoo>
+
+<record id="view_product_purchase_order_form" model="ir.ui.view">
+    <field name="name">Product Purchase Order Form</field>
+    <field name="model">idil.product.purchase.order</field>
+    <field name="arch" type="xml">
+        <form string="Product Purchase Order">
+            <sheet>
+                <group>
+                    <field name="name" readonly="1"/>
+                    <field name="vendor_id"/>
+                    <field name="payment_method"/>
+                    <field name="account_number"/>
+                   
+                    <field name="amount" readonly="1"/>
+                </group>
+                <field name="order_lines">
+                    <tree editable="bottom">
+                        <field name="product_id"/>
+                        <field name="quantity"/>
+                        <field name="cost_price"/>
+                        <field name="amount" readonly="1"/>
+                    </tree>
+                </field>
+            </sheet>
+        </form>
+    </field>
+</record>
+
+<!-- Tree view -->
+<record id="view_product_purchase_order_tree" model="ir.ui.view">
+    <field name="name">Product Purchase Order Tree</field>
+    <field name="model">idil.product.purchase.order</field>
+    <field name="arch" type="xml">
+        <tree>
+            <field name="name"/>
+            <field name="vendor_id"/>
+            <field name="payment_method"/>
+            <field name="amount"/>
+        </tree>
+    </field>
+</record>
+
+<record id="action_product_purchase_order" model="ir.actions.act_window">
+    <field name="name">Product Purchase Orders</field>
+    <field name="res_model">idil.product.purchase.order</field>
+    <field name="view_mode">tree,form</field>
+</record>
+</odoo>

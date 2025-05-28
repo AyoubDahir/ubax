@@ -40,3 +40,4 @@ from . import StockAdjustment
 from . import customer_sales
 from . import account_statement
 from . import product_adjustment
+from . import Purchaseproduct

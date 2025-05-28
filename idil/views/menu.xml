@@ -117,15 +117,22 @@
               sequence="5"/>
 
     <menuitem id="menu_purchase_orders"
-              name="Purchase Orders"
+              name="Purchase Items"
               parent="menu_purchase"
               sequence="1"
               action="action_purchase_order"/>
+              
+    <menuitem id="menu_product_purchase_order" 
+        name="Purchase Products" 
+        parent="menu_purchase" 
+         sequence="2"
+        action="action_product_purchase_order"/>
+
 
     <menuitem id="menu_idil_view_purchase_order"
               name="View Purchase Oder"
               action="action_view_purchase_order"
-              sequence="2"
+              sequence="3"
               parent="menu_purchase"/>
 
     <!--    <menuitem id="menu_pending_transactions"-->
@@ -138,7 +145,7 @@
               name="Vendor Transactions"
               parent="menu_purchase"
               action="action_vendor_transaction"
-              sequence="4"/>
+              sequence="3"/>
 
 
     <menuitem id="Manufacturing"
@@ -413,4 +420,7 @@
               action="action_delete_models"
               parent="menu_idil_home"
               sequence="1000"/>
+    
+     
+  
 </odoo>

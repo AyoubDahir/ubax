@@ -99,7 +99,10 @@
                                     <field name="bom_id"/>
                                 </group>
                                 <group>
-                                    <field name="cost" readonly="1"/>
+                                
+                                    <field name="is_cost_manual_purchase" />
+                                    <field name="cost"/>
+                                     
                                     <field name="currency_cogs_id"/>
                                     <field name="account_cogs_id"/>
                                     <field name="account_adjustment_id"/>

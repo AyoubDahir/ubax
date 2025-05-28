@@ -34,8 +34,19 @@ class Product(models.Model):
     )
 
     sale_price = fields.Float(string="Sales Price", required=True)
+
+    is_cost_manual_purchase = fields.Boolean(
+        string="Enter Cost Manually",
+        help="Enable this option to manually enter the product cost instead of using the cost from the Bill of Materials (BOM).",
+        default=False,
+    )
+
     cost = fields.Float(
-        string="Cost", compute="_compute_product_cost", digits=(16, 5), store=True
+        string="Cost",
+        compute="_compute_product_cost",
+        digits=(16, 5),
+        store=True,
+        readonly=False,  # ✅ this is key to allow manual editing
     )
     sales_description = fields.Text(string="Sales Description")
     purchase_description = fields.Text(string="Purchase Description")
@@ -352,9 +363,19 @@ class Product(models.Model):
                     }
                 }
 
-    @api.depends("bom_id", "bom_id.total_cost")
+    # @api.depends("bom_id", "bom_id.total_cost")
+    # def _compute_product_cost(self):
+    #     for product in self:
+    #         if product.bom_id and product.bom_id.total_cost:
+    #             product.cost = product.bom_id.total_cost
+    #         else:
+    #             product.cost = 0.0
+    @api.depends("bom_id", "bom_id.total_cost", "is_cost_manual_purchase")
     def _compute_product_cost(self):
         for product in self:
+            if product.is_cost_manual_purchase:
+                # Don't compute, leave manually entered value untouched
+                continue
             if product.bom_id and product.bom_id.total_cost:
                 product.cost = product.bom_id.total_cost
             else:
@@ -415,3 +436,14 @@ class Product(models.Model):
                         "image_1920": product.image_1920,
                     }
                 )
+
+    @api.onchange("cost")
+    def _onchange_cost(self):
+        for rec in self:
+            if not rec.is_cost_manual_purchase:
+                return {
+                    "warning": {
+                        "title": "Manual Cost Entry Disabled",
+                        "message": "To manually enter the cost, please enable the 'Enter Cost Manually' option first.",
+                    }
+                }

@@ -88,6 +88,7 @@
         "views/customer_sales_view.xml",
         "views/report_account_statements.xml",
         "views/product_adjustment_views.xml",
+        "views/purchase_product_view.xml",
         "views/menu.xml",
     ],
 }

@@ -43,6 +43,10 @@
             <field name="name">Inventory Opening Balance</field>
             <field name="description">Inventory Opening Balance</field>
         </record>
+        <record id="trx_source_manual" model="idil.transaction.source">
+            <field name="name">Purchase Prodcuts</field>
+            <field name="description">Purchase Prodcuts</field>
+        </record>
 
 
 
