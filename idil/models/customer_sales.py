@@ -114,16 +114,6 @@ class CustomerSaleOrder(models.Model):
 
         # Proceed with creating the SaleOrder with the updated vals
         new_order = super(CustomerSaleOrder, self).create(vals)
-        # Create a corresponding SalesReceipt
-        # self.env["idil.sales.receipt"].create(
-        #     {
-        #         "sales_order_id": new_order.id,
-        #         "due_amount": new_order.order_total,
-        #         "paid_amount": 0,
-        #         "remaining_amount": new_order.order_total,
-        #         "salesperson_id": new_order.customer_id.id,
-        #     }
-        # )
 
         for line in new_order.order_lines:
             self.env["idil.product.movement"].create(
@@ -210,12 +200,21 @@ class CustomerSaleOrder(models.Model):
                     # Include other necessary fields
                 }
             )
+            self.env["idil.sales.receipt"].create(
+                {
+                    "cusotmer_sale_order_id": order.id,
+                    "due_amount": order.order_total,
+                    "paid_amount": 0,
+                    "remaining_amount": order.order_total,
+                    "customer_id": order.customer_id.id,
+                }
+            )
 
             total_debit = 0
             # For each order line, create a booking line entry for debit
             for line in order.order_lines:
                 product = line.product_id
-                product_cost_amount = product.cost * line.quantity * self.rate
+                product_cost_amount = product.cost * line.quantity
                 _logger.info(
                     f"Product Cost Amount: {product_cost_amount} for product {product.name}"
                 )
@@ -319,35 +318,178 @@ class CustomerSaleOrder(models.Model):
                 )
 
     def write(self, vals):
-        # Call the original write method
-        res = super(CustomerSaleOrder, self).write(vals)
-        # After the write operation, update booking entries if necessary
-        self.update_booking_entry()
-        return res
-
-    def update_booking_entry(self):
-        # Find the related TransactionBooking record
-        booking = self.env["idil.transaction_booking"].search(
-            [("sale_order_id", "=", self.id)], limit=1
-        )
-        if booking:
-            booking.amount = self.order_total
-            booking.update_related_booking_lines()
-
-    def unlink(self):
-
         for order in self:
-            # Adjust product stock quantities for each order line before deletion
+            # Loop through the lines in the database before they are updated
             for line in order.order_lines:
-                if line.product_id:
-                    # Assuming SaleOrderLine has a method 'update_product_stock' to adjust stock quantities
-                    CustomerSaleOrder.update_product_stock(
-                        line.product_id, -line.quantity
+                if not line.product_id:
+                    continue
+
+                # Fetch original (pre-update) record from DB
+                original_line = self.env["idil.customer.sale.order.line"].browse(
+                    line.id
+                )
+                old_qty = original_line.quantity
+
+                # Get new quantity from vals if being changed, else use current
+                new_qty = line.quantity
+                if "order_lines" in vals:
+                    for command in vals["order_lines"]:
+                        if command[0] == 1 and command[1] == line.id:
+                            if "quantity" in command[2]:
+                                new_qty = command[2]["quantity"]
+
+                product = line.product_id
+
+                # Check if increase
+                if new_qty > old_qty:
+                    diff = new_qty - old_qty
+                    if product.stock_quantity < diff:
+                        raise ValidationError(
+                            f"Not enough stock for product '{product.name}'.\n"
+                            f"Available: {product.stock_quantity}, Required additional: {diff}"
+                        )
+                    product.stock_quantity -= diff
+
+                # If decrease
+                elif new_qty < old_qty:
+                    diff = old_qty - new_qty
+                    product.stock_quantity += diff
+
+        # === Perform the write ===
+        res = super(CustomerSaleOrder, self).write(vals)
+
+        # === Update related records ===
+        for order in self:
+            # -- Update Product Movements --
+            movements = self.env["idil.product.movement"].search(
+                [("source_document", "=", order.name)]
+            )
+            for movement in movements:
+                matching_line = order.order_lines.filtered(
+                    lambda l: l.product_id.id == movement.product_id.id
+                )
+                if matching_line:
+                    movement.write(
+                        {
+                            "quantity": matching_line[0].quantity * -1,
+                            "date": fields.Datetime.now(),
+                            "customer_id": order.customer_id.id,
+                        }
                     )
 
-        # Revert the state of related SalespersonOrder(s) back to 'draft'
+            # -- Update Sales Receipt --
+            receipt = self.env["idil.sales.receipt"].search(
+                [("cusotmer_sale_order_id", "=", order.id)], limit=1
+            )
+            if receipt:
+                receipt.write(
+                    {
+                        "due_amount": order.order_total,
+                        "paid_amount": order.total_paid,
+                        "remaining_amount": order.balance_due,
+                        "customer_id": order.customer_id.id,
+                    }
+                )
 
-        # Proceed to delete the SaleOrder(s) after adjustments
+            # -- Update Transaction Booking & Booking Lines --
+            booking = self.env["idil.transaction_booking"].search(
+                [("cusotmer_sale_order_id", "=", order.id)], limit=1
+            )
+            if booking:
+                booking.write(
+                    {
+                        "trx_date": fields.Date.context_today(self),
+                        "amount": order.order_total,
+                        "customer_id": order.customer_id.id,
+                        "payment_method": order.payment_method or "bank_transfer",
+                        "payment_status": "pending",
+                    }
+                )
+
+                lines = self.env["idil.transaction_bookingline"].search(
+                    [("transaction_booking_id", "=", booking.id)]
+                )
+                for line in lines:
+                    matching_order_line = order.order_lines.filtered(
+                        lambda l: l.product_id.id == line.product_id.id
+                    )
+                    if matching_order_line:
+                        order_line = matching_order_line[0]
+                        updated_values = {
+                            "transaction_date": fields.Date.context_today(self)
+                        }
+                        if line.transaction_type == "dr":
+                            if line.account_number.id in [
+                                order.customer_id.account_receivable_id.id,
+                                order.customer_id.account_cash_id.id,
+                            ]:
+                                updated_values["dr_amount"] = order_line.subtotal
+                            else:
+                                updated_values["dr_amount"] = (
+                                    order_line.product_id.cost
+                                    * order_line.quantity
+                                    * order.rate
+                                )
+                        elif line.transaction_type == "cr":
+                            if (
+                                line.account_number.id
+                                == order_line.product_id.asset_account_id.id
+                            ):
+                                updated_values["cr_amount"] = (
+                                    order_line.product_id.cost
+                                    * order_line.quantity
+                                    * order.rate
+                                )
+                            elif (
+                                line.account_number.id
+                                == order_line.product_id.income_account_id.id
+                            ):
+                                updated_values["cr_amount"] = order_line.subtotal
+                        line.write(updated_values)
+
+        return res
+
+    def unlink(self):
+        for order in self:
+            for line in order.order_lines:
+                product = line.product_id
+                if product:
+                    # 1. Restore the stock
+                    product.stock_quantity += line.quantity
+
+                    # 2. Delete related product movement
+                    self.env["idil.product.movement"].search(
+                        [
+                            ("product_id", "=", product.id),
+                            ("source_document", "=", order.name),
+                        ]
+                    ).unlink()
+
+                    # 3. Delete related booking lines
+                    booking_lines = self.env["idil.transaction_bookingline"].search(
+                        [
+                            ("product_id", "=", product.id),
+                            (
+                                "transaction_booking_id.cusotmer_sale_order_id",
+                                "=",
+                                order.id,
+                            ),
+                        ]
+                    )
+                    booking_lines.unlink()
+
+            # 4. Delete sales receipt
+            self.env["idil.sales.receipt"].search(
+                [("cusotmer_sale_order_id", "=", order.id)]
+            ).unlink()
+
+            # 5. Delete transaction booking if it exists
+            booking = self.env["idil.transaction_booking"].search(
+                [("cusotmer_sale_order_id", "=", order.id)], limit=1
+            )
+            if booking:
+                booking.unlink()
+
         return super(CustomerSaleOrder, self).unlink()
 
 

@@ -49,3 +49,17 @@ class Customer(models.Model):
         "customer_id",  # Field in the sale order model that links back to customer
         string="Sale Orders",
     )
+    customer_balance = fields.Float(
+        string="Customer Balance",
+        compute="_compute_customer_balance",
+        store=False,  # set to True if you want to store the result in the database
+    )
+
+    @api.depends("sale_order_ids.balance_due", "sale_order_ids.state")
+    def _compute_customer_balance(self):
+        for rec in self:
+            balance = 0.0
+            for order in rec.sale_order_ids:
+                if order.state != "cancel":
+                    balance += order.balance_due
+            rec.customer_balance = balance

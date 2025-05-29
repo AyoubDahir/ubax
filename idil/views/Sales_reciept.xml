@@ -17,6 +17,8 @@
                             <group string="Sales Details" col="2">
                                 <field name="sales_order_id" readonly="1"/>
                                 <field name="salesperson_id" readonly="1"/>
+                                <field name="cusotmer_sale_order_id" readonly="1"/>
+                                <field name="customer_id" readonly="1"/>
                                 <field name="receipt_date"/>
                                 <field name="payment_account_currency_id"/>
                                 <field name="payment_account"/>
@@ -53,6 +55,8 @@
                 <tree string="Sales Receipt">
                     <field name="sales_order_id"/>
                     <field name="salesperson_id"/>
+                    <field name="cusotmer_sale_order_id"/>
+                    <field name="customer_id" />
                     <field name="receipt_date"/>
                     <field name="due_amount"/>
                     <field name="payment_status"/>

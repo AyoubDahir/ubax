@@ -51,6 +51,7 @@ class TransactionBooking(models.Model):
             ("bank_transfer", "Bank Transfer"),
             ("other", "Other"),
             ("internal", "Internal"),
+            ("ar", "A/R"),
         ],
         string="Payment Method",
     )

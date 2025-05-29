@@ -12,6 +12,11 @@
                 
                 <field name="order_date"/>
                 <field name="order_total"/>
+                <field name="total_paid"/>
+                <field name="balance_due"/>
+                
+                
+
                 <field name="currency_id"/>
                 <field name="rate"/>
                 <field name="state"/>

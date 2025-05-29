@@ -6,9 +6,7 @@ class SalesReceipt(models.Model):
     _name = "idil.sales.receipt"
     _description = "Sales Receipt"
 
-    sales_order_id = fields.Many2one(
-        "idil.sale.order", string="Sale Order", required=True
-    )
+    sales_order_id = fields.Many2one("idil.sale.order", string="Sale Order")
     salesperson_id = fields.Many2one(
         "idil.sales.sales_personnel",
         string="Salesperson",
@@ -16,6 +14,15 @@ class SalesReceipt(models.Model):
         store=True,
         readonly=True,
     )
+    customer_id = fields.Many2one(
+        "idil.customer.registration", string="Customer", required=True
+    )
+    cusotmer_sale_order_id = fields.Many2one(
+        "idil.customer.sale.order",
+        string="Customer Sale Order",
+        ondelete="cascade",
+    )
+
     receipt_date = fields.Datetime(
         string="Receipt Date", default=fields.Datetime.now, required=True
     )
@@ -60,17 +67,43 @@ class SalesReceipt(models.Model):
             if record.amount_paying > record.remaining_amount:
                 raise UserError("You cannot pay more than the remaining due amount.")
 
-            # Check currency consistency
-            if (
-                record.payment_account_currency_id
-                != record.sales_order_id.sales_person_id.account_receivable_id.currency_id
-            ):
+            # Validate payment currency consistency
+            if record.sales_order_id:
+                # This is a salesperson-related sale
+                expected_currency = (
+                    record.sales_order_id.sales_person_id.account_receivable_id.currency_id
+                )
+                entity = f"Salesperson {record.sales_order_id.sales_person_id.name}"
+            elif record.cusotmer_sale_order_id:
+                # This is a customer-related sale
+                expected_currency = record.customer_id.account_receivable_id.currency_id
+                entity = f"Customer {record.customer_id.name}"
+            else:
                 raise UserError(
-                    "The payment currency does not match the receivable account currency."
+                    "Missing sales order reference. Cannot determine related entity."
+                )
+
+            if record.payment_account_currency_id != expected_currency:
+                raise UserError(
+                    f"The payment currency does not match the receivable account currency for {entity}."
                 )
 
             record.paid_amount += record.amount_paying
             record.remaining_amount -= record.amount_paying
+
+            # Determine the correct A/R account based on the type of order
+            if record.sales_order_id:
+                ar_account_id = (
+                    record.sales_order_id.sales_person_id.account_receivable_id
+                )
+                order_name = record.sales_order_id.name
+            elif record.cusotmer_sale_order_id:
+                ar_account_id = record.customer_id.account_receivable_id
+                order_name = record.cusotmer_sale_order_id.name
+            else:
+                raise UserError(
+                    "Missing sale order reference to determine A/R account."
+                )
 
             # Search for transaction source ID using "Receipt"
             trx_source = self.env["idil.transaction.source"].search(
@@ -85,6 +118,7 @@ class SalesReceipt(models.Model):
                     "order_number": record.sales_order_id.name,
                     "trx_source_id": trx_source.id,
                     "payment_method": "other",
+                    "sale_order_id": record.sales_order_id.id,
                     "pos_payment_method": False,  # Update if necessary
                     "payment_status": (
                         "paid" if record.remaining_amount <= 0 else "partial_paid"
@@ -99,6 +133,11 @@ class SalesReceipt(models.Model):
                 {
                     "transaction_booking_id": transaction_booking.id,
                     "transaction_type": "dr",
+                    "description": (
+                        f"Receipt {record.sales_order_id.name}"
+                        if record.payment_account
+                        else f"Cash {record.sales_order_id.name}"
+                    ),
                     "account_number": record.payment_account.id,
                     "dr_amount": record.amount_paying,
                     "cr_amount": 0,
@@ -110,7 +149,12 @@ class SalesReceipt(models.Model):
                 {
                     "transaction_booking_id": transaction_booking.id,
                     "transaction_type": "cr",
-                    "account_number": record.sales_order_id.sales_person_id.account_receivable_id.id,
+                    "description": (
+                        f"Receipt {order_name}"
+                        if record.payment_account
+                        else f"Cash {order_name}"
+                    ),
+                    "account_number": ar_account_id.id,
                     "dr_amount": 0,
                     "cr_amount": record.amount_paying,
                     "transaction_date": fields.Datetime.now(),
@@ -129,6 +173,33 @@ class SalesReceipt(models.Model):
                     "paid_amount": record.amount_paying,
                 }
             )
+            # Only create salesperson transaction if the record is for a salesperson (not customer)
+            if record.sales_order_id:
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": record.sales_order_id.sales_person_id.id,
+                        "date": fields.Date.today(),
+                        "order_id": record.sales_order_id.id,
+                        "transaction_type": "in",
+                        "amount": record.amount_paying,
+                        "description": f"Sales Payment Amount for - Receipt ID ({record.id}) - with Order name -- {record.sales_order_id.name}",
+                    }
+                )
+            # If the receipt is for a customer, create a payment record and update sale order payment tracking
+            if record.cusotmer_sale_order_id:
+                # Create customer sale payment entry
+                self.env["idil.customer.sale.payment"].create(
+                    {
+                        "order_id": record.cusotmer_sale_order_id.id,
+                        "payment_method": "cash",  # or use dynamic logic to determine the method
+                        "account_id": record.payment_account.id,
+                        "amount": record.amount_paying,
+                    }
+                )
+
+            # Force recompute on customer sale order
+            record.cusotmer_sale_order_id._compute_total_paid()
+            record.cusotmer_sale_order_id._compute_balance_due()
 
             record.amount_paying = 0.0  # Reset the amount paying
 

@@ -240,37 +240,36 @@ class ProductPurchaseOrderLine(models.Model):
                 }
             )
 
-        # Book vendor transaction if payment is A/P
-        if order.payment_method == "ap":
-            self.env["idil.vendor_transaction"].create(
+            # Book vendor transaction if payment is A/P
+            if order.payment_method == "ap":
+                self.env["idil.vendor_transaction"].create(
+                    {
+                        "product_purchase_order_id": order.id,
+                        "transaction_number": transaction_number,
+                        "transaction_date": fields.Date.today(),
+                        "vendor_id": order.vendor_id.id,
+                        "amount": line.amount,
+                        "remaining_amount": line.amount,
+                        "paid_amount": 0,
+                        "payment_method": "ap",
+                        "reffno": order.name,
+                        "transaction_booking_id": booking.id,
+                        "payment_status": "pending",
+                    }
+                )
+            # Create product movement record
+            self.env["idil.product.movement"].create(
                 {
+                    "product_id": line.product_id.id,
+                    "movement_type": "in",
                     "product_purchase_order_id": order.id,
-                    "transaction_number": transaction_number,
-                    "transaction_date": fields.Date.today(),
-                    "vendor_id": order.vendor_id.id,
-                    "amount": line.amount,
-                    "remaining_amount": line.amount,
-                    "paid_amount": 0,
-                    "payment_method": "ap",
-                    "reffno": order.name,
-                    "transaction_booking_id": booking.id,
-                    "payment_status": "pending",
+                    "quantity": line.quantity,
+                    "date": fields.Datetime.now(),
+                    "source_document": order.name,
                 }
             )
-        # Create product movement record
-        self.env["idil.product.movement"].create(
-            {
-                "product_id": line.product_id.id,
-                "movement_type": "in",
-                "product_purchase_order_id": order.id,
-                "quantity": line.quantity,
-                "date": fields.Datetime.now(),
-                "source_document": order.name,
-            }
-        )
 
-        # ✅ Increase stock quantity
-        product.stock_quantity += line.quantity
+            product.stock_quantity += line.quantity  # ✅ Increase stock quantity
 
     def write(self, vals):
         for record in self:
