@@ -55,6 +55,18 @@ class Customer(models.Model):
         store=False,  # set to True if you want to store the result in the database
     )
 
+    # Relation field to display related sale orders (transactions)
+    cusotmer_payment_ids = fields.One2many(
+        "idil.customer.sale.payment",  # Model name of the sale order
+        "customer_id",  # Field in the sale order model that links back to customer
+        string="Sale Orders",
+    )
+    customer_Payment_balance = fields.Float(
+        string="Customer Balance",
+        compute="_compute_customer_payment_balance",
+        store=False,  # set to True if you want to store the result in the database
+    )
+
     @api.depends("sale_order_ids.balance_due", "sale_order_ids.state")
     def _compute_customer_balance(self):
         for rec in self:

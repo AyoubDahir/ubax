@@ -191,6 +191,7 @@ class SalesReceipt(models.Model):
                 self.env["idil.customer.sale.payment"].create(
                     {
                         "order_id": record.cusotmer_sale_order_id.id,
+                        "customer_id": record.cusotmer_sale_order_id.customer_id.id,
                         "payment_method": "cash",  # or use dynamic logic to determine the method
                         "account_id": record.payment_account.id,
                         "amount": record.amount_paying,

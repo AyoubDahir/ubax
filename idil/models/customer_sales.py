@@ -605,6 +605,19 @@ class CustomerSalePayment(models.Model):
     order_id = fields.Many2one(
         "idil.customer.sale.order", string="Sale Order", required=True
     )
+    customer_id = fields.Many2one(
+        "idil.customer.registration", string="Customer", required=True
+    )
+    # Currency fields
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        required=True,
+        default=lambda self: self.env["res.currency"].search(
+            [("name", "=", "SL")], limit=1
+        ),
+        readonly=True,
+    )
 
     payment_method = fields.Selection(
         [("cash", "Cash"), ("ar", "A/R")],
