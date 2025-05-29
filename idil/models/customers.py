@@ -75,3 +75,11 @@ class Customer(models.Model):
                 if order.state != "cancel":
                     balance += order.balance_due
             rec.customer_balance = balance
+
+    @api.depends("cusotmer_payment_ids.amount")
+    def _compute_customer_payment_balance(self):
+        for rec in self:
+            balance = 0.0
+            for order in rec.sale_order_ids:
+                balance += order.balance_due
+            rec.customer_balance = balance
