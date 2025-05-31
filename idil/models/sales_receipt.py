@@ -14,9 +14,7 @@ class SalesReceipt(models.Model):
         store=True,
         readonly=True,
     )
-    customer_id = fields.Many2one(
-        "idil.customer.registration", string="Customer", required=True
-    )
+    customer_id = fields.Many2one("idil.customer.registration", string="Customer")
     cusotmer_sale_order_id = fields.Many2one(
         "idil.customer.sale.order",
         string="Customer Sale Order",
