@@ -96,6 +96,7 @@
         "views/report_account_statements.xml",
         "views/product_adjustment_views.xml",
         "views/purchase_product_view.xml",
+        "views/menu_hr.xml",
         "views/menu.xml",
     ],
 }
