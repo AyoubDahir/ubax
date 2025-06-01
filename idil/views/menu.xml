@@ -388,7 +388,7 @@
     <!-- <menuitem id="menu_idil_employee"
               name="Employees"
               parent="menu_idil_home"
-              action="action_idil_employee"/>
+              action="action_idil_employee"/> -->
     <!-- Kitchen Menu Item -->
     <menuitem id="menu_kitchen_root"
               name="Kitchens"
