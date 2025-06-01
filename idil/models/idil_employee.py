@@ -237,6 +237,7 @@ class IdilEmployee(models.Model):
     user_id = fields.Many2one(
         "res.users", string="User", help="Link to the related Odoo user", tracking=True
     )
+    customer_id = fields.Many2one("idil.customer.registration", string="Customer")
 
     @api.depends("contract_start_date", "contract_end_date")
     def _compute_status(self):
