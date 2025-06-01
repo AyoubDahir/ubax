@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <record id="view_idil_employee_salary_tree" model="ir.ui.view">
+        <field name="name">idil.employee.salary.tree</field>
+        <field name="model">idil.employee.salary</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="employee_id"/>
+                <field name="salary_date"/>
+                <field name="currency_id"/>
+                <field name="basic_salary" sum="Total"/>
+                <field name="bonus" sum="Total"/>
+                <field name="deductions" sum="Total"/>
+                <field name="advance_deduction" sum="Total"/>
+                <field name="total_salary" sum="Total"/>
+                <field name="is_paid"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_idil_employee_salary_form" model="ir.ui.view">
+        <field name="name">idil.employee.salary.form</field>
+        <field name="model">idil.employee.salary</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <h1>
+                        <field name="employee_id"/>
+                    </h1>
+                    <notebook>
+                        <!-- General Information Tab -->
+                        <page string="General Information">
+                            <group>
+                                <group>
+                                    <field name="employee_id" required="1"/>
+                                    <field name="salary_date" required="1"/>
+                                </group>
+
+                                <group>
+                                    <field name="is_paid"/>
+                                    <field name="remarks"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="account_id"/>
+                            </group>
+                            <group string="Salary Components">
+                                <group>
+                                    <field name="basic_salary" readonly="1"/>
+                                    <field name="bonus" readonly="1"/>
+                                </group>
+                                <group>
+                                    <field name="deductions"/>
+                                    <field name="advance_deduction" readonly="1"/>
+                                </group>
+                            </group>
+                            <group string="Net Salary">
+                                <field name="total_salary" readonly="1" class="oe_highlight"/>
+                            </group>
+                            <div class="oe_chatter">
+                                <field name="message_follower_ids"/>
+                                <field name="message_ids"/>
+                                <field name="activity_ids"/>
+                            </div>
+                            <button name="action_generate_salary_report_pdf"
+                                    string="Print Payment Slip"
+                                    type="object"
+                                    class="btn-primary"/>
+
+
+                            <button name="generate_balance_sheet_report_pdf"
+                                    string="Print Balance sheet Report"
+                                    type="object"
+                                    class="btn-info"/>
+
+                        </page>
+                        <page string="Salary Advances This Month">
+                            <field name="advances_this_month" widget="one2many_list" readonly="1">
+                                <tree string="Salary Advances">
+                                    <field name="request_date"/>
+                                    <field name="currency_id"/>
+
+                                    <field name="advance_amount" sum="total"/>
+                                    <field name="state"/>
+                                    <field name="remarks"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_idil_employee_salary" model="ir.actions.act_window">
+        <field name="name">Salaries</field>
+        <field name="res_model">idil.employee.salary</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{}</field>
+    </record>
+</odoo>

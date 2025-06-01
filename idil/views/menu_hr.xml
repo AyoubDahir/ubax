@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <!-- Hall Management Menu -->
+    <menuitem id="menu_idil_staff_management_root"
+              name="Employee Management"/>
+
+    <menuitem id="menu_idil_employee_creation"
+              name="Registration"
+              parent="menu_idil_staff_management_root"/>
+
+
+    <menuitem id="menu_idil_employee"
+              name="Registration of New Employees"
+              parent="menu_idil_employee_creation"
+              action="action_idil_employee"/>
+
+    <menuitem id="menu_idil_employee_department"
+              name="Registration of New Department"
+              parent="menu_idil_employee_creation"
+              action="action_idil_employee_department"/>
+
+    <menuitem id="menu_idil_employee_position"
+              name="Registration of New Position"
+              parent="menu_idil_employee_creation"
+              action="action_idil_employee_position"/>
+
+    <menuitem id="menu_idil_employee_salary_root"
+              name="Payroll Management"
+              parent="menu_idil_staff_management_root"/>
+
+    <menuitem id="menu_idil_employee_salary"
+              name="Salaries"
+              parent="menu_idil_employee_salary_root"
+              action="action_idil_employee_salary"
+              sequence="20"/>
+
+    <menuitem id="menu_idil_employee_salary_advances"
+              name="Salary Advances"
+              parent="menu_idil_employee_salary_root"
+              action="action_idil_employee_salary_advance"
+              sequence="30"/>
+
+    <menuitem id="hrm_report_menu"
+              name="HRM Report"
+              parent="menu_idil_staff_management_root"
+              sequence="100"/>
+
+    <menuitem id="hrm_salary_report_menu"
+              name="HRM Salary Report"
+              parent="hrm_report_menu"
+              action="action_hrm_salary_report"
+              sequence="10"/>
+
+    <menuitem id="hrm_salary_report_department_menu"
+              name="HRM Department Salary Report"
+              parent="hrm_report_menu"
+              action="action_hrm_salary_department_report"
+              sequence="10"/>
+
+    <menuitem id="hrm_salary_report_list_menu"
+              name="Employee Payroll List with Salary Advance"
+              parent="hrm_report_menu"
+              action="action_hrm_salary_list_report"
+              sequence="10"/>
+
+
+</odoo>

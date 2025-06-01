@@ -1,0 +1,27 @@
+<odoo>
+    <record id="view_hrm_salary_department_report_form" model="ir.ui.view">
+        <field name="name">Salary.department.report.wizard.form</field>
+        <field name="model">report.hrm.salary.department.report</field>
+        <field name="arch" type="xml">
+            <form string="Salary Department Report">
+                <group>
+                    <field name="start_date"/>
+                    <field name="end_date"/>
+                </group>
+                <footer>
+                    <button name="generate_salary_department_report_pdf" string="Generate Salary Department Report" type="object"
+                            class="btn-secondary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="action_hrm_salary_department_report" model="ir.actions.act_window">
+        <field name="name">HRM Salary Department Report</field>
+        <field name="res_model">report.hrm.salary.department.report</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_hrm_salary_department_report_form"/>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

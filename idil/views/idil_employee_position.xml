@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+        <!-- Tree View -->
+        <record id="view_idil_employee_position_tree" model="ir.ui.view">
+            <field name="name">idil.employee_position.tree</field>
+            <field name="model">idil.employee_position</field>
+            <field name="arch" type="xml">
+                <tree string="Employee_position">
+
+                    <field name="name"/>
+
+                </tree>
+            </field>
+        </record>
+
+
+        <record id="view_idil_employee_position_form" model="ir.ui.view">
+            <field name="name">idil.employee_position.form</field>
+            <field name="model">idil.employee_position</field>
+            <field name="arch" type="xml">
+                <form string="Employee">
+                    <sheet>
+                        <!-- Employee Title -->
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" placeholder="Position Name" class="oe_inline"/>
+                            </h1>
+                        </div>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+
+        <!-- Action -->
+        <record id="action_idil_employee_position" model="ir.actions.act_window">
+            <field name="name">position</field>
+            <field name="res_model">idil.employee_position</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+
+    </data>
+</odoo>
