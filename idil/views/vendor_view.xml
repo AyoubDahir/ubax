@@ -10,6 +10,10 @@
                 <field name="phone"/>
                 <field name="email"/>
                 <field name="type"/>
+                <field name="currency_id"/>
+                <field name="account_payable_id"/>
+                <field name="opening_balance"/>
+                <field name="total_due_amount"/>
                 <field name="status" widget="boolean_toggle"/>
                 <field name="active" invisible="1"/>
             </tree>
@@ -62,7 +66,8 @@
                         <page string="Contact Information">
                             <group>
                                 <field name="phone"/>
-                                <field name="email"/>
+                                <field name="email"/>                                
+                                <field name="total_due_amount" />
                             </group>
 
                             <group>
@@ -73,6 +78,7 @@
                         <!-- Accounting Page -->
                         <page string="Accounting">
                             <group>
+                                <field name="currency_id"/>
                                 <field name="account_payable_id"/>
                             </group>
                             <group>
