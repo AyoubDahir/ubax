@@ -66,12 +66,10 @@ class Customer(models.Model):
         compute="_compute_customer_payment_balance",
         store=False,  # set to True if you want to store the result in the database
     )
-    company_id = fields.Many2one("res.company", required=True, tracking=True)
 
     employee_id = fields.Many2one(
         "idil.employee",
         string="Employee",
-        domain="[('company_id', '=', company_id)]",
         help="Select Employee",
     )
 
