@@ -54,6 +54,12 @@ class CustomerSaleOrder(models.Model):
         ],
         string="Payment Method",
     )
+    account_number = fields.Many2one(
+        "idil.chart.account",
+        string="Account Number",
+        required=True,
+        domain="[('account_type', '=', payment_method)]",
+    )
     # One2many field for multiple payment methods
     payment_lines = fields.One2many(
         "idil.customer.sale.payment",
@@ -177,9 +183,7 @@ class CustomerSaleOrder(models.Model):
                     "You must insert at least one product to proceed with the sale."
                 )
             if order.payment_method == "cash":
-                if not order.customer_id.account_cash_id:
-                    raise ValidationError("The Customer does not have a cash account.")
-                account_to_use = order.customer_id.account_cash_id
+                account_to_use = self.account_number
             else:
                 account_to_use = order.customer_id.account_receivable_id
 
@@ -200,15 +204,17 @@ class CustomerSaleOrder(models.Model):
                     # Include other necessary fields
                 }
             )
-            self.env["idil.sales.receipt"].create(
-                {
-                    "cusotmer_sale_order_id": order.id,
-                    "due_amount": order.order_total,
-                    "paid_amount": 0,
-                    "remaining_amount": order.order_total,
-                    "customer_id": order.customer_id.id,
-                }
-            )
+            # ✅ Only create receipt if payment method is NOT cash
+            if order.payment_method != "cash":
+                self.env["idil.sales.receipt"].create(
+                    {
+                        "cusotmer_sale_order_id": order.id,
+                        "due_amount": order.order_total,
+                        "paid_amount": 0,
+                        "remaining_amount": order.order_total,
+                        "customer_id": order.customer_id.id,
+                    }
+                )
 
             total_debit = 0
             # For each order line, create a booking line entry for debit

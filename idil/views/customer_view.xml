@@ -150,7 +150,7 @@
                         <group class="oe_title">
                             <field name="currency_id"/>
                             <field name="account_receivable_id"/>
-                             <field name="account_cash_id"/>
+                         
                             
                         </group>
 

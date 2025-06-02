@@ -40,6 +40,8 @@
                                 <field name="order_date" string="Order Date" required="1"/>
                                 <field name="currency_id" string="Currency" required="1"/>
                                 <field name="payment_method" string="Payment Method" required="1"/>
+                                <field name="account_number"/>
+                                
                                 
                                 <field name="rate" string="Exchange Rate"/>
                                 <field name="state" string="Status" readonly="1"/>

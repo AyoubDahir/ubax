@@ -35,14 +35,7 @@ class Customer(models.Model):
         help="Select the receivable account for transactions.",
         required=True,
     )
-    account_cash_id = fields.Many2one(
-        "idil.chart.account",
-        string="Cash Account",
-        domain="[('account_type', 'like', 'cash'), ('code', 'like', '1%'), "
-        "('currency_id', '=', currency_id)]",
-        help="Select the Cash account for transactions.",
-        required=True,
-    )
+
     # Relation field to display related sale orders (transactions)
     sale_order_ids = fields.One2many(
         "idil.customer.sale.order",  # Model name of the sale order
