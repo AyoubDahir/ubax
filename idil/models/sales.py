@@ -192,11 +192,6 @@ class SaleOrder(models.Model):
         if last_order:
             # Check if the last order's date is the same as the current order's date
             last_order_date = fields.Date.to_date(last_order.order_date)
-            if last_order_date != current_order_date:
-                raise UserError(
-                    "The salesperson's last draft order date does not match today's date. "
-                    "Orders can only be created based on the last order if they occur on the same date."
-                )
 
             # Prepare a list of commands to update 'order_lines' one2many field
             order_lines_cmds = [
