@@ -266,10 +266,7 @@ class PurchaseOrderLine(models.Model):
             f"Determining account number for payment method: {self.order_id.payment_method}"
         )
         if self.order_id.payment_method == "cash":
-            account = self.env["idil.chart.account"].search(
-                [("account_type", "=", "cash")], limit=1
-            )
-            _logger.debug(f"Cash account found: {account.code if account else 'None'}")
+            account = self.order_id.account_number
             return account.id if account else False
         elif self.order_id.payment_method == "ap":
             account = self.order_id.vendor_id.account_payable_id
@@ -303,6 +300,7 @@ class PurchaseOrderLine(models.Model):
             )
 
     def write(self, values):
+
         if "quantity" in values:
             # Calculate the difference between the new and old quantities
             quantity_diff = values["quantity"] - self.quantity
@@ -371,6 +369,7 @@ class PurchaseOrderLine(models.Model):
     def _adjust_vendor_transaction(self, values):
         """Adjust vendor transactions based on the quantity change."""
         try:
+
             # Calculate the new amount based on the new quantity and cost price
             new_quantity = values["quantity"]
             new_amount = new_quantity * self.item_id.cost_price
@@ -379,22 +378,41 @@ class PurchaseOrderLine(models.Model):
                 [("order_number", "=", self.order_id.id)], limit=1
             )
 
+            # if vendor_transaction:
+            #     vendor_transaction.write(
+            #         {
+            #             "amount": new_amount,
+            #             "remaining_amount": (
+            #                 new_amount
+            #                 if vendor_transaction.payment_method != "cash"
+            #                 else 0
+            #             ),
+            #             "paid_amount": (
+            #                 new_amount
+            #                 if vendor_transaction.payment_method == "cash"
+            #                 else 0
+            #             ),
+            #         }
+            #     )
             if vendor_transaction:
-                vendor_transaction.write(
-                    {
-                        "amount": new_amount,
-                        "remaining_amount": (
-                            new_amount
-                            if vendor_transaction.payment_method != "cash"
-                            else 0
-                        ),
-                        "paid_amount": (
-                            new_amount
-                            if vendor_transaction.payment_method == "cash"
-                            else 0
-                        ),
-                    }
-                )
+                prev_paid = vendor_transaction.paid_amount or 0.0
+                method = vendor_transaction.payment_method
+
+                if method == "ap":
+                    vendor_transaction.write(
+                        {
+                            "amount": new_amount,
+                            "remaining_amount": new_amount - prev_paid,
+                        }
+                    )
+                elif method == "cash":
+                    vendor_transaction.write(
+                        {
+                            "amount": new_amount,
+                            "paid_amount": new_amount,
+                            "remaining_amount": 0,
+                        }
+                    )
 
         except Exception as e:
             _logger.error(f"Error adjusting vendor transaction: {e}")
@@ -553,7 +571,7 @@ class PurchaseOrder(models.Model):
 
     description = fields.Text(string="Description")
     payment_method = fields.Selection(
-        [("cash", "Cash"), ("ap", "A/P"), ("bank_transfer", "Bank Transfer")],
+        [("cash", "Cash"), ("ap", "A/P")],
         string="Payment Method",
         required=True,
     )
@@ -650,3 +668,17 @@ class PurchaseOrder(models.Model):
                 vendor_transactions.unlink()
 
         return super(PurchaseOrder, self).unlink()
+
+    def write(self, vals):
+        for record in self:
+            if "payment_method" in vals:
+                old_method = record.payment_method
+                new_method = vals["payment_method"]
+                if old_method and new_method and old_method != new_method:
+                    raise ValidationError(
+                        _(
+                            "Changing the payment method is not allowed once it has been set."
+                        )
+                    )
+
+        return super(PurchaseOrder, self).write(vals)

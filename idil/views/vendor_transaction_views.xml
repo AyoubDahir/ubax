@@ -42,6 +42,8 @@
                 <sheet>
                     <sheet>
                         <group>
+                        
+                            <field name="currency_id"/>
                             <field name="cash_account_id"/>
                         </group>
                     </sheet>

@@ -1,4 +1,5 @@
 from odoo import models, fields, api, exceptions
+from odoo.exceptions import ValidationError
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -50,11 +51,18 @@ class VendorTransaction(models.Model):
 
     reffno = fields.Char(string="Reference Number")
 
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        default=lambda self: self.env.company.currency_id,
+    )
+
     cash_account_id = fields.Many2one(
         "idil.chart.account",
-        string="Cash Account",
-        domain=[("account_type", "=", "cash")],
-        help="Select the cash account for transactions.",
+        string="Asset Account",
+        help="Payment Account to be used for the vendor payment -- asset accounts.",
+        domain="[('code', 'like', '1'), ('currency_id', '=', currency_id)]",
+        # Domain to filter accounts starting with '1' and in USD
     )
 
     transaction_booking_id = fields.Many2one(
@@ -125,6 +133,21 @@ class VendorTransaction(models.Model):
         return available_balance >= paid_amount
 
     def _update_booking_payment(self, new_paid_amount, payment_id):
+        # ✅ Validate currency match
+        # Use vendor's account payable for the debit transaction
+        account_payable = self.vendor_id.account_payable_id
+
+        if account_payable.currency_id != self.cash_account_id.currency_id:
+            raise ValidationError(
+                (
+                    "Currency mismatch between Cash Account (%s) and Account Payable (%s). Please use accounts with the same currency."
+                )
+                % (
+                    self.cash_account_id.currency_id.name or "Undefined",
+                    account_payable.currency_id.name or "Undefined",
+                )
+            )
+
         if self.transaction_booking_id:
             previous_paid_amount = self.transaction_booking_id.amount_paid
             updated_paid_amount = previous_paid_amount + new_paid_amount
@@ -140,14 +163,11 @@ class VendorTransaction(models.Model):
                 }
             )
 
-            # Use vendor's account payable for the debit transaction
-            account_payable_id = self.vendor_id.account_payable_id.id
-
             # Create the debit line
             self.env["idil.transaction_bookingline"].create(
                 {
                     "transaction_booking_id": self.transaction_booking_id.id,
-                    "account_number": account_payable_id,
+                    "account_number": account_payable.id,
                     "transaction_type": "dr",
                     "dr_amount": new_paid_amount,
                     "cr_amount": 0,
