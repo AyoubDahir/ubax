@@ -362,6 +362,30 @@ class PurchaseOrderLine(models.Model):
                     }
                 )
 
+            vendor_transaction = self.env["idil.vendor_transaction"].search(
+                [("order_number", "=", self.order_id.id)], limit=1
+            )
+            prev_paid = vendor_transaction.paid_amount or 0.0
+            method = vendor_transaction.payment_method
+
+            if transaction:
+                if method == "ap":
+                    transaction.write(
+                        {
+                            "amount": new_amount,
+                            "remaining_amount": new_amount - prev_paid,
+                            "amount_paid": prev_paid,
+                        }
+                    )
+                elif method == "cash":
+                    transaction.write(
+                        {
+                            "amount": new_amount,
+                            "paid_amount": new_amount,
+                            "remaining_amount": 0,
+                        }
+                    )
+
         except Exception as e:
             _logger.error(f"Error adjusting stock transaction: {e}")
             raise
