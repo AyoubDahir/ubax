@@ -164,9 +164,9 @@ class SaleReturn(models.Model):
                 product_cost_amount = (
                     product.cost * return_line.returned_quantity * self.rate
                 )
-                product.stock_quantity = (
-                    product.stock_quantity + return_line.returned_quantity
-                )
+                # product.stock_quantity = (
+                #     product.stock_quantity + return_line.returned_quantity
+                # )
                 # ------------------------------------------------------------------------------------------------------
                 # Reversed Credit entry Expanses inventory of COGS account for the product
                 self.env["idil.transaction_bookingline"].create(
