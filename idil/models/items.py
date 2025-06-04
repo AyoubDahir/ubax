@@ -2,6 +2,10 @@ from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 from datetime import datetime
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 
 class item(models.Model):
     _name = "idil.item"
@@ -199,8 +203,22 @@ class item(models.Model):
         return new_item
 
     def write(self, vals):
-        # Call the super method to perform the actual update
-        res = super(item, self).write(vals)
+        # Update ItemMovement quantity if item.quantity is being changed
+        for item in self:
+            if "quantity" in vals:
+                new_qty = vals["quantity"]
+                for movement in item.movement_ids:
+                    if (
+                        movement.source
+                        and "Opening Balance Inventory" in movement.source
+                    ):
+                        _logger.info(
+                            f"[ItemMovement] Updating opening balance quantity for item '{item.name}' "
+                            f"from {movement.quantity} to {new_qty}"
+                        )
+                        movement.quantity = new_qty
+
+        res = super().write(vals)
 
         # Ensure transaction booking is created only when updating from this model
         if self.env.context.get(
@@ -299,6 +317,17 @@ class item(models.Model):
                 "cr_amount": item.quantity * item.cost_price,
                 "dr_amount": 0,
                 "transaction_date": fields.Date.today(),
+            }
+        )
+
+        self.env["idil.item.movement"].create(
+            {
+                "item_id": item.id,
+                "date": fields.Date.today(),
+                "quantity": item.quantity,
+                "source": "Opening Balance Inventory for Item %s" % item.name,
+                "destination": "Inventory",
+                "movement_type": "in",
             }
         )
 
