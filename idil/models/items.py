@@ -348,6 +348,13 @@ class ItemMovement(models.Model):
     )
     transaction_number = fields.Char(string="Transaction Number", tracking=True)
 
+    purchase_order_line_id = fields.Many2one(
+        "idil.purchase_order.line",
+        string="Purchase Order Line",
+        ondelete="cascade",  # Enables automatic deletion
+        index=True,
+    )
+
     @api.model
     def create(self, vals):
         # Automatically fill in the vendor_id or product_id based on related_document

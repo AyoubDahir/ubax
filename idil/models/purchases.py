@@ -32,6 +32,13 @@ class PurchaseOrderLine(models.Model):
     transaction_ids = fields.One2many(
         "idil.transaction_bookingline", "order_line", string="Transactions"
     )
+    item_movement_ids = fields.One2many(
+        "idil.item.movement",
+        "purchase_order_line_id",
+        string="Item Movements",
+        auto_join=True,
+        ondelete="cascade",
+    )
 
     def _create_item_movement(self, values):
         """Create an item movement entry."""
@@ -39,6 +46,7 @@ class PurchaseOrderLine(models.Model):
             self.env["idil.item.movement"].create(
                 {
                     "item_id": self.item_id.id,
+                    "purchase_order_line_id": self.id,
                     "date": fields.Date.today(),
                     "quantity": self.quantity,
                     "source": "Vendor",
@@ -167,7 +175,7 @@ class PurchaseOrderLine(models.Model):
     def _prepare_transaction_values(self, transaction_number, values):
         trx_source_id = self.get_manual_transaction_source_id()
         # Calculate the total amount of all order lines for this order
-        total_amount = sum(line.amount for line in self.order_id.order_lines)
+        total_amount = sum(line.amount for line in self.order_id.order_lines.exists())
 
         return {
             "reffno": self.order_id.reffno,
@@ -327,8 +335,10 @@ class PurchaseOrderLine(models.Model):
             new_quantity = values["quantity"]
             new_amount = new_quantity * self.item_id.cost_price
 
-            transaction_lines = self.env["idil.transaction_bookingline"].search(
-                [("order_line", "=", self.id)]
+            transaction_lines = (
+                self.env["idil.transaction_bookingline"]
+                .search([("order_line", "=", self.id)])
+                .exists()
             )
 
             for line in transaction_lines:
@@ -392,40 +402,58 @@ class PurchaseOrderLine(models.Model):
 
     def unlink(self):
         for line in self:
-            # Check and delete all related transaction_bookingline records
+            # ➤ Reverse stock quantity
+            if line.item_id and line.quantity:
+                item = line.item_id
+                new_qty = item.quantity - line.quantity
+                if new_qty < 0:
+                    raise exceptions.ValidationError(
+                        f"Cannot delete line: resulting stock of '{item.name}' would be negative."
+                    )
+                item.with_context(update_transaction_booking=False).write(
+                    {"quantity": new_qty}
+                )
+
+            # --- 1. Handle transaction lines ---
             transaction_lines = self.env["idil.transaction_bookingline"].search(
                 [("order_line", "=", line.id)]
             )
+            transactions = transaction_lines.mapped("transaction_booking_id")
             if transaction_lines:
                 transaction_lines.unlink()
 
-            # Check and delete related transaction_booking records if there are no more lines linked to them
-            transactions = transaction_lines.mapped("transaction_booking_id")
             for transaction in transactions:
                 if not self.env["idil.transaction_bookingline"].search_count(
                     [("transaction_booking_id", "=", transaction.id)]
                 ):
                     transaction.unlink()
 
-            # Check and delete related vendor_transaction records
+            # --- 2. Handle vendor transactions ---
             vendor_transactions = self.env["idil.vendor_transaction"].search(
                 [("order_number", "=", line.order_id.id)]
             )
             if vendor_transactions:
                 vendor_transactions.unlink()
 
-            # Check and delete related item_movement records
+            # --- 3. Handle item movements ---
             item_movements = self.env["idil.item.movement"].search(
                 [("related_document", "=", f"idil.purchase_order.line,{line.id}")]
             )
             if item_movements:
                 item_movements.unlink()
 
+            # --- 4. If no other lines left, delete the parent Purchase Order ---
+            remaining_lines = self.env["idil.purchase_order.line"].search_count(
+                [("order_id", "=", line.order_id.id), ("id", "!=", line.id)]
+            )
+            if remaining_lines == 0:
+                line.order_id.unlink()
+
         return super(PurchaseOrderLine, self).unlink()
 
     @api.depends("item_id", "quantity", "cost_price")
     def _compute_total_price(self):
-        for line in self:
+        for line in self.filtered(lambda l: l.exists()):
             if line.item_id:
                 if line.cost_price > 0:
                     line.amount = line.cost_price * line.quantity
@@ -596,10 +624,10 @@ class PurchaseOrder(models.Model):
             # Fallback if no BOM is provided
             return self.env["ir.sequence"].next_by_code("idil.purchase_order.sequence")
 
-    @api.depends("order_lines.amount")  # Corrected from 'order_lines.price_total'
+    @api.depends("order_lines.amount")
     def _compute_total_amount(self):
         for order in self:
-            order.amount = sum(line.amount for line in order.order_lines)
+            order.amount = sum(line.amount for line in order.order_lines.exists())
 
     def unlink(self):
         for order in self:

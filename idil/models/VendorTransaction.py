@@ -96,6 +96,7 @@ class VendorTransaction(models.Model):
         return res
 
     def _check_cash_account_balance(self, cash_account_id, paid_amount):
+
         _logger.debug(f"Checking cash account balance for record {self.id}")
         total_debit = sum(
             self.env["idil.transaction_bookingline"]
