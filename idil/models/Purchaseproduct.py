@@ -15,7 +15,7 @@ class ProductPurchaseOrder(models.Model):
         "idil.product.purchase.order.line", "order_id", string="Order Lines"
     )
     payment_method = fields.Selection(
-        [("cash", "Cash"), ("ap", "A/P"), ("bank_transfer", "Bank Transfer")],
+        [("cash", "Cash"), ("ap", "A/P")],
         string="Payment Method",
         required=True,
     )
@@ -300,27 +300,39 @@ class ProductPurchaseOrderLine(models.Model):
             transaction = self.env["idil.transaction_booking"].search(
                 [("product_purchase_order_id", "=", record.order_id.id)], limit=1
             )
-            if transaction:
-                transaction.amount = record.amount
-                transaction.amount_paid = (
-                    record.amount if transaction.payment_method == "cash" else 0
-                )
-                transaction.remaining_amount = (
-                    0 if transaction.payment_method == "cash" else record.amount
-                )
-
             # Update vendor_transaction (if exists)
             vendor_transaction = self.env["idil.vendor_transaction"].search(
                 [("product_purchase_order_id", "=", record.order_id.id)], limit=1
             )
+
+            prev_paid = vendor_transaction.paid_amount or 0.0
+            if transaction:
+                if self.order_id.payment_method == "ap":
+                    transaction.write(
+                        {
+                            "amount": record.amount,
+                            "remaining_amount": record.amount - prev_paid,
+                            "amount_paid": prev_paid,
+                        }
+                    )
+                elif self.order_id.payment_method == "cash":
+                    transaction.write(
+                        {
+                            "amount": record.amount,
+                            "paid_amount": record.amount,
+                            "remaining_amount": 0,
+                        }
+                    )
+
             if vendor_transaction:
-                vendor_transaction.amount = record.amount
-                vendor_transaction.remaining_amount = (
-                    record.amount if vendor_transaction.payment_method == "ap" else 0
-                )
-                vendor_transaction.paid_amount = (
-                    record.amount if vendor_transaction.payment_method == "cash" else 0
-                )
+                if self.order_id.payment_method == "ap":
+                    vendor_transaction.amount = record.amount
+                    vendor_transaction.remaining_amount = record.amount - prev_paid
+                    vendor_transaction.paid_amount = prev_paid
+                elif self.order_id.payment_method == "cash":
+                    vendor_transaction.amount = record.amount
+                    vendor_transaction.paid_amount = record.amount
+                    vendor_transaction.remaining_amount = 0
 
             # Update product movement
             movement = self.env["idil.product.movement"].search(

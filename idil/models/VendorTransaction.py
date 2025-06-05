@@ -1,6 +1,8 @@
 from odoo import models, fields, api, exceptions
 from odoo.exceptions import ValidationError
 import logging
+from odoo.tools.float_utils import float_compare
+
 
 _logger = logging.getLogger(__name__)
 
@@ -203,8 +205,12 @@ class VendorTransaction(models.Model):
             _logger.debug(
                 f"Existing payments: {existing_payments}, Paid amount: {self.paid_amount}, Amount: {self.amount_paying}"
             )
-            self.remaining_amount = self.amount - (existing_payments)
-            self.paid_amount = existing_payments
+            # self.remaining_amount = self.amount - (existing_payments)
+            self.remaining_amount = (
+                self.transaction_booking_id.amount - updated_paid_amount
+            )
+
+            self.paid_amount = updated_paid_amount
 
             if remaining_amount == 0:
                 self.transaction_booking_id.payment_status = "paid"

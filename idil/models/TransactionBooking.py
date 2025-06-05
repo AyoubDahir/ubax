@@ -5,6 +5,7 @@ from odoo.exceptions import UserError, ValidationError
 import re
 import logging
 from odoo.tools.float_utils import float_round
+from odoo.tools.float_utils import float_compare
 
 
 _logger = logging.getLogger(__name__)
@@ -141,12 +142,30 @@ class TransactionBooking(models.Model):
         ondelete="cascade",
     )
 
+    # @api.constrains("amount_paid")
+    # def _check_amount_paid(self):
+    #     if self.env.context.get("skip_validations"):
+    #         return
+    #     for record in self:
+    #         if record.amount_paid > record.amount:
+    #             raise ValidationError(
+    #                 "The paid amount cannot be greater than the balance.\nBalance: %s\nAmount Needed to Pay: %s"
+    #                 % (record.amount, record.amount_paid)
+    #             )
     @api.constrains("amount_paid")
     def _check_amount_paid(self):
         if self.env.context.get("skip_validations"):
             return
+
+        precision = self.env["decimal.precision"].precision_get("Account")
+
         for record in self:
-            if record.amount_paid > record.amount:
+            if (
+                float_compare(
+                    record.amount_paid, record.amount, precision_digits=precision
+                )
+                > 0
+            ):
                 raise ValidationError(
                     "The paid amount cannot be greater than the balance.\nBalance: %s\nAmount Needed to Pay: %s"
                     % (record.amount, record.amount_paid)
