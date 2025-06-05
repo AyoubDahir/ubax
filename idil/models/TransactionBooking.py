@@ -141,6 +141,12 @@ class TransactionBooking(models.Model):
         string="Product Purchase Order",
         ondelete="cascade",
     )
+    adjustment_id = fields.Many2one(
+        "idil.product.adjustment",
+        string="Adjustment Reference",
+        ondelete="cascade",  # 🔁 Cascade delete
+        index=True,
+    )
 
     # @api.constrains("amount_paid")
     # def _check_amount_paid(self):
@@ -385,6 +391,12 @@ class TransactionBookingline(models.Model):
         "idil.product.purchase.order",
         string="Product Purchase Order",
         ondelete="cascade",
+    )
+    adjustment_id = fields.Many2one(
+        "idil.product.adjustment",
+        string="Adjustment Reference",
+        ondelete="cascade",  # 🔁 Cascade delete
+        index=True,
     )
 
     @api.depends("account_number")
