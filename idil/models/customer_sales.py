@@ -50,7 +50,7 @@ class CustomerSaleOrder(models.Model):
     payment_method = fields.Selection(
         [
             ("cash", "Cash"),
-            ("ar", "A/R"),
+            ("receivable", "Account Receivable"),
         ],
         string="Payment Method",
     )
