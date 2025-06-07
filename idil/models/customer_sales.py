@@ -80,10 +80,13 @@ class CustomerSaleOrder(models.Model):
         for order in self:
             order.total_paid = sum(order.payment_lines.mapped("amount"))
 
-    @api.depends("order_total", "total_paid")
+    @api.depends("order_total", "total_paid", "payment_method")
     def _compute_balance_due(self):
         for order in self:
-            order.balance_due = order.order_total - order.total_paid
+            if order.payment_method == "cash":
+                order.balance_due = 0.0
+            else:
+                order.balance_due = order.order_total - order.total_paid
 
     @api.constrains("total_paid", "order_total")
     def _check_payment_balance(self):
@@ -262,6 +265,24 @@ class CustomerSaleOrder(models.Model):
                     raise ValidationError(
                         f"Product '{product.name}' has no Income account."
                     )
+
+                # ✅ Validate currencies if payment is cash
+                if order.payment_method == "cash":
+                    cash_currency = order.account_number.currency_id
+                    involved_accounts = {
+                        "COGS": product.account_cogs_id,
+                        "Asset": product.asset_account_id,
+                        "Income": product.income_account_id,
+                    }
+
+                    for acc_name, acc in involved_accounts.items():
+                        if acc.currency_id and acc.currency_id != cash_currency:
+                            raise ValidationError(
+                                f"Currency mismatch for product '{product.name}'.\n"
+                                f"{acc_name} account currency is '{acc.currency_id.name}', but Cash account currency is '{cash_currency.name}'.\n"
+                                f"All accounts must match Cash account currency when payment method is Cash."
+                            )
+
                 # Credit entry Expanses inventory of COGS account for the product
                 self.env["idil.transaction_bookingline"].create(
                     {
@@ -324,7 +345,27 @@ class CustomerSaleOrder(models.Model):
                 )
 
     def write(self, vals):
+
         for order in self:
+            # 1.  Prevent changing payment_method from receivable → cash
+            # ------------------------------------------------------------------
+            if "payment_method" in vals and vals["payment_method"] == "cash":
+                for order in self:
+                    if order.payment_method == "receivable":
+                        raise ValidationError(
+                            "You cannot switch the payment method from "
+                            "'Account Receivable' to 'Cash'.\n"
+                            "Receivable booking lines already exist for this order."
+                        )
+            if "payment_method" in vals and vals["payment_method"] == "receivable":
+                for order in self:
+                    if order.payment_method == "cash":
+                        raise ValidationError(
+                            "You cannot switch the payment method from "
+                            "'Cash' to 'Account Receivable'.\n"
+                            "Cash booking lines already exist for this order."
+                        )
+
             # Loop through the lines in the database before they are updated
             for line in order.order_lines:
                 if not line.product_id:
@@ -419,39 +460,48 @@ class CustomerSaleOrder(models.Model):
                     matching_order_line = order.order_lines.filtered(
                         lambda l: l.product_id.id == line.product_id.id
                     )
-                    if matching_order_line:
-                        order_line = matching_order_line[0]
-                        updated_values = {
-                            "transaction_date": fields.Date.context_today(self)
-                        }
-                        if line.transaction_type == "dr":
-                            if line.account_number.id in [
-                                order.customer_id.account_receivable_id.id,
-                                order.customer_id.account_cash_id.id,
-                            ]:
-                                updated_values["dr_amount"] = order_line.subtotal
-                            else:
-                                updated_values["dr_amount"] = (
-                                    order_line.product_id.cost
-                                    * order_line.quantity
-                                    * order.rate
-                                )
-                        elif line.transaction_type == "cr":
-                            if (
-                                line.account_number.id
-                                == order_line.product_id.asset_account_id.id
-                            ):
-                                updated_values["cr_amount"] = (
-                                    order_line.product_id.cost
-                                    * order_line.quantity
-                                    * order.rate
-                                )
-                            elif (
-                                line.account_number.id
-                                == order_line.product_id.income_account_id.id
-                            ):
-                                updated_values["cr_amount"] = order_line.subtotal
-                        line.write(updated_values)
+                    if not matching_order_line:
+                        continue
+
+                    order_line = matching_order_line[0]
+                    product = order_line.product_id
+                    product_cost_amount = product.cost * order_line.quantity
+                    updated_values = {}
+
+                    # COGS (DR)
+                    if (
+                        line.transaction_type == "dr"
+                        and line.account_number.id == product.account_cogs_id.id
+                    ):
+                        updated_values["dr_amount"] = product_cost_amount
+                        updated_values["cr_amount"] = 0
+
+                    # Asset Inventory (CR)
+                    elif (
+                        line.transaction_type == "cr"
+                        and line.account_number.id == product.asset_account_id.id
+                    ):
+                        updated_values["cr_amount"] = product_cost_amount
+                        updated_values["dr_amount"] = 0
+
+                    # Receivable or Cash (DR)
+                    elif line.transaction_type == "dr" and line.account_number.id == (
+                        order.customer_id.account_receivable_id.id
+                        if order.payment_method != "cash"
+                        else order.account_number.id
+                    ):
+                        updated_values["dr_amount"] = order_line.subtotal
+                        updated_values["cr_amount"] = 0
+
+                    # Income (CR)
+                    elif (
+                        line.transaction_type == "cr"
+                        and line.account_number.id == product.income_account_id.id
+                    ):
+                        updated_values["cr_amount"] = order_line.subtotal
+                        updated_values["dr_amount"] = 0
+
+                    line.write(updated_values)
 
         return res
 
@@ -507,6 +557,13 @@ class CustomerSaleOrderLine(models.Model):
     order_id = fields.Many2one("idil.customer.sale.order", string="Sale Order")
     product_id = fields.Many2one("my_product.product", string="Product")
     quantity_Demand = fields.Float(string="Demand", default=1.0)
+    available_stock = fields.Float(
+        string="Available Stock",
+        related="product_id.stock_quantity",
+        readonly=True,
+        store=False,
+    )
+
     quantity = fields.Float(string="Quantity Used", required=True, tracking=True)
     cost_price = fields.Float(
         string="Cost Price", store=True, tracking=True

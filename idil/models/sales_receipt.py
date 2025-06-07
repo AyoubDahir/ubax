@@ -131,11 +131,7 @@ class SalesReceipt(models.Model):
                 {
                     "transaction_booking_id": transaction_booking.id,
                     "transaction_type": "dr",
-                    "description": (
-                        f"Receipt {record.sales_order_id.name}"
-                        if record.payment_account
-                        else f"Cash {record.sales_order_id.name}"
-                    ),
+                    "description": f"Receipt -- {record.cusotmer_sale_order_id.name if record.cusotmer_sale_order_id else record.sales_order_id.name}",
                     "account_number": record.payment_account.id,
                     "dr_amount": record.amount_paying,
                     "cr_amount": 0,
@@ -147,11 +143,7 @@ class SalesReceipt(models.Model):
                 {
                     "transaction_booking_id": transaction_booking.id,
                     "transaction_type": "cr",
-                    "description": (
-                        f"Receipt {order_name}"
-                        if record.payment_account
-                        else f"Cash {order_name}"
-                    ),
+                    "description": f"Receipt -- {record.cusotmer_sale_order_id.name if record.cusotmer_sale_order_id else record.sales_order_id.name}",
                     "account_number": ar_account_id.id,
                     "dr_amount": 0,
                     "cr_amount": record.amount_paying,

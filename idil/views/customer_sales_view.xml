@@ -54,8 +54,11 @@
                               
                                  <tree editable="bottom" delete="false">
                                     <field name="product_id" string="Product" required="1" width="25%"/>
+                                    <field name="available_stock" width="25%" readonly="1"/>
+                                    
                                     <field name="quantity" string="Quantity"
-                                        help="Enter the actual quantity utilized in fulfilling this sales order. This field is editable, allowing you to adjust the quantity based on real consumption or order fulfillment requirements."
+                                        help="Enter the actual quantity utilized in fulfilling this sales order. 
+                                        This field is editable, allowing you to adjust the quantity based on real consumption or order fulfillment requirements."
                                         width="25%"/>
 
                                         
