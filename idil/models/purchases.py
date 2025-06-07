@@ -402,22 +402,6 @@ class PurchaseOrderLine(models.Model):
                 [("order_number", "=", self.order_id.id)], limit=1
             )
 
-            # if vendor_transaction:
-            #     vendor_transaction.write(
-            #         {
-            #             "amount": new_amount,
-            #             "remaining_amount": (
-            #                 new_amount
-            #                 if vendor_transaction.payment_method != "cash"
-            #                 else 0
-            #             ),
-            #             "paid_amount": (
-            #                 new_amount
-            #                 if vendor_transaction.payment_method == "cash"
-            #                 else 0
-            #             ),
-            #         }
-            #     )
             if vendor_transaction:
                 prev_paid = vendor_transaction.paid_amount or 0.0
                 method = vendor_transaction.payment_method
@@ -444,17 +428,25 @@ class PurchaseOrderLine(models.Model):
 
     def unlink(self):
         for line in self:
-            # ➤ Reverse stock quantity
-            if line.item_id and line.quantity:
-                item = line.item_id
-                new_qty = item.quantity - line.quantity
-                if new_qty < 0:
-                    raise exceptions.ValidationError(
-                        f"Cannot delete line: resulting stock of '{item.name}' would be negative."
-                    )
-                item.with_context(update_transaction_booking=False).write(
-                    {"quantity": new_qty}
+            item = self.env["idil.item"].browse(line.item_id.id)  # Ensure fresh data
+            old_qty = item.quantity
+            remove_qty = line.quantity
+            new_qty = old_qty - remove_qty
+
+            _logger.warning(
+                f"[DEBUG] Deleting item '{item.name}' | Current Qty: {old_qty}, "
+                f"Line Qty: {remove_qty}, New Qty: {new_qty}"
+            )
+
+            if new_qty < 0:
+                raise exceptions.ValidationError(
+                    f"Cannot delete line: resulting stock of '{item.name}' would be negative.\n"
+                    f"Old quantity: {old_qty}, Attempted to remove: {remove_qty}, Resulting quantity: {new_qty}"
                 )
+
+            item.with_context(update_transaction_booking=False).write(
+                {"quantity": new_qty}
+            )
 
             # --- 1. Handle transaction lines ---
             transaction_lines = self.env["idil.transaction_bookingline"].search(

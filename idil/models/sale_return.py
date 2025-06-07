@@ -308,6 +308,36 @@ class SaleReturn(models.Model):
                         "sales_person_id": return_order.salesperson_id.id,
                     }
                 )
+                # Find the related sales receipt
+            sales_receipt = self.env["idil.sales.receipt"].search(
+                [("sales_order_id", "=", return_order.sale_order_id.id)], limit=1
+            )
+
+            if sales_receipt:
+                # Calculate the total return amount (subtotal + discounts + commission)
+                total_return_amount = (
+                    sum(
+                        return_line.subtotal
+                        for return_line in return_order.return_lines
+                    )
+                    - discount_amount
+                    - commission_amount
+                )
+
+                # Adjust due_amount, paid_amount, and remaining_amount
+                sales_receipt.due_amount -= total_return_amount
+                sales_receipt.paid_amount = min(
+                    sales_receipt.paid_amount, sales_receipt.due_amount
+                )  # Ensure paid_amount doesn't exceed due_amount
+                sales_receipt.remaining_amount = (
+                    sales_receipt.due_amount - sales_receipt.paid_amount
+                )  # Remaining is what is still due
+
+                # If due_amount is 0 or less, mark the payment as "paid"
+                if sales_receipt.due_amount <= 0:
+                    sales_receipt.payment_status = "paid"
+                else:
+                    sales_receipt.payment_status = "pending"
 
 
 class SaleReturnLine(models.Model):

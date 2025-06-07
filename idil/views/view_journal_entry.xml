@@ -10,6 +10,8 @@
                             <field name="name"/>
                         </h1>
                         <group>
+                            <field name="customer_id"/>
+                            <field name="vendor_id"/>
                             <field name="date"/>
                             <field name="currency_id"/>
                         </group>
@@ -17,6 +19,7 @@
                             <page string="Journal Lines">
                                 <field name="line_ids" mode="tree" options="{'footer': 'total'}">
                                     <tree editable="bottom">
+                                        
                                         <field name="account_id" domain="[('currency_id', '=', parent.currency_id)]"/>
                                         <field name="debit"/>
                                         <field name="credit"/>
@@ -25,6 +28,7 @@
                                     </tree>
                                     <form>
                                         <group>
+                                            
                                             <field name="account_id"
                                                    domain="[('currency_id', '=', parent.currency_id)]"/>
                                             <field name="currency_id" invisible="1"/>
@@ -63,6 +67,8 @@
                 <tree string="Journal Entries">
                     <field name="date"/>
                     <field name="name"/>
+                    <field name="customer_id"/>
+                    <field name="vendor_id"/>
 
                     <field name="total_debit" string="Amount"/>
                     <field name="currency_id"/>
