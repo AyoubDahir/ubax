@@ -366,61 +366,60 @@
               sequence="9"/>
 
 
-    <menuitem id="model_a_menu"
+    <!-- <menuitem id="model_a_menu"
               name="Delete Models"
               action="action_delete_models"
               parent="menu_idil_home"
-              sequence="1000"/>
+              sequence="1000"/> -->
 
     <!-- Add the custom menu item -->
-    <menuitem id="menu_custom_pos"
+    <!-- <menuitem id="menu_custom_pos"
               name="Custom POS"
               parent="menu_idil_home"
               action="action_pos_config"
-              sequence="1020"/>
+              sequence="1020"/> -->
 
-    <menuitem id="menu_pos_session"
+    <!-- <menuitem id="menu_pos_session"
               name="POS Sessions"
               parent="menu_idil_home"
-              action="action_pos_session"/>
+              action="action_pos_session"/> -->
 
-    >>>>>>> origin/master
     <!-- <menuitem id="menu_idil_employee"
               name="Employees"
               parent="menu_idil_home"
               action="action_idil_employee"/> -->
     <!-- Kitchen Menu Item -->
-    <menuitem id="menu_kitchen_root"
+    <!-- <menuitem id="menu_kitchen_root"
               name="Kitchens"
               parent="menu_idil_home"
-              sequence="8"/>
+              sequence="8"/> -->
 
-    <menuitem id="menu_kitchen"
+    <!-- <menuitem id="menu_kitchen"
               parent="menu_kitchen_root"
               name="Kitchen Creation"
-              action="action_kitchen" sequence="1"/>
+              action="action_kitchen" sequence="1"/> -->
     <!-- Kitchen Transfer Menu Item -->
-    <menuitem id="menu_kitchen_transfer"
+    <!-- <menuitem id="menu_kitchen_transfer"
               parent="menu_kitchen_root"
               name="Kitchen Transfers"
               action="action_kitchen_transfer"
-              sequence="2"/>
+              sequence="2"/> -->
     <!-- Menu Item to Access Kitchen Transfers -->
-    <menuitem id="menu_kitchen_transfer_2"
+    <!-- <menuitem id="menu_kitchen_transfer_2"
               name="Kitchen Cooking Process"
               parent="menu_kitchen_root"
               action="action_kitchen_cook_process"
-              sequence="20"/>
+              sequence="20"/> -->
 
 
     <!-- ________________________________________________________________________________ -->
 
-    <menuitem id="model_a_menu"
+    <!-- <menuitem id="model_a_menu"
               name="Delete Models"
               action="action_delete_models"
               parent="menu_idil_home"
               sequence="1000"/>
-    
+     -->
      
   
 </odoo>
