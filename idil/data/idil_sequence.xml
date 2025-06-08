@@ -19,5 +19,13 @@
             <field name="padding">5</field> <!-- Sequence number padding, e.g., 00001 -->
             <field name="company_id" eval="False"/> <!-- Apply to all companies; set specific company ID if needed -->
         </record>
+         
+        <record id="seq_item_opening_balance" model="ir.sequence">
+            <field name="name">Item Opening Balance</field>
+            <field name="code">idil.item.opening.balance</field>
+            <field name="prefix">OP-Bal/</field>
+            <field name="padding">5</field>
+        </record>
+
     </data>
 </odoo>

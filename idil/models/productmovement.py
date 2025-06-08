@@ -35,3 +35,6 @@ class ProductMovement(models.Model):
         string="Product Adjustment",
         ondelete="set null",
     )
+    sale_order_id = fields.Many2one(
+        "idil.sale.order", string="Sales Order", ondelete="cascade"
+    )

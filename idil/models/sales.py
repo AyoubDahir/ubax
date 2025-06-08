@@ -115,7 +115,7 @@ class SaleOrder(models.Model):
             else:
                 # Optionally handle the case where no draft SalespersonOrder is found
                 raise UserError(
-                    "No draft SalespersonOrder found for the given salesperson."
+                    "No draft Sales person order found for the given sales person."
                 )
 
             # Set order reference if not provided
@@ -129,6 +129,7 @@ class SaleOrder(models.Model):
             {
                 "sales_order_id": new_order.id,
                 "due_amount": new_order.order_total,
+                "receipt_date": new_order.order_date,
                 "paid_amount": 0,
                 "remaining_amount": new_order.order_total,
                 "salesperson_id": new_order.sales_person_id.id,
@@ -139,9 +140,10 @@ class SaleOrder(models.Model):
             self.env["idil.product.movement"].create(
                 {
                     "product_id": line.product_id.id,
+                    "sale_order_id": new_order.id,
                     "movement_type": "out",
                     "quantity": line.quantity * -1,
-                    "date": fields.Datetime.now(),
+                    "date": new_order.order_date,
                     "source_document": new_order.name,
                     "sales_person_id": new_order.sales_person_id.id,
                 }
@@ -256,7 +258,7 @@ class SaleOrder(models.Model):
                     "Sales_order_number": order.id,
                     "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
                     "payment_status": "pending",  # Assuming initial payment status; adjust as needed
-                    "trx_date": fields.Date.context_today(self),
+                    "trx_date": order.order_date,
                     "amount": order.order_total,
                     # Include other necessary fields
                 }
@@ -328,7 +330,7 @@ class SaleOrder(models.Model):
                         "transaction_type": "dr",
                         "dr_amount": product_cost_amount,
                         "cr_amount": 0,
-                        "transaction_date": fields.Date.context_today(self),
+                        "transaction_date": order.order_date,
                         # Include other necessary fields
                     }
                 )
@@ -342,7 +344,7 @@ class SaleOrder(models.Model):
                         "transaction_type": "cr",
                         "dr_amount": 0,
                         "cr_amount": product_cost_amount,
-                        "transaction_date": fields.Date.context_today(self),
+                        "transaction_date": order.order_date,
                         # Include other necessary fields
                     }
                 )
@@ -357,7 +359,7 @@ class SaleOrder(models.Model):
                         "transaction_type": "dr",  # Debit transaction
                         "dr_amount": line.subtotal,
                         "cr_amount": 0,
-                        "transaction_date": fields.Date.context_today(self),
+                        "transaction_date": order.order_date,
                         # Include other necessary fields
                     }
                 )
@@ -377,7 +379,7 @@ class SaleOrder(models.Model):
                             + line.commission_amount
                             + line.discount_amount
                         ),
-                        "transaction_date": fields.Date.context_today(self),
+                        "transaction_date": order.order_date,
                         # Include other necessary fields
                     }
                 )
@@ -393,7 +395,7 @@ class SaleOrder(models.Model):
                             "transaction_type": "dr",  # Debit transaction for commission expense
                             "dr_amount": line.commission_amount,
                             "cr_amount": 0,
-                            "transaction_date": fields.Date.context_today(self),
+                            "transaction_date": order.order_date,
                             # Include other necessary fields
                         }
                     )
@@ -409,45 +411,86 @@ class SaleOrder(models.Model):
                             "transaction_type": "dr",  # Debit transaction for discount expense
                             "dr_amount": line.discount_amount,
                             "cr_amount": 0,
-                            "transaction_date": fields.Date.context_today(self),
+                            "transaction_date": order.order_date,
                             # Include other necessary fields
                         }
                     )
 
     def write(self, vals):
-        # Call the original write method
-        res = super(SaleOrder, self).write(vals)
-        # After the write operation, update booking entries if necessary
-        self.update_booking_entry()
-        return res
+        for order in self:
+            # Capture old quantities for comparison
+            old_quantities = {line.id: line.quantity for line in order.order_lines}
 
-    def update_booking_entry(self):
-        # Find the related TransactionBooking record
-        booking = self.env["idil.transaction_booking"].search(
-            [("sale_order_id", "=", self.id)], limit=1
-        )
-        if booking:
-            booking.amount = self.order_total
-            booking.update_related_booking_lines()
-
-    def unlink(self):
-        # Collect salesperson orders before deletion to ensure they are available for state update
-        salesperson_orders = self.mapped("salesperson_order_id").filtered(
-            lambda r: r.state == "confirmed"
-        )
+        # Proceed with the standard write
 
         for order in self:
-            # Adjust product stock quantities for each order line before deletion
             for line in order.order_lines:
-                if line.product_id:
-                    # Assuming SaleOrderLine has a method 'update_product_stock' to adjust stock quantities
-                    SaleOrderLine.update_product_stock(line.product_id, -line.quantity)
+                product = line.product_id
+                old_qty = old_quantities.get(line.id, 0.0)
+                new_qty = line.quantity
+                qty_diff = new_qty - old_qty
 
-        # Revert the state of related SalespersonOrder(s) back to 'draft'
-        salesperson_orders.write({"state": "draft"})
+                # Handle stock adjustment
+                if qty_diff > 0:
+                    # Increase in quantity, check availability
+                    if product.stock_quantity < qty_diff:
+                        raise ValidationError(
+                            f"Insufficient stock for product '{product.name}'. "
+                            f"Available: {product.stock_quantity}, Needed: {qty_diff}"
+                        )
+                    product.stock_quantity -= qty_diff
+                elif qty_diff < 0:
+                    # Decrease in quantity, return stock
+                    product.stock_quantity += abs(qty_diff)
 
-        # Proceed to delete the SaleOrder(s) after adjustments
-        return super(SaleOrder, self).unlink()
+            res = super(SaleOrder, self).write(vals)
+            # Remove old movements
+            movements = self.env["idil.product.movement"].search(
+                [
+                    ("sale_order_id", "=", order.id),
+                ]
+            )
+
+            movements.unlink()
+
+            # Recreate product movements
+            for line in order.order_lines:
+                self.env["idil.product.movement"].create(
+                    {
+                        "sale_order_id": order.id,
+                        "product_id": line.product_id.id,
+                        "movement_type": "out",
+                        "quantity": line.quantity * -1,
+                        "date": order.order_date,
+                        "source_document": order.name,
+                        "sales_person_id": order.sales_person_id.id,
+                    }
+                )
+
+            # Remove and recreate booking and booking lines
+            bookings = self.env["idil.transaction_booking"].search(
+                [("sale_order_id", "=", order.id)]
+            )
+            for booking in bookings:
+                booking.booking_lines.unlink()
+                booking.unlink()
+
+            order.book_accounting_entry()
+            # ✅ Adjust corresponding receipt if exists
+            receipt = self.env["idil.sales.receipt"].search(
+                [("sales_order_id", "=", order.id)], limit=1
+            )
+            if receipt:
+                paid_amount = receipt.paid_amount or 0.0
+                new_due = order.order_total
+                receipt.write(
+                    {
+                        "due_amount": new_due,
+                        "remaining_amount": new_due - paid_amount,
+                    }
+                )
+
+        return res
 
 
 class SaleOrderLine(models.Model):
@@ -588,11 +631,61 @@ class SaleOrderLine(models.Model):
         return record
 
     def write(self, vals):
-        if "quantity" in vals:
-            # Calculate the difference in quantity to adjust the stock, without checking product type
-            quantity_diff = vals.get("quantity", self.quantity) - self.quantity
-            self.update_product_stock(self.product_id, quantity_diff)
-        return super(SaleOrderLine, self).write(vals)
+        for line in self:
+            # Step 1: Update stock if quantity is changing
+            if "quantity" in vals:
+                quantity_diff = vals["quantity"] - line.quantity
+                self.update_product_stock(line.product_id, quantity_diff)
+
+        # Step 2: Proceed with the actual write
+        res = super(SaleOrderLine, self).write(vals)
+
+        for line in self:
+            order = line.order_id
+
+            # Step 3: Delete old salesperson transactions for this order
+            self.env["idil.salesperson.transaction"].search(
+                [("order_id", "=", order.id)]
+            ).unlink()
+
+            # Step 4: Recreate transactions for all lines in the order
+            for updated_line in order.order_lines:
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": order.sales_person_id.id,
+                        "date": fields.Date.today(),
+                        "order_id": order.id,
+                        "transaction_type": "out",
+                        "amount": updated_line.subtotal
+                        + updated_line.discount_amount
+                        + updated_line.commission_amount,
+                        "description": f"Sales Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
+                    }
+                )
+
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": order.sales_person_id.id,
+                        "date": fields.Date.today(),
+                        "order_id": order.id,
+                        "transaction_type": "in",
+                        "amount": updated_line.commission_amount,
+                        "description": f"Sales Commission Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
+                    }
+                )
+
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": order.sales_person_id.id,
+                        "date": fields.Date.today(),
+                        "order_id": order.id,
+                        "transaction_type": "in",
+                        "amount": updated_line.discount_amount,
+                        "description": f"Sales Discount Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
+                    }
+                )
+
+        return res
 
     @staticmethod
     def update_product_stock(product, quantity_diff):

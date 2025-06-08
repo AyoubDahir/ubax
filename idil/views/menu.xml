@@ -51,6 +51,12 @@
               action="action_stock_adjustment"
               sequence="10"/>
 
+    <menuitem id="menu_item_opening_balance"
+            name="Item Opening Balance"
+            action="action_item_opening_balance"
+            parent="menu_idil_Inventory"/>
+
+
     <menuitem id="menu_idil_Items_registration"
               name="Item Registration"
               parent="menu_idil_Items"

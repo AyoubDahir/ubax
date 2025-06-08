@@ -139,7 +139,7 @@
                                     <field name="item_category_id" string="Item Category"/>
                                 </group>
                                 <group>
-                                    <field name="quantity"/>
+                                    <field name="quantity" readonly="1"/>
                                     <field name="min"/>
                                     <field name="cost_price" string="Cost Price"/>
                                     <field name="is_tfg" string="TFG"/>

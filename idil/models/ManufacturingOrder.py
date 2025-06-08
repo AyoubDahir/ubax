@@ -400,7 +400,7 @@ class ManufacturingOrder(models.Model):
                     "product_id": order.product_id.id,
                     "account_number": order.product_id.asset_account_id.id,
                     "transaction_type": "dr",
-                    "dr_amount": line.cost_amount_sos,
+                    "dr_amount": cost_amount_sos,
                     "cr_amount": 0.0,
                     "transaction_date": fields.Date.today(),
                 }
@@ -416,7 +416,7 @@ class ManufacturingOrder(models.Model):
                     "account_number": target_clearing_account.id,
                     "transaction_type": "cr",
                     "dr_amount": 0.0,
-                    "cr_amount": line.cost_amount_sos,
+                    "cr_amount": cost_amount_sos,
                     "transaction_date": fields.Date.today(),
                 }
             )

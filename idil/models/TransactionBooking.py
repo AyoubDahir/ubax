@@ -147,6 +147,12 @@ class TransactionBooking(models.Model):
         ondelete="cascade",  # 🔁 Cascade delete
         index=True,
     )
+    item_opening_balance_id = fields.Many2one(
+        "idil.item.opening.balance",
+        string="Item Opening Balance",
+        ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
+        index=True,
+    )
 
     # @api.constrains("amount_paid")
     # def _check_amount_paid(self):
@@ -396,6 +402,12 @@ class TransactionBookingline(models.Model):
         "idil.product.adjustment",
         string="Adjustment Reference",
         ondelete="cascade",  # 🔁 Cascade delete
+        index=True,
+    )
+    item_opening_balance_id = fields.Many2one(
+        "idil.item.opening.balance",
+        string="Item Opening Balance",
+        ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
         index=True,
     )
 

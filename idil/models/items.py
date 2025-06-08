@@ -194,55 +194,55 @@ class item(models.Model):
                     body=f"Item {record.name} needs reordering. Current stock: {record.quantity}"
                 )
 
-    @api.model
-    def create(self, vals):
-        # Create item and add transaction booking only if flag allows
-        new_item = super(item, self).create(vals)
-        if self.env.context.get("create_transaction_booking", True):
-            self._create_transaction_booking(new_item)
-        return new_item
+    # @api.model
+    # def create(self, vals):
+    #     # Create item and add transaction booking only if flag allows
+    #     new_item = super(item, self).create(vals)
+    #     if self.env.context.get("create_transaction_booking", True):
+    #         self._create_transaction_booking(new_item)
+    #     return new_item
 
-    def write(self, vals):
-        # Update ItemMovement quantity if item.quantity is being changed
-        for item in self:
-            if "quantity" in vals:
-                new_qty = vals["quantity"]
-                for movement in item.movement_ids:
-                    if (
-                        movement.source
-                        and "Opening Balance Inventory" in movement.source
-                    ):
-                        _logger.info(
-                            f"[ItemMovement] Updating opening balance quantity for item '{item.name}' "
-                            f"from {movement.quantity} to {new_qty}"
-                        )
-                        movement.quantity = new_qty
+    # def write(self, vals):
+    #     # Update ItemMovement quantity if item.quantity is being changed
+    #     for item in self:
+    #         if "quantity" in vals:
+    #             new_qty = vals["quantity"]
+    #             for movement in item.movement_ids:
+    #                 if (
+    #                     movement.source
+    #                     and "Opening Balance Inventory" in movement.source
+    #                 ):
+    #                     _logger.info(
+    #                         f"[ItemMovement] Updating opening balance quantity for item '{item.name}' "
+    #                         f"from {movement.quantity} to {new_qty}"
+    #                     )
+    #                     movement.quantity = new_qty
 
-        res = super().write(vals)
+    #     res = super().write(vals)
 
-        # Ensure transaction booking is created only when updating from this model
-        if self.env.context.get(
-            "update_transaction_booking", True
-        ) and not self._context.get("from_unlink"):
-            for record in self:
-                transaction_bookings = self.env["idil.transaction_booking"].search(
-                    [("reffno", "=", record.name)]
-                )
-                if not transaction_bookings:
-                    self._create_transaction_booking(record)
-                else:
-                    new_amount = record.quantity * record.cost_price
-                    for booking in transaction_bookings:
-                        booking.amount = new_amount
-                        booking.amount_paid = new_amount
-                        for line in booking.booking_lines:
-                            if line.account_number.id == record.asset_account_id.id:
-                                line.dr_amount = new_amount
-                                line.cr_amount = 0
-                            elif line.account_number.account_type == "Owners Equity":
-                                line.cr_amount = new_amount
-                                line.dr_amount = 0
-        return res
+    #     # Ensure transaction booking is created only when updating from this model
+    #     if self.env.context.get(
+    #         "update_transaction_booking", True
+    #     ) and not self._context.get("from_unlink"):
+    #         for record in self:
+    #             transaction_bookings = self.env["idil.transaction_booking"].search(
+    #                 [("reffno", "=", record.name)]
+    #             )
+    #             if not transaction_bookings:
+    #                 self._create_transaction_booking(record)
+    #             else:
+    #                 new_amount = record.quantity * record.cost_price
+    #                 for booking in transaction_bookings:
+    #                     booking.amount = new_amount
+    #                     booking.amount_paid = new_amount
+    #                     for line in booking.booking_lines:
+    #                         if line.account_number.id == record.asset_account_id.id:
+    #                             line.dr_amount = new_amount
+    #                             line.cr_amount = 0
+    #                         elif line.account_number.account_type == "Owners Equity":
+    #                             line.cr_amount = new_amount
+    #                             line.dr_amount = 0
+    #     return res
 
     def _create_transaction_booking(self, item):
         """Helper method to create transaction booking only within this model."""
@@ -381,6 +381,12 @@ class ItemMovement(models.Model):
         "idil.purchase_order.line",
         string="Purchase Order Line",
         ondelete="cascade",  # Enables automatic deletion
+        index=True,
+    )
+    item_opening_balance_id = fields.Many2one(
+        "idil.item.opening.balance",
+        string="Item Opening Balance",
+        ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
         index=True,
     )
 
