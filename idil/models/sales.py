@@ -492,6 +492,40 @@ class SaleOrder(models.Model):
 
         return res
 
+    def unlink(self):
+        for order in self:
+
+            # Revert stock from order lines
+            for line in order.order_lines:
+                product = line.product_id
+                product.stock_quantity += line.quantity
+
+            # Delete related product movements
+            movements = self.env["idil.product.movement"].search(
+                [("sale_order_id", "=", order.id)]
+            )
+            movements.unlink()
+
+            # Delete booking and booking lines
+            bookings = self.env["idil.transaction_booking"].search(
+                [("sale_order_id", "=", order.id)]
+            )
+            for booking in bookings:
+                booking.booking_lines.unlink()
+                booking.unlink()
+
+            # Delete salesperson transactions
+            self.env["idil.salesperson.transaction"].search(
+                [("order_id", "=", order.id)]
+            ).unlink()
+
+            # Delete sales receipt
+            self.env["idil.sales.receipt"].search(
+                [("sales_order_id", "=", order.id)]
+            ).unlink()
+
+        return super(SaleOrder, self).unlink()
+
 
 class SaleOrderLine(models.Model):
     _name = "idil.sale.order.line"
