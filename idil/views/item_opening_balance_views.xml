@@ -28,7 +28,7 @@
                   <field name="item_id" />
                   <field name="quantity" />
                   <field name="cost_price" readonly="1"/>
-                  <field name="total" readonly="1"/>
+                  <field name="total" sum="total" readonly="1"/>
                 </tree>
               </field>
             </page>
