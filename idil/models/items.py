@@ -63,6 +63,13 @@ class item(models.Model):
     image = fields.Binary(string=" Image")
     order_information = fields.Char(string="Order Information", tracking=True)
     bar_code = fields.Char(string="Bar Code", tracking=True)
+    # Currency fields
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        required=True,
+        default=lambda self: self.env.company.currency_id,
+    )
 
     purchase_account_id = fields.Many2one(
         "idil.chart.account",
@@ -70,14 +77,14 @@ class item(models.Model):
         help="Account to report purchases of this item",
         required=True,
         tracking=True,
-        domain="[('account_type', 'like', 'COGS'), ('currency_id.name', '=', 'USD')]",  # Corrected domain structure
+        domain="[('account_type', 'like', 'COGS'), ('currency_id', '=', currency_id)]",
     )
     sales_account_id = fields.Many2one(
         "idil.chart.account",
         string="Sales Account",
         help="Account to report sales of this item",
         tracking=True,
-        domain="[('code', 'like', '4'), ('currency_id.name', '=', 'USD')]",
+        domain="[('code', 'like', '4'), ('currency_id', '=', currency_id)]",
         # Domain to filter accounts starting with '4' and in USD
     )
     asset_account_id = fields.Many2one(
@@ -86,7 +93,7 @@ class item(models.Model):
         help="Account to report Asset of this item",
         required=True,
         tracking=True,
-        domain="[('code', 'like', '1'), ('currency_id.name', '=', 'USD')]",
+        domain="[('code', 'like', '1'), ('currency_id', '=', currency_id)]",
         # Domain to filter accounts starting with '1' and in USD
     )
 
@@ -96,7 +103,7 @@ class item(models.Model):
         help="Account to report adjustment of this item",
         required=True,
         tracking=True,
-        domain="[('code', 'like', '5'), ('currency_id.name', '=', 'USD')]",
+        domain="[('code', 'like', '1'), ('code', 'like', '5'), ('currency_id', '=', currency_id)]",
         # Domain to filter accounts starting with '1' and in USD
     )
 
@@ -115,17 +122,6 @@ class item(models.Model):
     # New field to track item movements
     movement_ids = fields.One2many(
         "idil.item.movement", "item_id", string="Item Movements"
-    )
-
-    def _default_currency_id(self):
-        return self.env.ref("base.USD").id
-
-    currency_id = fields.Many2one(
-        "res.currency",
-        string="Currency",
-        default=_default_currency_id,
-        required=True,
-        readonly=True,
     )
 
     # Add a method to update currency_id for existing records
@@ -193,56 +189,6 @@ class item(models.Model):
                 record.message_post(
                     body=f"Item {record.name} needs reordering. Current stock: {record.quantity}"
                 )
-
-    # @api.model
-    # def create(self, vals):
-    #     # Create item and add transaction booking only if flag allows
-    #     new_item = super(item, self).create(vals)
-    #     if self.env.context.get("create_transaction_booking", True):
-    #         self._create_transaction_booking(new_item)
-    #     return new_item
-
-    # def write(self, vals):
-    #     # Update ItemMovement quantity if item.quantity is being changed
-    #     for item in self:
-    #         if "quantity" in vals:
-    #             new_qty = vals["quantity"]
-    #             for movement in item.movement_ids:
-    #                 if (
-    #                     movement.source
-    #                     and "Opening Balance Inventory" in movement.source
-    #                 ):
-    #                     _logger.info(
-    #                         f"[ItemMovement] Updating opening balance quantity for item '{item.name}' "
-    #                         f"from {movement.quantity} to {new_qty}"
-    #                     )
-    #                     movement.quantity = new_qty
-
-    #     res = super().write(vals)
-
-    #     # Ensure transaction booking is created only when updating from this model
-    #     if self.env.context.get(
-    #         "update_transaction_booking", True
-    #     ) and not self._context.get("from_unlink"):
-    #         for record in self:
-    #             transaction_bookings = self.env["idil.transaction_booking"].search(
-    #                 [("reffno", "=", record.name)]
-    #             )
-    #             if not transaction_bookings:
-    #                 self._create_transaction_booking(record)
-    #             else:
-    #                 new_amount = record.quantity * record.cost_price
-    #                 for booking in transaction_bookings:
-    #                     booking.amount = new_amount
-    #                     booking.amount_paid = new_amount
-    #                     for line in booking.booking_lines:
-    #                         if line.account_number.id == record.asset_account_id.id:
-    #                             line.dr_amount = new_amount
-    #                             line.cr_amount = 0
-    #                         elif line.account_number.account_type == "Owners Equity":
-    #                             line.cr_amount = new_amount
-    #                             line.dr_amount = 0
-    #     return res
 
     def _create_transaction_booking(self, item):
         """Helper method to create transaction booking only within this model."""

@@ -196,6 +196,9 @@ class SalespersonTransaction(models.Model):
     running_balance = fields.Float(
         string="Running Balance", compute="_compute_running_balance", store=True
     )
+    sales_payment_id = fields.Many2one(
+        "idil.sales.payment", string="Sales Payment", ondelete="cascade"
+    )
 
     @api.depends("sales_person_id", "amount", "transaction_type")
     def _compute_running_balance(self):

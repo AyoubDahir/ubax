@@ -338,7 +338,7 @@ class TransactionBookingline(models.Model):
     )
 
     # order_line = fields.Char(string='Order Line')
-    # order_line = fields.Integer(string="Order Line")
+    sl_line = fields.Integer(string="Order Line")
     order_line = fields.Many2one("idil.purchase_order.line", ondelete="cascade")
 
     description = fields.Char(string="Description")

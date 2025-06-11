@@ -151,7 +151,19 @@ class SalesReceipt(models.Model):
                 }
             )
             # Create a sales payment
-            self.env["idil.sales.payment"].create(
+            # self.env["idil.sales.payment"].create(
+            #     {
+            #         "sales_receipt_id": record.id,
+            #         "transaction_booking_ids": [(4, transaction_booking.id)],
+            #         "transaction_bookingline_ids": [
+            #             (4, line.id) for line in transaction_booking.booking_lines
+            #         ],
+            #         "payment_account": record.payment_account.id,
+            #         "payment_date": fields.Datetime.now(),
+            #         "paid_amount": record.amount_paying,
+            #     }
+            # )
+            payment = self.env["idil.sales.payment"].create(
                 {
                     "sales_receipt_id": record.id,
                     "transaction_booking_ids": [(4, transaction_booking.id)],
@@ -163,12 +175,14 @@ class SalesReceipt(models.Model):
                     "paid_amount": record.amount_paying,
                 }
             )
+
             # Only create salesperson transaction if the record is for a salesperson (not customer)
             if record.sales_order_id:
                 self.env["idil.salesperson.transaction"].create(
                     {
                         "sales_person_id": record.sales_order_id.sales_person_id.id,
                         "date": fields.Date.today(),
+                        "sales_payment_id": payment.id,  # ← link here
                         "order_id": record.sales_order_id.id,
                         "transaction_type": "in",
                         "amount": record.amount_paying,
@@ -225,4 +239,8 @@ class IdilSalesPayment(models.Model):
         for payment in self:
             payment.sales_receipt_id.remaining_amount += payment.paid_amount
             payment.sales_receipt_id.paid_amount -= payment.paid_amount
+            # Delete linked salesperson transactions
+            self.env["idil.salesperson.transaction"].search(
+                [("sales_payment_id", "=", payment.id)]
+            ).unlink()
         return super(IdilSalesPayment, self).unlink()

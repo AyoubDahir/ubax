@@ -133,6 +133,7 @@ class PurchaseOrderLine(models.Model):
             # 'transaction_number': transaction_number,
             "order_line": self.id,
             "item_id": self.item_id.id,
+            "description": f"{self.item_id.name} - Purchase Ref No. #{self.order_id.reffno}",
             "account_number": account_number,
             "transaction_type": transaction_type,
             "dr_amount": self.amount if transaction_type == "dr" else 0,
