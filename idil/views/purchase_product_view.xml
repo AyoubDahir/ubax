@@ -10,9 +10,10 @@
                 <group>
                     <field name="name" readonly="1"/>
                     <field name="vendor_id"/>
+                    <field name="invoice_number"/>
+                    <field name="purchase_date"/>                               
                     <field name="payment_method"/>
-                    <field name="account_number"/>
-                   
+                    <field name="account_number"/>                 
                     <field name="amount" readonly="1"/>
                 </group>
                 <field name="order_lines">
@@ -20,7 +21,7 @@
                         <field name="product_id"/>
                         <field name="quantity"/>
                         <field name="cost_price"/>
-                        <field name="amount" readonly="1"/>
+                        <field name="amount" sum="total" readonly="1"/>
                     </tree>
                 </field>
             </sheet>

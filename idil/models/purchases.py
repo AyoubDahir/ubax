@@ -148,7 +148,7 @@ class PurchaseOrderLine(models.Model):
             "transaction_type": transaction_type,
             "dr_amount": self.amount if transaction_type == "dr" else 0,
             "cr_amount": 0 if transaction_type == "dr" else self.amount,
-            "transaction_date": fields.Date.today(),
+            "transaction_date": self.order_id.purchase_date,
             "transaction_booking_id": transaction_id,
         }
         self.env["idil.transaction_bookingline"].create(line_values)
@@ -199,7 +199,7 @@ class PurchaseOrderLine(models.Model):
             "payment_status": (
                 "paid" if self.order_id.payment_method == "cash" else "pending"
             ),
-            "trx_date": fields.Date.today(),
+            "trx_date": self.order_id.purchase_date,
             "amount": total_amount,  # Use the total amount of all lines here
             # 'remaining_amount': total_amount,
             "remaining_amount": (
@@ -222,7 +222,7 @@ class PurchaseOrderLine(models.Model):
         vendor_transaction_values = {
             "order_number": transaction.order_number,
             "transaction_number": transaction.transaction_number,
-            "transaction_date": transaction.trx_date,
+            "transaction_date": self.order_id.purchase_date,
             "vendor_id": transaction.vendor_id.id,
             "amount": transaction.amount,
             "remaining_amount": (
@@ -590,6 +590,15 @@ class PurchaseOrder(models.Model):
     vendor_id = fields.Many2one(
         "idil.vendor.registration", string="Vendor", required=True
     )
+    invoice_number = fields.Char(
+        string="Invoice Number",
+        required=True,
+        tracking=True,
+    )
+    purchase_date = fields.Date(
+        string="Purchase Date", default=fields.Date.today, required=True
+    )
+
     order_lines = fields.One2many(
         "idil.purchase_order.line", "order_id", string="Order Lines"
     )

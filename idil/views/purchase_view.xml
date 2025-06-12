@@ -37,6 +37,16 @@
                                 </group>
 
                                 <group class="oe_inline">
+                                    <field name="invoice_number"/>
+                                </group>
+                                <group class="oe_inline">
+                                    <field name="purchase_date"/>
+                                </group>
+
+
+
+
+                                <group class="oe_inline">
                                     <field name="payment_method"/>
                                 </group>
 

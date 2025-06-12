@@ -15,9 +15,19 @@ class ProductPurchaseOrder(models.Model):
         "idil.product.purchase.order.line", "order_id", string="Order Lines"
     )
     payment_method = fields.Selection(
-        [("cash", "Cash"), ("ap", "A/P")],
+        [("cash", "Cash"), ("ap", "A/P"), ("bank_transfer", "Bank")],
         string="Payment Method",
         required=True,
+    )
+
+    invoice_number = fields.Char(
+        string="Invoice Number",
+        required=True,
+        tracking=True,
+    )
+
+    purchase_date = fields.Date(
+        string="Purchase Date", default=fields.Date.today, required=True
     )
 
     amount = fields.Float(
@@ -198,7 +208,7 @@ class ProductPurchaseOrderLine(models.Model):
                     "trx_source_id": trx_source.id,
                     "vendor_id": order.vendor_id.id,
                     "payment_method": order.payment_method,
-                    "trx_date": fields.Date.today(),
+                    "trx_date": order.purchase_date,
                     "amount": line.amount,
                     "amount_paid": line.amount if order.payment_method == "cash" else 0,
                     "remaining_amount": (
@@ -220,7 +230,7 @@ class ProductPurchaseOrderLine(models.Model):
                     "cr_amount": 0,
                     "account_number": product.asset_account_id.id,
                     "product_id": product.id,
-                    "transaction_date": fields.Date.today(),
+                    "transaction_date": order.purchase_date,
                     "company_id": self.env.company.id,
                 }
             )
@@ -235,7 +245,7 @@ class ProductPurchaseOrderLine(models.Model):
                     "cr_amount": line.amount,
                     "account_number": credit_account_id.id,
                     "product_id": product.id,
-                    "transaction_date": fields.Date.today(),
+                    "transaction_date": order.purchase_date,
                     "company_id": self.env.company.id,
                 }
             )
@@ -246,7 +256,7 @@ class ProductPurchaseOrderLine(models.Model):
                     {
                         "product_purchase_order_id": order.id,
                         "transaction_number": transaction_number,
-                        "transaction_date": fields.Date.today(),
+                        "transaction_date": order.purchase_date,
                         "vendor_id": order.vendor_id.id,
                         "amount": line.amount,
                         "remaining_amount": line.amount,
@@ -264,7 +274,7 @@ class ProductPurchaseOrderLine(models.Model):
                     "movement_type": "in",
                     "product_purchase_order_id": order.id,
                     "quantity": line.quantity,
-                    "date": fields.Datetime.now(),
+                    "date": order.purchase_date,
                     "source_document": order.name,
                 }
             )
