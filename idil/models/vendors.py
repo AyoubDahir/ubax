@@ -93,7 +93,7 @@ class Vendor(models.Model):
 
     def create_opening_balance_transaction(self):
         for vendor in self:
-            if vendor.opening_balance > 0:
+            if vendor.opening_balance >= 0:
                 try:
                     _logger.info(
                         "Attempting to create or update an opening balance transaction for vendor ID %s",
@@ -245,10 +245,10 @@ class Vendor(models.Model):
                     {
                         "transaction_booking_id": transaction.id,
                         "account_number": vendor.account_payable_id.id,
-                        "transaction_type": "dr",
-                        "dr_amount": vendor.opening_balance,
-                        "cr_amount": 0,
-                        "description": "Opening Balance Debit Entry",
+                        "transaction_type": "cr",
+                        "dr_amount": 0,
+                        "cr_amount": vendor.opening_balance,
+                        "description": "Opening Balance Credit Entry",
                         "transaction_date": fields.Date.today(),
                     }
                 )
@@ -279,10 +279,10 @@ class Vendor(models.Model):
                     {
                         "transaction_booking_id": transaction.id,
                         "account_number": opening_balance_account.id,
-                        "transaction_type": "cr",
-                        "cr_amount": vendor.opening_balance,
-                        "dr_amount": 0,
-                        "description": "Opening Balance Credit Entry",
+                        "transaction_type": "dr",
+                        "cr_amount": 0,
+                        "dr_amount": vendor.opening_balance,
+                        "description": "Opening Balance Debit Entry",
                         "transaction_date": fields.Date.today(),
                     }
                 )
@@ -303,7 +303,7 @@ class Vendor(models.Model):
 
     def write(self, vals):
         res = super(Vendor, self).write(vals)
-        if "opening_balance" in vals and vals.get("opening_balance", 0.0) > 0.0:
+        if "opening_balance" in vals and vals.get("opening_balance", 0.0) >= 0.0:
             for vendor in self:
                 _logger.info(
                     "Invoking create_opening_balance_transaction during vendor update for Vendor ID: %s",

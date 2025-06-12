@@ -60,7 +60,7 @@
                                                string="Item"/>
                                         <field name="quantity" string="Quantity"
                                                options="{'style': 'text-align:center'}"/>
-                                        <field name="amount" string="Total Price" readonly="1"
+                                        <field name="amount" string="Total Price" sum="total" readonly="1"
                                                options="{'style': 'text-align:center'}"/>
                                         <field name="expiration_date" string="Expiration Date"
                                                options="{'style': 'text-align:center'}"/>

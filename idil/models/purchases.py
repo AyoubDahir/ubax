@@ -225,8 +225,6 @@ class PurchaseOrderLine(models.Model):
             "transaction_date": transaction.trx_date,
             "vendor_id": transaction.vendor_id.id,
             "amount": transaction.amount,
-            # 'remaining_amount': transaction.amount,
-            # 'paid_amount': 0,
             "remaining_amount": (
                 0 if transaction.payment_method == "cash" else transaction.amount
             ),
@@ -598,7 +596,7 @@ class PurchaseOrder(models.Model):
 
     description = fields.Text(string="Description")
     payment_method = fields.Selection(
-        [("cash", "Cash"), ("ap", "A/P")],
+        [("cash", "Cash"), ("ap", "A/P"), ("bank_transfer", "Bank")],
         string="Payment Method",
         required=True,
     )
