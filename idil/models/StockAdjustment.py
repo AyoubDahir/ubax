@@ -13,7 +13,7 @@ class StockAdjustment(models.Model):
         string="Adjustment Quantity", required=True, help="Enter the quantity to adjust"
     )
     adjustment_type = fields.Selection(
-        [("decrease", "Decrease"), ("increase", "Increase")],
+        [("decrease", "Decrease"), ("decrease", "Increase")],
         string="Adjustment Type",
         required=True,
         help="Select adjustment type",
