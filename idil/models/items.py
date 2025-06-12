@@ -300,10 +300,8 @@ class ItemMovement(models.Model):
         selection=[
             ("idil.purchase_order.line", "Purchase Order Line"),
             ("idil.manufacturing.order.line", "Manufacturing Order Line"),
-            (
-                "idil.stock.adjustment",
-                "Stock Adjustment",
-            ),  # Added Stock Adjustment reference
+            ("idil.stock.adjustment", "Stock Adjustment"),
+            ("idil.purchase_return.line", "Purchase Return Line"),
         ],
         string="Related Document",
     )
@@ -334,6 +332,11 @@ class ItemMovement(models.Model):
         string="Item Opening Balance",
         ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
         index=True,
+    )
+    purchase_return_id = fields.Many2one(
+        "idil.purchase_return",
+        string="Purchase Return",
+        ondelete="cascade",
     )
 
     @api.model

@@ -1,0 +1,55 @@
+<odoo>
+    <record id="view_purchase_return_form" model="ir.ui.view">
+        <field name="name">idil.purchase_return.form</field>
+        <field name="model">idil.purchase_return</field>
+        <field name="arch" type="xml">
+            <form string="Purchase Return">
+            <HEADER>
+                <button name="action_process_return" type="object" string="Process Return" class="btn-primary"/> 
+            </HEADER>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="return_date"/>
+                        <field name="original_order_id"/>
+                        <field name="vendor_id" readonly="1"/>
+                    </group>
+                    <field name="return_lines">
+                        
+                        <tree editable="bottom" create="false" delete="false">
+                            <field name="order_line_id"/>
+                            <field name="item_id"/>
+                            
+                            <field name="original_qty" readonly="1"/>
+                            <field name="return_qty"/>
+                            <field name="cost_price"/>
+                            <field name="amount" sum="Total" readonly="1"/>
+                        </tree>
+                    </field>
+                    
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_purchase_return_tree" model="ir.ui.view">
+        <field name="name">idil.purchase_return.tree</field>
+        <field name="model">idil.purchase_return</field>
+        <field name="arch" type="xml">
+            <tree string="Purchase Returns">
+                <field name="name"/>
+                <field name="return_date"/>
+                <field name="original_order_id"/>
+                <field name="vendor_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_purchase_return" model="ir.actions.act_window">
+        <field name="name">Purchase Returns</field>
+        <field name="res_model">idil.purchase_return</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+     
+</odoo>

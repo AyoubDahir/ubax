@@ -61,6 +61,11 @@ class PurchaseOrderLine(models.Model):
 
     @api.model
     def create(self, values):
+        # If cost_price is 0 or not provided, get it from the item
+        if not values.get("cost_price"):
+            item = self.env["idil.item"].browse(values.get("item_id"))
+            values["cost_price"] = item.cost_price
+
         existing_line = self.search(
             [
                 ("order_id", "=", values.get("order_id")),

@@ -97,6 +97,7 @@
         "views/product_adjustment_views.xml",
         "views/purchase_product_view.xml",
         "views/item_opening_balance_views.xml",
+        "views/purchase_return_views.xml",
         "views/menu_hr.xml",
         "views/menu.xml",
     ],

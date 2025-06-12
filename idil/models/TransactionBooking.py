@@ -62,7 +62,12 @@ class TransactionBooking(models.Model):
     )
 
     payment_status = fields.Selection(
-        [("pending", "Pending"), ("paid", "Paid"), ("partial_paid", "Partial Paid")],
+        [
+            ("pending", "Pending"),
+            ("paid", "Paid"),
+            ("partial_paid", "Partial Paid"),
+            ("posted", "Posted"),
+        ],
         string="Payment Status",
         help="Description or additional information about the payment status.",
     )
@@ -152,6 +157,11 @@ class TransactionBooking(models.Model):
         string="Item Opening Balance",
         ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
         index=True,
+    )
+    return_id = fields.Many2one(
+        "idil.purchase_return",
+        string="Purchase Return",
+        ondelete="cascade",
     )
 
     # @api.constrains("amount_paid")
@@ -409,6 +419,11 @@ class TransactionBookingline(models.Model):
         string="Item Opening Balance",
         ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
         index=True,
+    )
+    return_id = fields.Many2one(
+        "idil.purchase_return",
+        string="Purchase Return",
+        ondelete="cascade",
     )
 
     @api.depends("account_number")

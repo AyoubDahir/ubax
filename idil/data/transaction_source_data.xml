@@ -47,6 +47,10 @@
             <field name="name">Purchase Prodcuts</field>
             <field name="description">Purchase Prodcuts</field>
         </record>
+        <record id="trx_source_manual" model="idil.transaction.source">
+            <field name="name">Purchase Return</field>
+            <field name="description">Purchase Return</field>
+        </record>
 
 
 
