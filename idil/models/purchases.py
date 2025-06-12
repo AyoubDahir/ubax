@@ -40,6 +40,11 @@ class PurchaseOrderLine(models.Model):
         ondelete="cascade",
     )
 
+    @api.onchange("item_id")
+    def _onchange_item_id(self):
+        if self.item_id:
+            self.cost_price = self.item_id.cost_price
+
     def _create_item_movement(self, values):
         """Create an item movement entry."""
         if self.item_id:
