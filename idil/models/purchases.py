@@ -45,25 +45,6 @@ class PurchaseOrderLine(models.Model):
         if self.item_id:
             self.cost_price = self.item_id.cost_price
 
-    def _create_item_movement(self, values):
-        """Create an item movement entry."""
-        if self.item_id:
-            self.env["idil.item.movement"].create(
-                {
-                    "item_id": self.item_id.id,
-                    "purchase_order_line_id": self.id,
-                    "date": fields.Date.today(),
-                    "quantity": self.quantity,
-                    "source": "Vendor",
-                    "destination": "Inventory",
-                    "movement_type": "in",
-                    "related_document": f"idil.purchase_order.line,{self.id}",
-                }
-            )
-            _logger.info(
-                f"Created item movement for item {self.item_id.name} with quantity {self.quantity}"
-            )
-
     @api.model
     def create(self, values):
         # If cost_price is 0 or not provided, get it from the item
@@ -85,160 +66,9 @@ class PurchaseOrderLine(models.Model):
         else:
 
             new_line = super(PurchaseOrderLine, self).create(values)
-            new_line._update_item_stock(
-                values.get("quantity", 0),
-                values.get("cost_price"),
-            )
-            new_line._create_stock_transaction(values)
-            new_line._create_item_movement(values)
+            # new_line._create_stock_transaction(values)
 
             return new_line
-
-    @api.model
-    def _create_stock_transaction(self, values):
-        try:
-            purchase_account_number = self._validate_purchase_account()
-            self._check_account_balance(purchase_account_number)
-            new_transaction_number = self._get_next_transaction_number()
-
-            stock_account_number = self._get_stock_account_number()
-
-            # Retrieve accounts to check their currencies
-            purchase_account = self.env["idil.chart.account"].browse(
-                purchase_account_number
-            )
-            stock_account = self.env["idil.chart.account"].browse(stock_account_number)
-
-            if purchase_account.currency_id != stock_account.currency_id:
-                raise ValidationError(
-                    _("Credit and Debit accounts must have the same currency type.")
-                )
-
-            transaction_values = self._prepare_transaction_values(
-                new_transaction_number, values
-            )
-            new_transaction = self._create_transaction_record(transaction_values)
-
-            self._create_transaction_line(
-                new_transaction.id, new_transaction_number, stock_account_number, "dr"
-            )
-            self._create_transaction_line(
-                new_transaction.id,
-                new_transaction_number,
-                purchase_account_number,
-                "cr",
-            )
-
-            # Create Vendor Transaction after creating the transaction booking and lines
-            self._create_vendor_transaction(new_transaction, values)
-
-        except Exception as e:
-            _logger.error(f"Error creating transaction: {e}")
-            raise
-
-    def _create_transaction_line(
-        self, transaction_id, transaction_number, account_number, transaction_type
-    ):
-        line_values = {
-            # 'transaction_number': transaction_number,
-            "order_line": self.id,
-            "item_id": self.item_id.id,
-            "description": f"{self.item_id.name} - Purchase Ref No. #{self.order_id.reffno}",
-            "account_number": account_number,
-            "transaction_type": transaction_type,
-            "dr_amount": self.amount if transaction_type == "dr" else 0,
-            "cr_amount": 0 if transaction_type == "dr" else self.amount,
-            "transaction_date": self.order_id.purchase_date,
-            "transaction_booking_id": transaction_id,
-        }
-        self.env["idil.transaction_bookingline"].create(line_values)
-
-    def _create_transaction_record(self, transaction_values):
-        # Check the payment method and set payment status accordingly
-        if transaction_values.get("payment_method") == "cash":
-            transaction_values["payment_status"] = "paid"
-        else:
-            transaction_values["payment_status"] = "pending"
-
-        # Check if a transaction for the order already exists
-        existing_transaction = self.env["idil.transaction_booking"].search(
-            [
-                ("order_number", "=", transaction_values.get("order_number")),
-            ],
-            limit=1,
-        )
-
-        if existing_transaction:
-            # If it exists, update the amount and payment status
-            existing_transaction.write(
-                {
-                    "amount": transaction_values["amount"],
-                    "payment_status": transaction_values["payment_status"],
-                    # Update any other relevant fields as necessary
-                }
-            )
-            return existing_transaction
-        else:
-
-            # If no existing transaction, create a new one
-            return self.env["idil.transaction_booking"].create(transaction_values)
-
-    def _prepare_transaction_values(self, transaction_number, values):
-        trx_source_id = self.get_manual_transaction_source_id()
-        # Calculate the total amount of all order lines for this order
-        total_amount = sum(line.amount for line in self.order_id.order_lines.exists())
-
-        return {
-            "reffno": self.order_id.reffno,
-            "transaction_number": transaction_number,
-            "vendor_id": self.order_id.vendor_id.id,
-            "order_number": self.order_id.id,
-            "payment_method": self.order_id.payment_method,
-            "trx_source_id": trx_source_id,
-            "purchase_order_id": self.order_id.id,
-            "payment_status": (
-                "paid" if self.order_id.payment_method == "cash" else "pending"
-            ),
-            "trx_date": self.order_id.purchase_date,
-            "amount": total_amount,  # Use the total amount of all lines here
-            # 'remaining_amount': total_amount,
-            "remaining_amount": (
-                0 if self.order_id.payment_method == "cash" else total_amount
-            ),
-            "amount_paid": (
-                total_amount if self.order_id.payment_method == "cash" else 0
-            ),
-        }
-
-    def get_manual_transaction_source_id(self):
-        trx_source = self.env["idil.transaction.source"].search(
-            [("name", "=", "Purchase Order")], limit=1
-        )
-        if not trx_source:
-            raise ValidationError(_('Transaction source "Purchase Order" not found.'))
-        return trx_source.id
-
-    def _create_vendor_transaction(self, transaction, values):
-        vendor_transaction_values = {
-            "order_number": transaction.order_number,
-            "transaction_number": transaction.transaction_number,
-            "transaction_date": self.order_id.purchase_date,
-            "vendor_id": transaction.vendor_id.id,
-            "amount": transaction.amount,
-            "remaining_amount": (
-                0 if transaction.payment_method == "cash" else transaction.amount
-            ),
-            "paid_amount": (
-                transaction.amount if transaction.payment_method == "cash" else 0
-            ),
-            "payment_method": transaction.payment_method,
-            "reffno": transaction.reffno,
-            "transaction_booking_id": transaction.id,
-            "payment_status": (
-                "paid" if transaction.payment_method == "cash" else "pending"
-            ),
-        }
-        self.env["idil.vendor_transaction"].create(vendor_transaction_values)
 
     def _sum_order_line_amounts(self):
         # Corrected to use the proper field name 'order_lines'
@@ -269,33 +99,6 @@ class PurchaseOrderLine(models.Model):
         credit_sum = sum(transaction.cr_amount for transaction in transactions)
         return debit_sum - credit_sum
 
-    def _determine_purchase_account_number(self):
-        """Determine purchase account number based on payment method."""
-        _logger.debug(
-            f"Determining account number for payment method: {self.order_id.payment_method}"
-        )
-        if self.order_id.payment_method == "cash":
-            account = self.order_id.account_number
-            return account.id if account else False
-        elif self.order_id.payment_method == "ap":
-            account = self.order_id.vendor_id.account_payable_id
-            _logger.debug(f"AP account found: {account.code if account else 'None'}")
-            return account.id if account else False
-        # Implement logic for other payment methods
-        _logger.error("No account found for the specified payment method")
-        return False
-
-    def _validate_purchase_account(self):
-        purchase_account_number = self._determine_purchase_account_number()
-        if not purchase_account_number:
-            _logger.error(
-                f"No purchase account number found for payment method {self.order_id.payment_method}"
-            )
-            raise exceptions.UserError(
-                "Purchase account number is required but was not found."
-            )
-        return purchase_account_number
-
     def _check_account_balance(self, purchase_account_number):
         # Check if the payment method is 'cash' or 'bank_transfer'
         if self.order_id.payment_method not in ["cash", "bank_transfer"]:
@@ -308,192 +111,6 @@ class PurchaseOrderLine(models.Model):
                 f"Account balance is {account_balance}, but the transaction amount is {self.amount}."
             )
 
-    def write(self, values):
-
-        if "quantity" in values:
-            # Calculate the difference between the new and old quantities
-            quantity_diff = values["quantity"] - self.quantity
-
-            if quantity_diff != 0:
-                # Update item movement entry for the quantity change
-                item_movement = self.env["idil.item.movement"].search(
-                    [("related_document", "=", f"idil.purchase_order.line,{self.id}")],
-                    limit=1,
-                )
-                if item_movement:
-                    item_movement.quantity += quantity_diff
-                else:
-                    # Create new item movement if it doesn't exist
-                    self._create_item_movement({"quantity": quantity_diff})
-
-                # Update item stock based on the quantity difference
-                cost_price = values.get("cost_price", self.cost_price)
-                self._update_item_stock(quantity_diff, cost_price)
-
-                # Adjust stock transactions and vendor transactions
-                self._adjust_stock_transaction(values)
-                self._adjust_vendor_transaction(values)
-
-        return super(PurchaseOrderLine, self).write(values)
-
-    def _adjust_stock_transaction(self, values):
-        """Adjust stock transactions based on the quantity change."""
-        try:
-            new_quantity = values["quantity"]
-            new_amount = new_quantity * self.item_id.cost_price
-
-            transaction_lines = (
-                self.env["idil.transaction_bookingline"]
-                .search([("order_line", "=", self.id)])
-                .exists()
-            )
-
-            for line in transaction_lines:
-                if line.transaction_type == "dr":
-                    line.write({"dr_amount": new_amount})
-                elif line.transaction_type == "cr":
-                    line.write({"cr_amount": new_amount})
-
-            # Adjust the total transaction amount
-            transaction = self.env["idil.transaction_booking"].search(
-                [("id", "=", transaction_lines[0].transaction_booking_id.id)]
-            )
-            if transaction:
-                transaction.write(
-                    {
-                        "amount": new_amount,
-                        "remaining_amount": (
-                            new_amount if transaction.payment_method != "cash" else 0
-                        ),
-                        "amount_paid": (
-                            new_amount if transaction.payment_method == "cash" else 0
-                        ),
-                    }
-                )
-
-            vendor_transaction = self.env["idil.vendor_transaction"].search(
-                [("order_number", "=", self.order_id.id)], limit=1
-            )
-            prev_paid = vendor_transaction.paid_amount or 0.0
-            method = vendor_transaction.payment_method
-
-            if transaction:
-                if method == "ap":
-                    transaction.write(
-                        {
-                            "amount": new_amount,
-                            "remaining_amount": new_amount - prev_paid,
-                            "amount_paid": prev_paid,
-                        }
-                    )
-                elif method == "cash":
-                    transaction.write(
-                        {
-                            "amount": new_amount,
-                            "paid_amount": new_amount,
-                            "remaining_amount": 0,
-                        }
-                    )
-
-        except Exception as e:
-            _logger.error(f"Error adjusting stock transaction: {e}")
-            raise
-
-    def _adjust_vendor_transaction(self, values):
-        """Adjust vendor transactions based on the quantity change."""
-        try:
-
-            # Calculate the new amount based on the new quantity and cost price
-            new_quantity = values["quantity"]
-            new_amount = new_quantity * self.item_id.cost_price
-
-            vendor_transaction = self.env["idil.vendor_transaction"].search(
-                [("order_number", "=", self.order_id.id)], limit=1
-            )
-
-            if vendor_transaction:
-                prev_paid = vendor_transaction.paid_amount or 0.0
-                method = vendor_transaction.payment_method
-
-                if method == "ap":
-                    vendor_transaction.write(
-                        {
-                            "amount": new_amount,
-                            "remaining_amount": new_amount - prev_paid,
-                        }
-                    )
-                elif method == "cash":
-                    vendor_transaction.write(
-                        {
-                            "amount": new_amount,
-                            "paid_amount": new_amount,
-                            "remaining_amount": 0,
-                        }
-                    )
-
-        except Exception as e:
-            _logger.error(f"Error adjusting vendor transaction: {e}")
-            raise
-
-    def unlink(self):
-        for line in self:
-            item = self.env["idil.item"].browse(line.item_id.id)  # Ensure fresh data
-            old_qty = item.quantity
-            remove_qty = line.quantity
-            new_qty = old_qty - remove_qty
-
-            _logger.warning(
-                f"[DEBUG] Deleting item '{item.name}' | Current Qty: {old_qty}, "
-                f"Line Qty: {remove_qty}, New Qty: {new_qty}"
-            )
-
-            if new_qty < 0:
-                raise exceptions.ValidationError(
-                    f"Cannot delete line: resulting stock of '{item.name}' would be negative.\n"
-                    f"Old quantity: {old_qty}, Attempted to remove: {remove_qty}, Resulting quantity: {new_qty}"
-                )
-
-            item.with_context(update_transaction_booking=False).write(
-                {"quantity": new_qty}
-            )
-
-            # --- 1. Handle transaction lines ---
-            transaction_lines = self.env["idil.transaction_bookingline"].search(
-                [("order_line", "=", line.id)]
-            )
-            transactions = transaction_lines.mapped("transaction_booking_id")
-            if transaction_lines:
-                transaction_lines.unlink()
-
-            for transaction in transactions:
-                if not self.env["idil.transaction_bookingline"].search_count(
-                    [("transaction_booking_id", "=", transaction.id)]
-                ):
-                    transaction.unlink()
-
-            # --- 2. Handle vendor transactions ---
-            vendor_transactions = self.env["idil.vendor_transaction"].search(
-                [("order_number", "=", line.order_id.id)]
-            )
-            if vendor_transactions:
-                vendor_transactions.unlink()
-
-            # --- 3. Handle item movements ---
-            item_movements = self.env["idil.item.movement"].search(
-                [("related_document", "=", f"idil.purchase_order.line,{line.id}")]
-            )
-            if item_movements:
-                item_movements.unlink()
-
-            # --- 4. If no other lines left, delete the parent Purchase Order ---
-            remaining_lines = self.env["idil.purchase_order.line"].search_count(
-                [("order_id", "=", line.order_id.id), ("id", "!=", line.id)]
-            )
-            if remaining_lines == 0:
-                line.order_id.unlink()
-
-        return super(PurchaseOrderLine, self).unlink()
-
     @api.depends("item_id", "quantity", "cost_price")
     def _compute_total_price(self):
         for line in self.filtered(lambda l: l.exists()):
@@ -504,62 +121,6 @@ class PurchaseOrderLine(models.Model):
                     line.amount = line.item_id.cost_price * line.quantity
             else:
                 line.amount = 0.0
-
-    def _update_item_stock(self, quantity, cost_price):
-        """
-        Updates the stock quantity and cost price for an item.
-
-        - Adjusts the item's quantity.
-        - Recalculates and updates the item's cost price using weighted average logic.
-        """
-        if self.item_id:
-            try:
-                if quantity > 0:
-                    # Calculate the weighted average cost price
-                    current_stock = self.item_id.quantity
-                    current_cost_price = self.item_id.cost_price
-
-                    total_current_value = current_stock * current_cost_price
-                    total_new_value = quantity * cost_price
-
-                    # New stock after adjustment
-                    new_quantity = current_stock + quantity
-
-                    if new_quantity > 0:
-                        # Calculate new weighted average cost price
-                        new_cost_price = (
-                            total_current_value + total_new_value
-                        ) / new_quantity
-                    else:
-                        new_cost_price = cost_price  # Use the cost price directly if new_quantity becomes 0
-
-                    # Update the item's stock and cost price
-                    update_values = {"quantity": new_quantity}
-                    if cost_price != 0:  # Only update cost_price if it's not zero
-                        update_values["cost_price"] = new_cost_price
-
-                    self.item_id.with_context(update_transaction_booking=False).write(
-                        update_values
-                    )
-
-                elif quantity < 0:
-                    # Decrease stock
-                    if self.item_id.quantity >= abs(quantity):
-                        new_quantity = self.item_id.quantity - abs(quantity)
-                        self.item_id.with_context(
-                            update_transaction_booking=False
-                        ).write(
-                            {
-                                "quantity": new_quantity,
-                            }
-                        )
-                    else:
-                        raise exceptions.ValidationError(
-                            f"Insufficient stock for item '{self.item_id.name}'. "
-                            f"Current stock: {self.item_id.quantity}, Requested decrease: {abs(quantity)}"
-                        )
-            except exceptions.ValidationError as e:
-                raise exceptions.ValidationError(e.args[0])
 
     def add_item(self):
         if self.order_id.vendor_id and self.order_id.vendor_id.stock_supplier:
@@ -620,6 +181,104 @@ class PurchaseOrder(models.Model):
         string="Total Price", compute="_compute_total_amount", store=True, readonly=True
     )
 
+    def _create_item_movements(self):
+        for order in self:
+            for line in order.order_lines:
+                self.env["idil.item.movement"].create(
+                    {
+                        "item_id": line.item_id.id,
+                        "purchase_order_line_id": line.id,
+                        "date": fields.Date.today(),
+                        "quantity": line.quantity,
+                        "source": "Vendor",
+                        "destination": "Inventory",
+                        "movement_type": "in",
+                        "related_document": f"idil.purchase_order.line,{line.id}",
+                    }
+                )
+                _logger.info(
+                    f"[ITEM MOVEMENT] Created for item {line.item_id.name} | Qty: {line.quantity}"
+                )
+
+    def _update_item_stock(self):
+        for order in self:
+            for line in order.order_lines:
+                item = line.item_id
+                quantity = line.quantity
+                cost_price = line.cost_price
+
+                if not item:
+                    continue
+
+                if quantity > 0:
+                    current_stock = item.quantity
+                    current_cost_price = item.cost_price
+
+                    total_current_value = current_stock * current_cost_price
+                    total_new_value = quantity * cost_price
+                    new_quantity = current_stock + quantity
+
+                    if new_quantity > 0:
+                        new_cost_price = (
+                            total_current_value + total_new_value
+                        ) / new_quantity
+                    else:
+                        new_cost_price = cost_price
+
+                    update_vals = {"quantity": new_quantity}
+                    if cost_price != 0:
+                        update_vals["cost_price"] = new_cost_price
+
+                    item.with_context(update_transaction_booking=False).write(
+                        update_vals
+                    )
+
+                elif quantity < 0:
+                    if item.quantity >= abs(quantity):
+                        item.with_context(update_transaction_booking=False).write(
+                            {"quantity": item.quantity - abs(quantity)}
+                        )
+                    else:
+                        raise exceptions.ValidationError(
+                            f"Insufficient stock for item '{item.name}'. "
+                            f"Available: {item.quantity}, trying to remove: {abs(quantity)}"
+                        )
+
+    def create_vendor_transaction(self):
+        transaction = self.env["idil.transaction_booking"].search(
+            [("order_number", "=", self.id)], limit=1
+        )
+        if not transaction:
+            return
+
+        existing_vendor_transaction = self.env["idil.vendor_transaction"].search(
+            [("order_number", "=", self.id)], limit=1
+        )
+        if existing_vendor_transaction:
+            return  # Avoid duplicates
+
+        self.env["idil.vendor_transaction"].create(
+            {
+                "order_number": self.id,
+                "transaction_number": transaction.transaction_number,
+                "transaction_date": self.purchase_date,
+                "vendor_id": self.vendor_id.id,
+                "amount": transaction.amount,
+                "remaining_amount": (
+                    0 if transaction.payment_method == "cash" else transaction.amount
+                ),
+                "paid_amount": (
+                    transaction.amount if transaction.payment_method == "cash" else 0
+                ),
+                "payment_method": transaction.payment_method,
+                "reffno": transaction.reffno,
+                "transaction_booking_id": transaction.id,
+                "payment_status": (
+                    "paid" if transaction.payment_method == "cash" else "pending"
+                ),
+            }
+        )
+
     @api.onchange("payment_method", "vendor_id")
     def _onchange_payment_method(self):
         self.account_number = (
@@ -646,6 +305,90 @@ class PurchaseOrder(models.Model):
         domain = {"account_number": [("account_type", "=", self.payment_method)]}
         return {"domain": domain}
 
+    def create_transaction_booking_with_lines(self):
+        if not self.order_lines:
+            return
+
+        # Check if already exists
+        if self.env["idil.transaction_booking"].search(
+            [("order_number", "=", self.id)]
+        ):
+            return
+
+        transaction_number = (
+            self.env["idil.transaction_booking"]
+            .search([], order="transaction_number desc", limit=1)
+            .transaction_number
+            or 0
+        ) + 1
+
+        trx_source_id = self.env["idil.transaction.source"].search(
+            [("name", "=", "Purchase Order")], limit=1
+        )
+        if not trx_source_id:
+            raise ValidationError(_('Transaction source "Purchase Order" not found.'))
+
+        total_amount = sum(line.amount for line in self.order_lines)
+
+        transaction = self.env["idil.transaction_booking"].create(
+            {
+                "reffno": self.reffno,
+                "transaction_number": transaction_number,
+                "vendor_id": self.vendor_id.id,
+                "order_number": self.id,
+                "payment_method": self.payment_method,
+                "trx_source_id": trx_source_id.id,
+                "purchase_order_id": self.id,
+                "payment_status": (
+                    "paid" if self.payment_method == "cash" else "pending"
+                ),
+                "trx_date": self.purchase_date,
+                "amount": total_amount,
+                "remaining_amount": (
+                    0 if self.payment_method == "cash" else total_amount
+                ),
+                "amount_paid": total_amount if self.payment_method == "cash" else 0,
+            }
+        )
+
+        # Now create booking lines
+        for line in self.order_lines:
+            stock_account = line.item_id.asset_account_id.id
+            if self.payment_method == "cash":
+                purchase_account = self.account_number.id
+            else:
+                purchase_account = self.vendor_id.account_payable_id.id
+
+            # DR line (stock)
+            self.env["idil.transaction_bookingline"].create(
+                {
+                    "order_line": line.id,
+                    "item_id": line.item_id.id,
+                    "description": f"{line.item_id.name} - Purchase Ref No. #{self.reffno}",
+                    "account_number": stock_account,
+                    "transaction_type": "dr",
+                    "dr_amount": line.amount,
+                    "cr_amount": 0,
+                    "transaction_date": self.purchase_date,
+                    "transaction_booking_id": transaction.id,
+                }
+            )
+
+            # CR line (payment or AP)
+            self.env["idil.transaction_bookingline"].create(
+                {
+                    "order_line": line.id,
+                    "item_id": line.item_id.id,
+                    "description": f"{line.item_id.name} - Purchase Ref No. #{self.reffno}",
+                    "account_number": purchase_account,
+                    "transaction_type": "cr",
+                    "dr_amount": 0,
+                    "cr_amount": line.amount,
+                    "transaction_date": self.purchase_date,
+                    "transaction_booking_id": transaction.id,
+                }
+            )
+
     @api.model
     def create(self, vals):
         """
@@ -654,7 +397,13 @@ class PurchaseOrder(models.Model):
         # Generate the reference number
         vals["reffno"] = self._generate_purchase_order_reference(vals)
         # Call the super method to create the record with updated values
-        return super(PurchaseOrder, self).create(vals)
+        order = super(PurchaseOrder, self).create(vals)
+        order.create_transaction_booking_with_lines()
+        order.create_vendor_transaction()
+        order._update_item_stock()  # 🔁 Shift stock update here
+        order._create_item_movements()  # 👈 Call movement creation here
+
+        return order
 
     def _generate_purchase_order_reference(self, values):
         vendor_id = values.get("vendor_id", False)
@@ -704,9 +453,10 @@ class PurchaseOrder(models.Model):
         return super(PurchaseOrder, self).unlink()
 
     def write(self, vals):
-        for record in self:
+        for order in self:
+            # Prevent payment method change
             if "payment_method" in vals:
-                old_method = record.payment_method
+                old_method = order.payment_method
                 new_method = vals["payment_method"]
                 if old_method and new_method and old_method != new_method:
                     raise ValidationError(
@@ -715,4 +465,87 @@ class PurchaseOrder(models.Model):
                         )
                     )
 
-        return super(PurchaseOrder, self).write(vals)
+            # --- 1. Reverse Stock Quantities ---
+            for line in order.order_lines:
+                item = line.item_id
+                if item:
+                    reverse_qty = -line.quantity  # Reverse addition
+                    item.with_context(update_transaction_booking=False).write(
+                        {"quantity": item.quantity + reverse_qty}
+                    )
+
+            # --- 2. Remove Old Movements ---
+            movements = self.env["idil.item.movement"].search(
+                [("purchase_order_line_id", "in", order.order_lines.ids)]
+            )
+            if movements:
+                movements.unlink()
+
+            # --- 3. Remove Old Booking Lines and Bookings ---
+            bookings = self.env["idil.transaction_booking"].search(
+                [("order_number", "=", order.id)]
+            )
+            for booking in bookings:
+                lines = self.env["idil.transaction_bookingline"].search(
+                    [("transaction_booking_id", "=", booking.id)]
+                )
+                lines.unlink()
+            bookings.unlink()
+
+            # --- 4. Remove Old Vendor Transactions ---
+            vendors = self.env["idil.vendor_transaction"].search(
+                [("order_number", "=", order.id)]
+            )
+            if vendors:
+                vendors.unlink()
+
+            # --- 5. Apply Super Write ---
+            result = super(PurchaseOrder, order).write(vals)
+
+            # --- 6. Rebuild Booking, Stock, Vendor Txn, Movement ---
+            order._update_item_stock()
+            order.create_transaction_booking_with_lines()
+            order.create_vendor_transaction()
+            order._create_item_movements()
+
+            return result
+
+    def unlink(self):
+        for order in self:
+            # --- 1. Adjust Stock Quantities ---
+            for line in order.order_lines:
+                item = line.item_id
+                if item:
+                    new_qty = item.quantity - line.quantity
+                    if new_qty < 0:
+                        raise ValidationError(
+                            f"Cannot delete order: Item '{item.name}' would have negative stock.\n"
+                            f"Current: {item.quantity}, Removing: {line.quantity}"
+                        )
+                    item.write({"quantity": new_qty})
+
+            # --- 2. Delete Item Movements ---
+            self.env["idil.item.movement"].search(
+                [("purchase_order_line_id", "in", order.order_lines.ids)]
+            ).unlink()
+
+            # --- 3. Delete Transaction Booking Lines + Bookings ---
+            bookings = self.env["idil.transaction_booking"].search(
+                [("order_number", "=", order.id)]
+            )
+            for booking in bookings:
+                self.env["idil.transaction_bookingline"].search(
+                    [("transaction_booking_id", "=", booking.id)]
+                ).unlink()
+            bookings.unlink()
+
+            # --- 4. Delete Vendor Transactions ---
+            self.env["idil.vendor_transaction"].search(
+                [("order_number", "=", order.id)]
+            ).unlink()
+
+            # --- 5. Delete Order Lines (if needed) ---
+            order.order_lines.unlink()
+
+        # --- 6. Delete the Purchase Order ---
+        return super(PurchaseOrder, self).unlink()

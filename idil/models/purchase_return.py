@@ -72,7 +72,7 @@ class PurchaseReturn(models.Model):
             [("name", "=", "Purchase Return")], limit=1
         )
         if not trx_source:
-            raise ValidationError(('Transaction source "Purchase Order" not found.'))
+            raise ValidationError(('Transaction source "Purchase Return" not found.'))
 
         trx = self.env["idil.transaction_booking"].create(
             {
