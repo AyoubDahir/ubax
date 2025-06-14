@@ -4,6 +4,7 @@ import logging
 from odoo import models, fields, exceptions, api, _
 from odoo.exceptions import ValidationError
 
+
 _logger = logging.getLogger(__name__)
 
 
@@ -353,10 +354,38 @@ class PurchaseOrder(models.Model):
 
         # Now create booking lines
         for line in self.order_lines:
+            # Fallback to company currency if not explicitly set
+            # Validate currency consistency
+            stock_acc = line.item_id.asset_account_id
+            payment_acc = (
+                self.account_number
+                if self.payment_method == "cash"
+                else self.vendor_id.account_payable_id
+            )
+
+            # Fallback to company currency if currency not explicitly set
+            stock_currency = stock_acc.currency_id or stock_acc.company_id.currency_id
+            payment_currency = (
+                payment_acc.currency_id or payment_acc.company_id.currency_id
+            )
+
+            if stock_currency.id != payment_currency.id:
+                raise ValidationError(
+                    f"Currency mismatch detected:\n"
+                    f"Debit Account '{stock_acc.name}' uses '{stock_currency.name}',\n"
+                    f"Credit Account '{payment_acc.name}' uses '{payment_currency.name}'.\n"
+                    f"Both must use the same currency."
+                )
+
             stock_account = line.item_id.asset_account_id.id
             if self.payment_method == "cash":
+
                 purchase_account = self.account_number.id
+                account_id = self.account_number.id
+                total_amount = sum(line.amount for line in self.order_lines)
+                validate_account_balance(self.env, account_id, total_amount)
             else:
+
                 purchase_account = self.vendor_id.account_payable_id.id
 
             # DR line (stock)
@@ -454,6 +483,27 @@ class PurchaseOrder(models.Model):
 
     def write(self, vals):
         for order in self:
+            # ❌ Block update if payments exist
+            vendor_transactions = self.env["idil.vendor_transaction"].search(
+                [("order_number", "=", order.id)]
+            )
+            if vendor_transactions:
+                vendor_payments = self.env["idil.vendor_payment"].search(
+                    [("vendor_transaction_id", "in", vendor_transactions.ids)]
+                )
+                if vendor_payments:
+                    payment_info = "\n".join(
+                        f"- Reference: {payment.reffno or 'N/A'}, Amount Paid: {payment.amount_paid:.2f}"
+                        for payment in vendor_payments
+                    )
+                    raise ValidationError(
+                        _(
+                            f"Cannot update this Purchase Order because the following payment(s) are linked to it:\n\n"
+                            f"{payment_info}\n\n"
+                            "Please unlink or delete these payments before updating."
+                        )
+                    )
+
             # Prevent payment method change
             if "payment_method" in vals:
                 old_method = order.payment_method
@@ -512,6 +562,27 @@ class PurchaseOrder(models.Model):
 
     def unlink(self):
         for order in self:
+            # Check if any vendor payments are linked to the vendor transaction of this purchase order
+            vendor_transactions = self.env["idil.vendor_transaction"].search(
+                [("order_number", "=", self.id)]
+            )
+            if vendor_transactions:
+                vendor_payments = self.env["idil.vendor_payment"].search(
+                    [("vendor_transaction_id", "in", vendor_transactions.ids)]
+                )
+                if vendor_payments:
+                    payment_info = "\n".join(
+                        f"- Reference: {payment.reffno or 'N/A'}, Amount Paid: {payment.amount_paid:.2f}"
+                        for payment in vendor_payments
+                    )
+                    raise ValidationError(
+                        _(
+                            f"Cannot delete or modify this Purchase Order because the following payment(s) are linked to it:\n\n"
+                            f"{payment_info}\n\n"
+                            "Please unlink or delete these payments before proceeding."
+                        )
+                    )
+
             # --- 1. Adjust Stock Quantities ---
             for line in order.order_lines:
                 item = line.item_id
@@ -549,3 +620,32 @@ class PurchaseOrder(models.Model):
 
         # --- 6. Delete the Purchase Order ---
         return super(PurchaseOrder, self).unlink()
+
+    # Utility: Validate account balance centrally
+
+
+def validate_account_balance(env, account_id, required_amount):
+    """
+    Validates that the account has sufficient balance for a transaction.
+
+    :param env: The Odoo environment, e.g. self.env
+    :param account_id: The ID of the account to check
+    :param required_amount: The amount needed for the transaction
+    :raises: ValidationError if balance is insufficient
+    """
+    account = env["idil.chart.account"].browse(account_id)
+    if not account.exists():
+        raise ValidationError(f"Account ID {account_id} not found.")
+
+    lines = env["idil.transaction_bookingline"].search(
+        [("account_number", "=", account_id)]
+    )
+    debit = sum(line.dr_amount for line in lines)
+    credit = sum(line.cr_amount for line in lines)
+    balance = debit - credit
+
+    if balance < required_amount:
+        raise ValidationError(
+            f"Insufficient balance in account '{account.name}' (Code: {account.code}).\n"
+            f"Available: {balance:.2f}, Required: {required_amount:.2f}"
+        )
