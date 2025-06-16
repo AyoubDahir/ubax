@@ -48,3 +48,4 @@ from . import idil_employee_hrm_report_department
 from . import EmployeePayrollListwithSalaryAdvance
 from . import item_opening_balance
 from . import purchase_return
+from . import vendor_paymen_bulk

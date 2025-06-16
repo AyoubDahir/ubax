@@ -153,6 +153,13 @@
               action="action_vendor_transaction"
               sequence="3"/>
 
+
+    <menuitem id="menu_vendor_payment_wizard"
+                name="Vendor Bulk Payment"
+                parent="menu_purchase"
+                action="action_vendor_bulk_payment"
+                sequence="3"/>
+
     <menuitem id="menu_purchase_return" 
         name="Purchase Returns" 
         parent="menu_purchase" 

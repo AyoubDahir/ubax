@@ -1,0 +1,60 @@
+<odoo>
+    <!-- Vendor Bulk Payment Tree View -->
+    <record id="view_vendor_bulk_payment_tree" model="ir.ui.view">
+        <field name="name">vendor.bulk.payment.tree</field>
+        <field name="model">idil.vendor.bulk.payment</field>
+        <field name="arch" type="xml">
+            <tree string="Vendor Bulk Payments">
+                <field name="vendor_id"/>
+                <field name="reffno"/>
+                <field name="cash_account_id"/>
+                <field name="amount_paying" sum="Total"/>
+                <field name="order_ids"/>
+                <field name="create_date" string="Created On"/>
+
+            </tree>
+        </field>
+    </record>
+    <!-- Vendor Bulk Payment Form View -->
+    <record id="view_vendor_bulk_payment_form" model="ir.ui.view">
+        <field name="name">vendor.bulk.payment.form</field>
+        <field name="model">idil.vendor.bulk.payment</field>
+        <field name="arch" type="xml">
+            <form string="Vendor Bulk Payment">
+                <header>
+                    <button string="Process Payment" type="object" name="action_process_bulk_payment" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="vendor_id" required="1"/>
+                        <field name="reffno" required="1"/>
+                        <field name="cash_account_id" required="1"/>
+                        <field name="amount_paying" required="1"/>
+                        <field name="payment_date" required="1"/>
+
+                    </group>
+                    <group>
+                        <field name="order_ids" widget="one2many_list">
+                            <tree editable="bottom">
+                                <field name="transaction_number"/>
+                                <field name="order_number"/>
+                                <field name="reffno"/>
+                                <field name="amount" sum="Total"/>
+                                <field name="remaining_amount" sum="Total"/>
+                                <field name="payment_status"/>
+                            </tree>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vendor Bulk Payment Action -->
+    <record id="action_vendor_bulk_payment" model="ir.actions.act_window">
+        <field name="name">Vendor Bulk Payments</field>
+        <field name="res_model">idil.vendor.bulk.payment</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

@@ -163,6 +163,9 @@ class TransactionBooking(models.Model):
         string="Purchase Return",
         ondelete="cascade",
     )
+    bulk_payment_id = fields.Many2one(
+        "idil.vendor.bulk.payment", string="Related Bulk Payment", ondelete="cascade"
+    )
 
     # @api.constrains("amount_paid")
     # def _check_amount_paid(self):
@@ -424,6 +427,11 @@ class TransactionBookingline(models.Model):
         "idil.purchase_return",
         string="Purchase Return",
         ondelete="cascade",
+    )
+    vendor_bulk_payment_id = fields.Many2one(
+        "idil.vendor.bulk.payment",
+        string="Vendor Bulk Payment",
+        ondelete="cascade",  # Ensures deletion of vendor payments when bulk is deleted
     )
 
     @api.depends("account_number")

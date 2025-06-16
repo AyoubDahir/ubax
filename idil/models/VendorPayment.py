@@ -35,6 +35,12 @@ class VendorPayment(models.Model):
     bookingline_ids = fields.One2many(
         "idil.transaction_bookingline", "vendor_payment_id", string="Booking Lines"
     )
+    cheque_no = fields.Char(string="Cheque No")
+    vendor_bulk_payment_id = fields.Many2one(
+        "idil.vendor.bulk.payment",
+        string="Vendor Bulk Payment",
+        ondelete="cascade",  # Ensures deletion of vendor payments when bulk is deleted
+    )
 
     def write(self, vals):
         for record in self:
