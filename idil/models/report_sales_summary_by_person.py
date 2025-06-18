@@ -279,7 +279,7 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
         highlight_rows.append(final_balance_index)
         merged_rows.append(final_balance_index)
 
-        table = Table(data, colWidths=[70, 100, 50, 60, 50, 50, 60, 80, 50, 80, 120])
+        table = Table(data, colWidths=[70, 140, 50, 60, 50, 40, 60, 80, 50, 70, 100])
         style = TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#B6862D")),
