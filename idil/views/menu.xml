@@ -382,7 +382,17 @@
               action="action_sales_receipt_balance"
               sequence="9"/>
 
+    <menuitem id="menu_item_summary_with_vendor"
+                name="Item Summary Report -- With Vendor"
+                parent="OtherReports"
+                sequence="10"
+                action="action_item_summary_with_vendor_report_wizard"/>
 
+   <menuitem id="menu_saels_summary_with_salesperson"
+                name="Sales Summary Report -- With Salesperson"
+                parent="OtherReports"
+                sequence="10"
+                action="action_sales_summary_with_saelsperosn_report_wizard"/>
     <!-- <menuitem id="model_a_menu"
               name="Delete Models"
               action="action_delete_models"

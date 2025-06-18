@@ -1,0 +1,30 @@
+<odoo>
+    <record id="view_sales_summary_with_person_report_wizard_form" model="ir.ui.view">
+        <field name="name">idil.sales.summary.with.salesperson.form</field>
+        <field name="model">idil.sales.summary.with.person</field>
+        <field name="arch" type="xml">
+            <form string="Saels Summary Report">
+                <group>
+                    <field name="salesperson_id"/>
+                    <field name="start_date"/>
+                    <field name="end_date"/>
+
+                </group>
+                <footer>
+                    <button string="Download PDF Report" type="object" name="generate_pdf_report"
+                            class="btn-secondary"/>
+
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sales_summary_with_saelsperosn_report_wizard" model="ir.actions.act_window">
+        <field name="name">Sales Summary With Sales Person</field>
+        <field name="res_model">idil.sales.summary.with.person</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

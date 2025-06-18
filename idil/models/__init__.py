@@ -49,3 +49,5 @@ from . import EmployeePayrollListwithSalaryAdvance
 from . import item_opening_balance
 from . import purchase_return
 from . import vendor_paymen_bulk
+from . import Report_item_summary_by_vendor
+from . import report_sales_summary_by_person
