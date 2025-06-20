@@ -20,7 +20,7 @@ class PurchaseOrderLine(models.Model):
     item_id = fields.Many2one("idil.item", string="Item", required=True)
     quantity = fields.Integer(string="Quantity", required=True)
     cost_price = fields.Float(
-        string="Cost per Unit", digits=(16, 3), required=True, tracking=True
+        string="Cost per Unit", digits=(16, 5), required=True, tracking=True
     )
 
     amount = fields.Float(

@@ -4,29 +4,47 @@
         <field name="model">idil.purchase_return</field>
         <field name="arch" type="xml">
             <form string="Purchase Return">
-            <HEADER>
-                <button name="action_process_return" type="object" string="Process Return" class="btn-primary"/> 
-            </HEADER>
+                <header>
+                    <button name="action_process_return"
+                            type="object"
+                            string="✅ Process Return"
+                            class="btn-primary"
+                            />
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="draft,confirmed,cancelled"
+                           class="oe_inline pull-right"/>
+                </header>
+
                 <sheet>
-                    <group>
-                        <field name="name"/>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1" class="oe_inline"/>
+                        </h1>
+                    </div>
+
+                    <group string="Vendor Order Info" col="2">
+                        <field name="vendor_id"/>
+                         
+                        <field name="original_order_id" context="{'search_default_order_by': 'id desc'}"/>
+
+
                         <field name="return_date"/>
-                        <field name="original_order_id"/>
-                        <field name="vendor_id" readonly="1"/>
+                         
                     </group>
-                    <field name="return_lines">
-                        
-                        <tree editable="bottom" create="false" delete="false">
-                            <field name="order_line_id"/>
-                            <field name="item_id"/>
-                            
-                            <field name="original_qty" readonly="1"/>
-                            <field name="return_qty"/>
-                            <field name="cost_price"/>
-                            <field name="amount" sum="Total" readonly="1"/>
-                        </tree>
-                    </field>
-                    
+
+                    <group string="Returned Items">
+                        <field name="return_lines" mode="tree,form">
+                            <tree editable="bottom" create="false" delete="false">
+                                <field name="order_line_id"/>
+                                <field name="item_id"/>
+                                <field name="original_qty" readonly="1"/>
+                                <field name="return_qty"/>
+                                <field name="cost_price"/>
+                                <field name="amount" sum="Total" readonly="1"/>
+                            </tree>
+                        </field>
+                    </group>
                 </sheet>
             </form>
         </field>
@@ -38,9 +56,10 @@
         <field name="arch" type="xml">
             <tree string="Purchase Returns">
                 <field name="name"/>
-                <field name="return_date"/>
-                <field name="original_order_id"/>
                 <field name="vendor_id"/>
+                <field name="original_order_id"/>
+                <field name="return_date"/>
+                <field name="state"/>
             </tree>
         </field>
     </record>
@@ -50,6 +69,4 @@
         <field name="res_model">idil.purchase_return</field>
         <field name="view_mode">tree,form</field>
     </record>
-
-     
 </odoo>

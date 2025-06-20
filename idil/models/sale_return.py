@@ -100,18 +100,38 @@ class SaleReturn(models.Model):
                     limit=1,
                 )
 
-                if corresponding_sale_line:
-                    if return_line.returned_quantity > corresponding_sale_line.quantity:
-                        raise ValidationError(
-                            f"Returned quantity for {return_line.product_id.name} exceeds the original quantity."
-                        )
-                    corresponding_sale_line.quantity -= return_line.returned_quantity
-                    # Implement the method to update product stock if needed
-                    # self.update_product_stock(return_line.product_id, return_line.returned_quantity)
-                    # Book the transaction in the transaction booking table
-            self.book_sales_return_entry()
+                if not corresponding_sale_line:
+                    raise ValidationError(
+                        f"Sale line not found for product {return_line.product_id.name}."
+                    )
 
-            return_order.state = "confirmed"
+                # ✅ Calculate total previously returned qty for this product in this order
+                previous_returns = self.env["idil.sale.return.line"].search(
+                    [
+                        ("return_id.sale_order_id", "=", return_order.sale_order_id.id),
+                        ("product_id", "=", return_line.product_id.id),
+                        ("return_id", "!=", return_order.id),  # Exclude current draft
+                        ("return_id.state", "=", "confirmed"),
+                    ]
+                )
+
+                total_prev_returned = sum(r.returned_quantity for r in previous_returns)
+                new_total = total_prev_returned + return_line.returned_quantity
+
+                if new_total > corresponding_sale_line.quantity:
+                    available_to_return = (
+                        corresponding_sale_line.quantity - total_prev_returned
+                    )
+                    raise ValidationError(
+                        f"Cannot return {return_line.returned_quantity:.2f} of {return_line.product_id.name}.\n\n"
+                        f"✅ Already Returned: {total_prev_returned:.2f}\n"
+                        f"✅ Available for Return: {available_to_return:.2f}\n"
+                        f"🧾 Original Sold Quantity: {corresponding_sale_line.quantity:.2f}"
+                    )
+
+            # Confirm valid return
+            self.book_sales_return_entry()
+        return_order.state = "confirmed"
 
     def book_sales_return_entry(self):
         for return_order in self:
@@ -283,9 +303,9 @@ class SaleReturn(models.Model):
                         "sales_person_id": return_order.salesperson_id.id,
                         "date": fields.Date.today(),
                         "order_id": return_order.sale_order_id.id,
-                        "transaction_type": "out",  # Assuming 'out' for sales
-                        "amount": commission_amount,
-                        "description": f"Sales Commission Amount of - Order Line for  {product.name} (Qty: {return_line.returned_quantity})",
+                        "transaction_type": "in",  # Assuming 'out' for sales
+                        "amount": commission_amount * -1,  # Negative for refund
+                        "description": f"Sales Retund of - Commission Amount of - Order Line for  {product.name} (Qty: {return_line.returned_quantity})",
                     }
                 )
                 self.env["idil.salesperson.transaction"].create(
@@ -293,9 +313,9 @@ class SaleReturn(models.Model):
                         "sales_person_id": return_order.salesperson_id.id,
                         "date": fields.Date.today(),
                         "order_id": return_order.sale_order_id.id,
-                        "transaction_type": "out",  # Assuming 'out' for sales --
-                        "amount": discount_amount,
-                        "description": f"Sales Discount Amount of - Order Line for  {product.name} (Qty: {return_line.returned_quantity})",
+                        "transaction_type": "in",  # Assuming 'out' for sales --
+                        "amount": discount_amount * -1,  # Negative for refund
+                        "description": f"Sales Retund of - Discount Amount of - Order Line for  {product.name} (Qty: {return_line.returned_quantity})",
                     }
                 )
                 self.env["idil.product.movement"].create(
@@ -352,8 +372,82 @@ class SaleReturnLine(models.Model):
     returned_quantity = fields.Float(string="Returned Quantity", required=True)
     price_unit = fields.Float(string="Unit Price", required=True)
     subtotal = fields.Float(string="Subtotal", compute="_compute_subtotal", store=True)
+    previously_returned_qty = fields.Float(
+        string="Previously Returned Qty",
+        compute="_compute_previously_returned_qty",
+        store=False,
+        readonly=True,
+    )
+    available_return_qty = fields.Float(
+        string="Available to Return",
+        compute="_compute_available_return_qty",
+        store=False,
+        readonly=True,
+    )
+
+    @api.depends("product_id", "return_id.sale_order_id")
+    def _compute_previously_returned_qty(self):
+        for line in self:
+            if (
+                not line.product_id
+                or not line.return_id
+                or not line.return_id.sale_order_id
+            ):
+                line.previously_returned_qty = 0.0
+                continue
+
+            domain = [
+                ("product_id", "=", line.product_id.id),
+                ("return_id.sale_order_id", "=", line.return_id.sale_order_id.id),
+                ("return_id.state", "=", "confirmed"),
+            ]
+
+            # Avoid filtering by ID if the line is not saved (has no numeric ID)
+            if isinstance(line.id, int):
+                domain.append(("id", "!=", line.id))
+
+            previous_lines = self.env["idil.sale.return.line"].search(domain)
+            line.previously_returned_qty = sum(
+                r.returned_quantity for r in previous_lines
+            )
 
     @api.depends("returned_quantity", "price_unit")
     def _compute_subtotal(self):
         for line in self:
             line.subtotal = line.returned_quantity * line.price_unit
+
+    @api.depends("product_id", "return_id.sale_order_id")
+    def _compute_available_return_qty(self):
+        for line in self:
+            line.available_return_qty = 0.0
+            if (
+                not line.product_id
+                or not line.return_id
+                or not line.return_id.sale_order_id
+            ):
+                continue
+
+            sale_line = self.env["idil.sale.order.line"].search(
+                [
+                    ("order_id", "=", line.return_id.sale_order_id.id),
+                    ("product_id", "=", line.product_id.id),
+                ],
+                limit=1,
+            )
+
+            if not sale_line:
+                continue
+
+            domain = [
+                ("product_id", "=", line.product_id.id),
+                ("return_id.sale_order_id", "=", line.return_id.sale_order_id.id),
+                ("return_id.state", "=", "confirmed"),
+            ]
+            if isinstance(line.id, int):
+                domain.append(("id", "!=", line.id))
+
+            previous_lines = self.env["idil.sale.return.line"].search(domain)
+            total_prev_returned = sum(r.returned_quantity for r in previous_lines)
+            line.available_return_qty = max(
+                sale_line.quantity - total_prev_returned, 0.0
+            )

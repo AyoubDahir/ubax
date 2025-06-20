@@ -44,7 +44,7 @@ class SalesReceipt(models.Model):
         "idil.chart.account",
         string="Receipt Asset Account",
         help="Payment Account to be used for the receipt -- asset accounts.",
-        domain="[('code', 'like', '1'), ('currency_id', '=', payment_account_currency_id)]",
+        domain="[('account_type', 'in', ['cash', 'bank_transfer']), ('currency_id', '=', payment_account_currency_id)]",
         # Domain to filter accounts starting with '1' and in USD
     )
 

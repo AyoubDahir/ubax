@@ -111,13 +111,18 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
         # Main data query
         self.env.cr.execute(
             """
-            SELECT DATE(so.order_date), p.name, sol.quantity, COALESCE(sol.discount_quantity, 0), 
+            SELECT DATE(so.order_date), 
+                    p.name, 
+                    sol.quantity, 
+                    (((COALESCE(sol.quantity, 0)) - (COALESCE(srl.returned_quantity, 0)) )* (p.discount /100)) 
+                
+                 , 
                    COALESCE(srl.returned_quantity, 0),
-                   (COALESCE(sol.quantity, 0) - COALESCE(sol.discount_quantity, 0) - COALESCE(srl.returned_quantity, 0)) AS net,
+                   (COALESCE(sol.quantity, 0) - (((COALESCE(sol.quantity, 0)) - (COALESCE(srl.returned_quantity, 0)) )* (p.discount /100))  - COALESCE(srl.returned_quantity, 0)) AS net,
                    COALESCE(sol.price_unit, 0), 
-                   ((COALESCE(sol.quantity, 0) - COALESCE(sol.discount_quantity, 0) - COALESCE(srl.returned_quantity, 0)) * COALESCE(sol.price_unit, 0)) AS lacag,
+                   ((COALESCE(sol.quantity, 0) - (((COALESCE(sol.quantity, 0)) - (COALESCE(srl.returned_quantity, 0)) )* (p.discount /100)) - COALESCE(srl.returned_quantity, 0)) * COALESCE(sol.price_unit, 0)) AS lacag,
                    (COALESCE(p.commission, 0) * 100),
-                   (((COALESCE(sol.quantity, 0) - COALESCE(sol.discount_quantity, 0) - COALESCE(srl.returned_quantity, 0)) * COALESCE(sol.price_unit, 0)) * COALESCE(p.commission, 0)),
+                   (((COALESCE(sol.quantity, 0) - (((COALESCE(sol.quantity, 0)) - (COALESCE(srl.returned_quantity, 0)) )* (p.discount /100)) - COALESCE(srl.returned_quantity, 0)) * COALESCE(sol.price_unit, 0)) * COALESCE(p.commission, 0)),
                    DATE(src.receipt_date), 
                    COALESCE(src.paid_amount, 0)
             FROM public.idil_sales_sales_personnel sp
@@ -175,17 +180,18 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
                     [
                         day.strftime("%d/%m/%Y"),
                         product,
-                        cadad,
-                        celis_tos,
-                        celis,
-                        net,
-                        f"${qiime:,.2f}",
-                        f"${lacag:,.2f}",
+                        f"{cadad:.2f}",
+                        f"{celis_tos:.2f}",
+                        f"{celis:.2f}",
+                        f"{net:.2f}",
+                        f"{qiime:,.2f}",
+                        f"{lacag:,.2f}",
                         f"{per:.2f}%",
-                        f"${comm:,.2f}",
-                        f"${balance:,.2f}",
+                        f"{comm:,.2f}",
+                        f"{balance:,.2f}",
                     ]
                 )
+
                 subtotal_lacag += lacag
                 subtotal_commission += comm
                 subtotal_balance += balance
@@ -193,11 +199,11 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
             paid_today = paid_by_day.get(day, 0.0)
 
             for label, value in [
-                (f"Subtotal {day.strftime('%d/%m/%Y')}", f"${subtotal_balance:,.2f}"),
-                (f"Paid {day.strftime('%d/%m/%Y')}", f"${paid_today:,.2f}"),
+                (f"Subtotal {day.strftime('%d/%m/%Y')}", f"{subtotal_balance:,.2f}"),
+                (f"Paid {day.strftime('%d/%m/%Y')}", f"{paid_today:,.2f}"),
                 (
                     f"Day Total {day.strftime('%d/%m/%Y')}",
-                    f"${(subtotal_balance - paid_today):,.2f}",
+                    f"{(subtotal_balance - paid_today):,.2f}",
                 ),
             ]:
                 row = [""] * 11
@@ -222,10 +228,10 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
                 "",
                 "",
                 "",
-                f"${total_lacag:,.2f}",
+                f"{total_lacag:,.2f}",
                 "",
-                f"${total_commission:,.2f}",
-                f"${(total_balance):,.2f}",
+                f"{total_commission:,.2f}",
+                f"{(total_balance):,.2f}",
             ]
         )
         highlight_rows.append(len(data) - 1)
@@ -247,14 +253,14 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
                 "",
                 "",
                 "",
-                f"${previous_balance:,.2f}",
+                f"{previous_balance:,.2f}",
             ]
         )
         highlight_rows.append(len(data) - 1)
         merged_rows.append(len(data) - 1)
 
         data.append(
-            ["TOTAL PAID:", "", "", "", "", "", "", "", "", "", f"${total_paid:,.2f}"]
+            ["TOTAL PAID:", "", "", "", "", "", "", "", "", "", f"{total_paid:,.2f}"]
         )
         highlight_rows.append(len(data) - 1)
         merged_rows.append(len(data) - 1)
@@ -272,7 +278,7 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
                 "",
                 "",
                 "",
-                f"${final_balance_amount:,.2f}",
+                f"{final_balance_amount:,.2f}",
             ]
         )
         final_balance_index = len(data) - 1

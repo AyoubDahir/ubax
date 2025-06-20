@@ -645,8 +645,8 @@ class SaleOrderLine(models.Model):
                     "sales_person_id": record.order_id.sales_person_id.id,
                     "date": fields.Date.today(),
                     "order_id": record.order_id.id,
-                    "transaction_type": "in",  # Assuming 'out' for sales
-                    "amount": record.commission_amount,
+                    "transaction_type": "out",  # Assuming 'out' for sales
+                    "amount": record.commission_amount * -1,
                     "description": f"Sales Commission Amount of - Order Line for  {record.product_id.name} (Qty: {record.quantity})",
                 }
             )
@@ -655,8 +655,8 @@ class SaleOrderLine(models.Model):
                     "sales_person_id": record.order_id.sales_person_id.id,
                     "date": fields.Date.today(),
                     "order_id": record.order_id.id,
-                    "transaction_type": "in",  # Assuming 'out' for sales
-                    "amount": record.discount_amount,
+                    "transaction_type": "out",  # Assuming 'out' for sales
+                    "amount": record.discount_amount * -1,
                     "description": f"Sales Discount Amount of - Order Line for  {record.product_id.name} (Qty: {record.quantity})",
                 }
             )

@@ -50,6 +50,8 @@
                                 <tree editable="bottom">
                                     <field name="product_id" required="1"/>
                                     <field name="quantity" string="Original Quantity" readonly="1" force_save="1"/>
+                                    <field name="previously_returned_qty" readonly="1"/>
+                                    <field name="available_return_qty" readonly="1"/>
                                     <field name="returned_quantity" required="1"/>
                                     <field name="price_unit" required="1"/>
                                     <field name="subtotal" readonly="1"/>

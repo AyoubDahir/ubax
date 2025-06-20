@@ -14,13 +14,27 @@ class PurchaseReturn(models.Model):
         copy=False,
         default="New",
     )
-    return_date = fields.Date(default=fields.Date.today, string="Return Date")
-    original_order_id = fields.Many2one(
-        "idil.purchase_order", string="Original Order", required=True
+    vendor_id = fields.Many2one(
+        "idil.vendor.registration",
+        string="Vendor",
+        required=True,
+        tracking=True,
     )
-    vendor_id = fields.Many2one(related="original_order_id.vendor_id", store=True)
+
+    original_order_id = fields.Many2one(
+        "idil.purchase_order",
+        string="Original Order",
+        domain="[('vendor_id', '=', vendor_id)]",
+        required=True,
+    )
+    return_date = fields.Date(default=fields.Date.today, string="Return Date")
+
     return_lines = fields.One2many(
         "idil.purchase_return.line", "return_id", string="Return Lines"
+    )
+    state = fields.Selection(
+        [("draft", "Draft"), ("confirmed", "Confirmed"), ("cancel", "Cancelled")],
+        default="draft",
     )
 
     @api.model
@@ -34,6 +48,10 @@ class PurchaseReturn(models.Model):
 
     def action_process_return(self):
         for return_obj in self:
+            if return_obj.state == "confirmed":
+                raise ValidationError(
+                    f"Return '{return_obj.name}' has already been confirmed."
+                )
             for line in return_obj.return_lines:
                 item = line.item_id
                 if item.quantity < line.return_qty:
@@ -60,11 +78,12 @@ class PurchaseReturn(models.Model):
                 )
 
                 self._create_return_transaction(line)
+        return_obj.write({"state": "confirmed"})
 
     def _create_return_transaction(self, line):
 
         trx_number = self.env["idil.transaction_booking"]._get_next_transaction_number()
-        purchase_account = line.order_line_id._validate_purchase_account()
+        purchase_account = line.order_line_id.item_id.purchase_account_id.id
         stock_account = line.item_id.asset_account_id.id
         amount = line.amount
 
@@ -177,7 +196,7 @@ class PurchaseReturn(models.Model):
     @api.onchange("original_order_id")
     def _onchange_original_order_id(self):
         if self.original_order_id:
-            self.return_lines = [(5, 0, 0)]  # Clear existing return lines
+            self.return_lines = [(5, 0, 0)]  # Clear existing lines
             self.return_lines = [
                 (
                     0,
@@ -189,6 +208,11 @@ class PurchaseReturn(models.Model):
                 )
                 for line in self.original_order_id.order_lines
             ]
+
+    @api.onchange("vendor_id")
+    def _onchange_vendor_id(self):
+        self.original_order_id = False
+        self.return_lines = [(5, 0, 0)]
 
     def unlink(self):
         for return_obj in self:

@@ -1,28 +1,49 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+import re
+from datetime import datetime
 
 
 class StockAdjustment(models.Model):
     _name = "idil.stock.adjustment"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Stock Adjustment"
 
+    name = fields.Char(
+        string="Reference",
+        required=True,
+        readonly=True,
+        default="New",
+        tracking=True,
+    )
     item_id = fields.Many2one(
-        "idil.item", string="Item", required=True, help="Select the item to adjust"
+        "idil.item",
+        string="Item",
+        required=True,
+        help="Select the item to adjust",
+        tracking=True,
     )
     adjustment_qty = fields.Float(
-        string="Adjustment Quantity", required=True, help="Enter the quantity to adjust"
+        string="Adjustment Quantity",
+        required=True,
+        help="Enter the quantity to adjust",
+        tracking=True,
     )
     adjustment_type = fields.Selection(
-        [("decrease", "Decrease"), ("decrease", "Increase")],
+        [("decrease", "Decrease"), ("increase", "Increase")],
         string="Adjustment Type",
         required=True,
         help="Select adjustment type",
+        tracking=True,
     )
     adjustment_date = fields.Date(
-        string="Adjustment Date", default=fields.Date.today, required=True
+        string="Adjustment Date",
+        default=fields.Date.today,
+        required=True,
+        tracking=True,
     )
     reason = fields.Text(
-        string="Reason for Adjustment", help="Reason for the adjustment"
+        string="Reason for Adjustment", help="Reason for the adjustment", tracking=True
     )
     cost_price = fields.Float(
         string="Cost Price",
@@ -30,45 +51,71 @@ class StockAdjustment(models.Model):
         store=True,
         readonly=True,
         help="Cost price of the item being adjusted",
+        tracking=True,
     )
+    total_amount = fields.Float(
+        string="Total Amount",
+        compute="_compute_total_amount",
+        store=True,
+        help="Total value of the stock adjustment (qty × cost price)",
+        tracking=True,
+    )
+
+    def _generate_stock_adjustment_reference(self, item):
+        item_code = (
+            re.sub(r"[^A-Za-z0-9]+", "", item.name[:2]).upper()
+            if item and item.name
+            else "XX"
+        )
+        date_str = "/" + datetime.now().strftime("%d%m%Y")
+        day_night = "/DAY/" if datetime.now().hour < 12 else "/NIGHT/"
+        sequence = self.env["ir.sequence"].next_by_code(
+            "idil.stock.adjustment.sequence"
+        )
+        sequence = sequence[-3:] if sequence else "000"
+        return f"ADJ/{item_code}{date_str}{day_night}{sequence}"
+
+    @api.depends("adjustment_qty", "cost_price")
+    def _compute_total_amount(self):
+        for record in self:
+            record.total_amount = record.adjustment_qty * record.cost_price
 
     @api.model
     def create(self, vals):
-        """Override the create method to adjust item quantity and log item movement."""
+        if vals.get("name", "New") == "New":
+            item = self.env["idil.item"].browse(vals.get("item_id"))
+            vals["name"] = self._generate_stock_adjustment_reference(item)
         adjustment = super(StockAdjustment, self).create(vals)
         item = adjustment.item_id
-
-        # Calculate new quantity based on the adjustment type
 
         if adjustment.adjustment_type == "decrease":
             if item.quantity < adjustment.adjustment_qty:
                 raise ValidationError("Cannot decrease quantity below zero.")
             new_quantity = item.quantity - adjustment.adjustment_qty
+            movement_quantity = -adjustment.adjustment_qty
             movement_type = "out"
-            # Update the item's quantity using context to prevent triggering other actions
-            item.with_context(update_transaction_booking=False).write(
-                {"quantity": new_quantity}
-            )
+        elif adjustment.adjustment_type == "increase":
+            new_quantity = item.quantity + adjustment.adjustment_qty
+            movement_quantity = adjustment.adjustment_qty
+            movement_type = "in"
 
-        # Fetch the transaction source ID for stock adjustments
+        item.with_context(update_transaction_booking=False).write(
+            {"quantity": new_quantity}
+        )
+
         trx_source = self.env["idil.transaction.source"].search(
             [("name", "=", "stock_adjustments")], limit=1
         )
 
-        # Book the main transaction
         transaction = self.env["idil.transaction_booking"].create(
             {
-                "reffno": "Stock Adjustments%s"
-                % adjustment.id,  # Corrected reference number generation
+                "reffno": "Stock Adjustments%s" % adjustment.id,
                 "trx_date": adjustment.adjustment_date,
                 "amount": abs(adjustment.adjustment_qty * adjustment.cost_price),
-                "trx_source_id": (
-                    trx_source.id if trx_source else False
-                ),  # Assign the source ID if found
+                "trx_source_id": trx_source.id if trx_source else False,
             }
         )
 
-        # Create booking lines for the transaction
         self.env["idil.transaction_bookingline"].create(
             [
                 {
@@ -77,9 +124,8 @@ class StockAdjustment(models.Model):
                     "item_id": item.id,
                     "account_number": item.adjustment_account_id.id,
                     "transaction_type": "dr",
-                    "dr_amount": adjustment.adjustment_qty
-                    * item.cost_price,  # Use cost price for debit amount
-                    "cr_amount": 0,  # Use cost price for credit amount
+                    "dr_amount": adjustment.adjustment_qty * item.cost_price,
+                    "cr_amount": 0,
                     "transaction_date": adjustment.adjustment_date,
                 },
                 {
@@ -88,24 +134,22 @@ class StockAdjustment(models.Model):
                     "item_id": item.id,
                     "account_number": item.asset_account_id.id,
                     "transaction_type": "cr",
-                    "cr_amount": adjustment.adjustment_qty
-                    * item.cost_price,  # Use cost price for credit amount
-                    "dr_amount": 0,  # Use cost price for debit amount
+                    "cr_amount": adjustment.adjustment_qty * item.cost_price,
+                    "dr_amount": 0,
                     "transaction_date": adjustment.adjustment_date,
                 },
             ]
         )
-        # Corrected creation of item movement
+
         self.env["idil.item.movement"].create(
             {
                 "item_id": item.id,
                 "date": adjustment.adjustment_date,
-                "quantity": adjustment.adjustment_qty * -1,
+                "quantity": movement_quantity,
                 "source": "Stock Adjustment",
                 "destination": item.name,
                 "movement_type": movement_type,
-                "related_document": "idil.stock.adjustment,%d"
-                % adjustment.id,  # Corrected value format
+                "related_document": "idil.stock.adjustment,%d" % adjustment.id,
                 "transaction_number": transaction.id or "/",
             }
         )
@@ -127,20 +171,29 @@ class StockAdjustment(models.Model):
             cost_price = item.cost_price
             adjustment_date = vals.get("adjustment_date", record.adjustment_date)
 
-            # Update item quantity based on difference
             new_item_qty = item.quantity
-            if difference < 0:  # Increase
-                if item.quantity < abs(difference):
-                    raise ValidationError("Cannot decrease quantity below zero.")
-                new_item_qty = item.quantity + abs(difference)
-            elif difference > 0:  # Decrease
-                new_item_qty = item.quantity - abs(difference)
+
+            if record.adjustment_type == "decrease":
+                if difference > 0:
+                    if item.quantity < difference:
+                        raise ValidationError("Cannot decrease quantity below zero.")
+                    new_item_qty = item.quantity - difference
+                elif difference < 0:
+                    new_item_qty = item.quantity + abs(difference)
+                movement_quantity = -new_qty
+            elif record.adjustment_type == "increase":
+                if difference > 0:
+                    new_item_qty = item.quantity + difference
+                elif difference < 0:
+                    if item.quantity < abs(difference):
+                        raise ValidationError("Cannot decrease quantity below zero.")
+                    new_item_qty = item.quantity - abs(difference)
+                movement_quantity = new_qty
 
             item.with_context(update_transaction_booking=False).write(
                 {"quantity": new_item_qty}
             )
 
-            # Update transaction and lines
             transaction = self.env["idil.transaction_booking"].search(
                 [("reffno", "=", "Stock Adjustments%s" % record.id)], limit=1
             )
@@ -169,16 +222,14 @@ class StockAdjustment(models.Model):
                             }
                         )
 
-            # Update item movement
             movement = self.env["idil.item.movement"].search(
                 [("related_document", "=", "idil.stock.adjustment,%d" % record.id)],
                 limit=1,
             )
-
             if movement:
                 movement.write(
                     {
-                        "quantity": new_qty * -1,
+                        "quantity": movement_quantity,
                         "date": adjustment_date,
                     }
                 )
@@ -189,14 +240,19 @@ class StockAdjustment(models.Model):
         for record in self:
             item = record.item_id
 
-            # Revert the stock quantity
             if record.adjustment_type == "decrease":
                 new_qty = item.quantity + record.adjustment_qty
-                item.with_context(update_transaction_booking=False).write(
-                    {"quantity": new_qty}
-                )
+            elif record.adjustment_type == "increase":
+                new_qty = item.quantity - record.adjustment_qty
+                if new_qty < 0:
+                    raise ValidationError(
+                        "Cannot reverse increase; would make quantity negative."
+                    )
 
-            # Delete related transaction and booking lines
+            item.with_context(update_transaction_booking=False).write(
+                {"quantity": new_qty}
+            )
+
             transaction = self.env["idil.transaction_booking"].search(
                 [("reffno", "=", "Stock Adjustments%s" % record.id)], limit=1
             )
@@ -205,7 +261,6 @@ class StockAdjustment(models.Model):
                 transaction.booking_lines.unlink()
                 transaction.unlink()
 
-            # Delete related item movement
             movement = self.env["idil.item.movement"].search(
                 [("related_document", "=", "idil.stock.adjustment,%d" % record.id)],
                 limit=1,
