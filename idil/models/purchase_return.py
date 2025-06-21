@@ -110,35 +110,63 @@ class PurchaseReturn(models.Model):
                 "order_number": self.original_order_id.id,
             }
         )
-
-        self.env["idil.transaction_bookingline"].create(
+        # Find all original booking lines for this item/order_line
+        original_booking_lines = self.env["idil.transaction_bookingline"].search(
             [
-                {
-                    "order_line": line.order_line_id.id,
-                    "return_id": self.id,
-                    "item_id": line.item_id.id,
-                    "description": f"Return of {line.item_id.name}",
-                    "account_number": stock_account,
-                    "transaction_type": "cr",
-                    "cr_amount": amount,
-                    "dr_amount": 0,
-                    "transaction_booking_id": trx.id,
-                    "transaction_date": fields.Date.today(),
-                },
-                {
-                    "order_line": line.order_line_id.id,
-                    "return_id": self.id,
-                    "item_id": line.item_id.id,
-                    "description": f"Return of {line.item_id.name}",
-                    "account_number": purchase_account,
-                    "transaction_type": "dr",
-                    "dr_amount": amount,
-                    "cr_amount": 0,
-                    "transaction_booking_id": trx.id,
-                    "transaction_date": fields.Date.today(),
-                },
+                ("order_line", "=", line.order_line_id.id),
+                ("transaction_type", "in", ["dr", "cr"]),
+                # Optionally: ("transaction_booking_id.purchase_order_id", "=", line.return_id.original_order_id.id),
             ]
         )
+
+        # For each original booking line, create a reversed one for return
+        return_booking_lines = []
+        for orig in original_booking_lines:
+            reversed_type = "cr" if orig.transaction_type == "dr" else "dr"
+            reversed_vals = {
+                "order_line": orig.order_line.id,
+                "return_id": line.return_id.id,
+                "item_id": orig.item_id.id,
+                "description": f"Return of {orig.item_id.name}",
+                "account_number": orig.account_number.id,
+                "transaction_type": reversed_type,
+                "dr_amount": (amount if reversed_type == "dr" else 0),
+                "cr_amount": (amount if reversed_type == "cr" else 0),
+                "transaction_booking_id": trx.id,  # Use the new transaction booking you just created
+                "transaction_date": fields.Date.today(),
+            }
+            return_booking_lines.append(reversed_vals)
+
+        self.env["idil.transaction_bookingline"].create(return_booking_lines)
+
+        # self.env["idil.transaction_bookingline"].create(
+        #     [
+        #         {
+        #             "order_line": line.order_line_id.id,
+        #             "return_id": self.id,
+        #             "item_id": line.item_id.id,
+        #             "description": f"Return of {line.item_id.name}",
+        #             "account_number": stock_account,
+        #             "transaction_type": "cr",
+        #             "cr_amount": amount,
+        #             "dr_amount": 0,
+        #             "transaction_booking_id": trx.id,
+        #             "transaction_date": fields.Date.today(),
+        #         },
+        #         {
+        #             "order_line": line.order_line_id.id,
+        #             "return_id": self.id,
+        #             "item_id": line.item_id.id,
+        #             "description": f"Return of {line.item_id.name}",
+        #             "account_number": purchase_account,
+        #             "transaction_type": "dr",
+        #             "dr_amount": amount,
+        #             "cr_amount": 0,
+        #             "transaction_booking_id": trx.id,
+        #             "transaction_date": fields.Date.today(),
+        #         },
+        #     ]
+        # )
         # ✅ Now update or create vendor transaction (and fix variable name)
 
         VendorTransaction = self.env["idil.vendor_transaction"]
