@@ -164,101 +164,6 @@ class Product(models.Model):
     start_date = fields.Datetime(string="Start Date")
     end_date = fields.Datetime(string="End Date")
 
-    # def export_movements_to_excel(self):
-    #     # Define the base directory and file name
-    #     base_directory = "C:\\product"
-    #     if not os.path.exists(base_directory):
-    #         os.makedirs(base_directory)
-
-    #     # Increment file name if already exists
-    #     file_number = 1
-    #     while True:
-    #         file_name = f"{self.name}_Product_Movements_{file_number}.xlsx"
-    #         file_path = os.path.join(base_directory, file_name)
-    #         if not os.path.exists(file_path):
-    #             break
-    #         file_number += 1
-
-    #     # Apply date range filter
-    #     domain = (
-    #         [("date", ">=", self.start_date), ("date", "<=", self.end_date)]
-    #         if self.start_date and self.end_date
-    #         else []
-    #     )
-    #     filtered_movements = (
-    #         self.movement_ids.filtered(
-    #             lambda m: m.date and self.start_date <= m.date <= self.end_date
-    #         )
-    #         if domain
-    #         else self.movement_ids
-    #     )
-
-    #     if not filtered_movements:
-    #         # Show a notification if there are no movements to export
-    #         return {
-    #             "type": "ir.actions.client",
-    #             "tag": "display_notification",
-    #             "params": {
-    #                 "title": "Export Failed",
-    #                 "message": "No data available to export for the selected date range.",
-    #                 "type": "warning",
-    #             },
-    #         }
-
-    #     # Create an Excel file
-    #     workbook = xlsxwriter.Workbook(file_path)
-    #     worksheet = workbook.add_worksheet()
-
-    #     # Define formats
-    #     date_format = workbook.add_format({"num_format": "yyyy-mm-dd hh:mm:ss"})
-    #     text_format = workbook.add_format({"text_wrap": True})
-    #     number_format = workbook.add_format({"num_format": "0.00"})
-
-    #     # Write headers with bold format
-    #     headers = [
-    #         "Date",
-    #         "Movement Type",
-    #         "Quantity",
-    #         "Source Document",
-    #         "Salesperson",
-    #     ]
-    #     worksheet.write_row("A1", headers, workbook.add_format({"bold": True}))
-
-    #     # Fill the Excel with data from movements
-    #     row = 1
-    #     for movement in filtered_movements:
-    #         worksheet.write(row, 0, movement.date or "", date_format)
-    #         worksheet.write(row, 1, movement.movement_type or "", text_format)
-    #         worksheet.write(
-    #             row, 2, movement.quantity if movement.quantity else 0.0, number_format
-    #         )
-    #         worksheet.write(row, 3, movement.source_document or "", text_format)
-    #         worksheet.write(row, 4, movement.sales_person_id.name or "", text_format)
-    #         row += 1
-
-    #     # Adjust column widths
-    #     worksheet.set_column("A:A", 20)  # Date column
-    #     worksheet.set_column("B:B", 15)  # Movement Type column
-    #     worksheet.set_column("C:C", 12, number_format)  # Quantity column
-    #     worksheet.set_column("D:D", 30)  # Source Document column
-    #     worksheet.set_column("E:E", 20)  # Salesperson column
-
-    #     workbook.close()
-
-    #     # Open the directory in the file explorer
-    #     os.startfile(base_directory)
-
-    #     # Return a confirmation message
-    #     return {
-    #         "type": "ir.actions.client",
-    #         "tag": "display_notification",
-    #         "params": {
-    #             "title": "Export Completed",
-    #             "message": f"The product movements have been exported successfully and saved in {file_name}.",
-    #             "type": "success",
-    #         },
-    #     }
-
     def export_movements_to_excel(self):
         for product in self:
             # Filter movements by date range
@@ -296,7 +201,8 @@ class Product(models.Model):
                 "Movement Type",
                 "Quantity",
                 "Source Document",
-                "Salesperson",
+                "Sales Person Name",
+                "Customer Name",
             ]
             worksheet.write_row("A1", headers, workbook.add_format({"bold": True}))
 
@@ -315,6 +221,7 @@ class Product(models.Model):
                 worksheet.write(
                     row, 4, movement.sales_person_id.name or "", text_format
                 )
+                worksheet.write(row, 5, movement.customer_id.name or "", text_format)
                 row += 1
 
             # Set column widths
@@ -323,6 +230,7 @@ class Product(models.Model):
             worksheet.set_column("C:C", 12, number_format)
             worksheet.set_column("D:D", 30)
             worksheet.set_column("E:E", 20)
+            worksheet.set_column("F:F", 20)
 
             workbook.close()
             output.seek(0)

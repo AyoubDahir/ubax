@@ -205,6 +205,9 @@ class CommissionPayment(models.Model):
     booking_line_ids = fields.One2many(
         "idil.transaction_bookingline", "commission_payment_id", string="Booking Lines"
     )
+    bulk_payment_line_id = fields.Many2one(
+        "idil.commission.bulk.payment.line", string="Bulk Payment Line", readonly=True
+    )
 
     def unlink(self):
         for record in self:

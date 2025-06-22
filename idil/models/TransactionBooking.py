@@ -433,6 +433,11 @@ class TransactionBookingline(models.Model):
         string="Vendor Bulk Payment",
         ondelete="cascade",  # Ensures deletion of vendor payments when bulk is deleted
     )
+    bulk_payment_line_id = fields.Many2one(
+        "idil.commission.bulk.payment.line",
+        string="Bulk Payment Line",
+        readonly=True,
+    )
 
     @api.depends("account_number")
     def _compute_account_display(self):

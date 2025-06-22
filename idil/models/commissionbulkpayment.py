@@ -159,6 +159,27 @@ class CommissionBulkPayment(models.Model):
             commission.amount = payable
             commission.pay_commission()
 
+            # Find the latest commission payment just created
+            payment = self.env["idil.commission.payment"].search(
+                [
+                    ("commission_id", "=", commission.id),
+                    ("employee_id", "=", commission.employee_id.id),
+                    ("amount", "=", payable),
+                    (
+                        "bulk_payment_line_id",
+                        "=",
+                        False,
+                    ),  # only update if not already linked
+                ],
+                order="id desc",  # newest first
+                limit=1,
+            )
+            if payment:
+                payment.bulk_payment_line_id = (
+                    line.id
+                )  # line = current bulk payment line
+            payment.booking_line_ids.write({"bulk_payment_line_id": line.id})
+
             # Write only to this processed line
             line.write(
                 {
@@ -193,6 +214,52 @@ class CommissionBulkPayment(models.Model):
                 or "CBP/0001"
             )
         return super().create(vals)
+
+    def unlink(self):
+        for bulk in self:
+            # For each line in the bulk payment
+            for line in bulk.line_ids:
+                # Step 1: Delete booking lines linked to this bulk payment line
+                booking_lines = self.env["idil.transaction_bookingline"].search(
+                    [("bulk_payment_line_id", "=", line.id)]
+                )
+                booking_lines.unlink()
+
+                # Step 2: Delete commission payment(s) linked to this bulk payment line
+                commission_payments = self.env["idil.commission.payment"].search(
+                    [("bulk_payment_line_id", "=", line.id)]
+                )
+                commission_payments.unlink()
+
+                # Step 3: Adjust commission status/amounts back
+                commission = line.commission_id
+                if commission:
+                    # Reduce paid by this paid_amount, increase remaining
+                    commission.write(
+                        {
+                            "commission_paid": commission.commission_paid
+                            - line.paid_amount,
+                            "commission_remaining": commission.commission_remaining
+                            + line.paid_amount,
+                        }
+                    )
+                    # If fully unpaid now, reset status; if partial, update
+                    commission._update_commission_status()
+
+                # Step 4: Delete the bulk payment line itself (One2many usually cascades, but ensure here)
+                line.unlink()
+
+        # Step 5: Delete main bulk payment (One2many to line_ids should cascade, but this ensures cleanup)
+        return super(CommissionBulkPayment, self).unlink()
+
+    def write(self, vals):
+        for rec in self:
+            if rec.state == "confirmed":
+                raise ValidationError(
+                    "This record is confirmed and cannot be modified.\n"
+                    "If changes are required, please delete and create a new bulk payment."
+                )
+        return super().write(vals)
 
 
 class CommissionBulkPaymentLine(models.Model):

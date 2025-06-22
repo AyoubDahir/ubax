@@ -80,13 +80,43 @@
             </tree>
         </field>
     </record>
+    <record id="view_kanban_manufacturing_order" model="ir.ui.view">
+        <field name="name">idil.manufacturing.order.kanban</field>
+        <field name="model">idil.manufacturing.order</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <field name="name"/>
+                <field name="bom_id"/>
+                <field name="product_id"/>
+                <field name="product_qty"/>
+                <field name="status"/>
+                <field name="scheduled_start_date"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_global_click">
+                            <strong>
+                                <field name="name"/>
+                            </strong>
+                            <div>BOM: <field name="bom_id"/></div>
+                            <div>Product: <field name="product_id"/></div>
+                            <div>Qty: <field name="product_qty"/></div>
+                            <div>Date: <field name="scheduled_start_date"/></div>
+                            <div>Status: <field name="status"/></div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
 
     <!-- Action to Open Manufacturing Order View -->
     <record id="action_manufacturing_orders" model="ir.actions.act_window">
         <field name="name">Manufacturing Orders</field>
         <field name="res_model">idil.manufacturing.order</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">kanban,tree,form</field>
         <field name="view_id" ref="view_tree_manufacturing_order"/>
+        <field name="context">{'group_by': ['scheduled_start_date:month', 'scheduled_start_date:day']}</field>
+
     </record>
 
 
