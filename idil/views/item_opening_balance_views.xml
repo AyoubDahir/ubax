@@ -4,6 +4,13 @@
     <field name="model">idil.item.opening.balance</field>
     <field name="arch" type="xml">
       <form string="Opening Balance">
+      <header>
+        <button name="action_populate_zero_qty_items"
+          type="object"
+          string="Populate Zero Qty Items"
+          class="btn-primary"/>
+
+      </header>
         <sheet>
           <div class="oe_title">
             <h1>

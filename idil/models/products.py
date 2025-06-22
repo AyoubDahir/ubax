@@ -99,7 +99,7 @@ class Product(models.Model):
     account_id = fields.Many2one(
         "idil.chart.account",
         string="Commission Account",
-        domain="[('account_type', 'like', 'commission'), ('code', 'like', '5%'), "
+        domain="[('account_type', 'like', 'commission'), ('code', 'like', '2%'), "
         "('currency_id', '=', currency_id)]",
     )
 

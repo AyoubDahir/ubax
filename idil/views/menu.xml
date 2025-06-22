@@ -201,6 +201,13 @@
               parent="Manufacturing"
               action="action_commissions"/>
 
+    <menuitem id="menu_bulk_commission_payments" 
+              name="Bulk Commission Payments" 
+              parent="Manufacturing" 
+              sequence="20" 
+              action="action_commission_bulk_payment"/>
+
+
 
     <!-- Main Sales Menu -->
     <menuitem id="menu_sales"

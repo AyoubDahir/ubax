@@ -74,6 +74,11 @@ class ManufacturingOrder(models.Model):
         string="Commission Employee",
         help="Select the employee who will receive the commission for this product",
     )
+    commission_id = fields.Many2one(
+        "idil.commission",
+        string="Linked Commission",
+        ondelete="cascade",  # block deletion of commission if still linked here
+    )
 
     # Commission fields
     commission_amount = fields.Float(
@@ -280,20 +285,28 @@ class ManufacturingOrder(models.Model):
     def _onchange_bom_id(self):
         self.check_items_expiration()
         if not self.bom_id:
-            self.manufacturing_order_line_ids = [
-                (5, 0, 0)
-            ]  # Command to delete existing lines
+            self.manufacturing_order_line_ids = [(5, 0, 0)]  # Just clear if no BOM
             return
-        new_lines = []
-        for line in self.bom_id.bom_line_ids:
-            line_vals = {
-                "item_id": line.Item_id.id,
-                "quantity": line.quantity,
-                "quantity_bom": line.quantity,
-                "cost_price": line.Item_id.cost_price,
-            }
-            new_lines.append((0, 0, line_vals))
-        self.manufacturing_order_line_ids = new_lines
+
+        commands = [(5, 0, 0)]  # Always start by clearing all lines
+
+        for bom_line in self.bom_id.bom_line_ids:
+            commands.append(
+                (
+                    0,
+                    0,
+                    {
+                        "item_id": bom_line.Item_id.id,
+                        "quantity": bom_line.quantity,
+                        "quantity_bom": bom_line.quantity,
+                        "cost_price": bom_line.Item_id.cost_price,
+                    },
+                )
+            )
+
+        self.manufacturing_order_line_ids = (
+            commands  # Clear + refill only with BOM lines
+        )
 
     @api.model
     def create(self, vals):
@@ -450,14 +463,22 @@ class ManufacturingOrder(models.Model):
                     "transaction_date": fields.Date.today(),
                 }
             )
+        # Calculate commission amount for this order using the order and its lines
+        # commission_amount = self._calculate_commission_amount(order)
 
-        # Handle commission transactions
         if order.commission_amount > 0:
+            _logger.info(
+                f"Creating commission booking lines for MO {order.name} amount: {order.commission_amount}"
+            )
+            # Validate accounts
             if not order.product_id.account_id:
                 raise ValidationError(
                     f"The product '{order.product_id.name}' does not have a valid commission account."
                 )
-
+            if not order.commission_employee_id.account_id:
+                raise ValidationError(
+                    f"Commission employee '{order.commission_employee_id.name}' does not have a valid account."
+                )
             if (
                 order.product_id.account_id.currency_id
                 != order.commission_employee_id.account_id.currency_id
@@ -466,7 +487,15 @@ class ManufacturingOrder(models.Model):
                     f"The currency for the product's account and the employee's commission account must be the same."
                 )
 
-            self.env["idil.transaction_bookingline"].create(
+            _logger.info(
+                f"Transaction booking ID: {transaction_booking.id}, "
+                f"Product commission account: {order.product_id.account_id.name} (ID: {order.product_id.account_id.id}), "
+                f"Employee commission account: {order.commission_employee_id.account_id.name} (ID: {order.commission_employee_id.account_id.id}), "
+                f"Commission Amount: {self.commission_amount}"
+            )
+
+            # Commission Expense (Debit)
+            expense_line = self.env["idil.transaction_bookingline"].create(
                 {
                     "transaction_booking_id": transaction_booking.id,
                     "description": "Commission Expense",
@@ -478,8 +507,14 @@ class ManufacturingOrder(models.Model):
                     "transaction_date": fields.Date.today(),
                 }
             )
+            _logger.info(
+                f"Commission Expense booking line created: ID={expense_line.id}, "
+                f"Account={order.product_id.account_id.name} (ID: {order.product_id.account_id.id}), "
+                f"DR={self.commission_amount}, CR=0.0"
+            )
 
-            self.env["idil.transaction_bookingline"].create(
+            # Commission Liability (Credit)
+            liability_line = self.env["idil.transaction_bookingline"].create(
                 {
                     "transaction_booking_id": transaction_booking.id,
                     "description": "Commission Liability",
@@ -490,6 +525,11 @@ class ManufacturingOrder(models.Model):
                     "cr_amount": order.commission_amount,
                     "transaction_date": fields.Date.today(),
                 }
+            )
+            _logger.info(
+                f"Commission Liability booking line created: ID={liability_line.id}, "
+                f"Account={order.commission_employee_id.account_id.name} (ID: {order.commission_employee_id.account_id.id}), "
+                f"DR=0.0, CR={self.commission_amount}"
             )
 
         # Update stock quantity for manufactured product
@@ -513,9 +553,9 @@ class ManufacturingOrder(models.Model):
         except ValidationError as e:
             raise ValidationError(e.args[0])
 
-        # Create commission record if applicable
+        # Create commission record and link it to manufacturing order
         if order.commission_amount > 0:
-            self.env["idil.commission"].create(
+            commission = self.env["idil.commission"].create(
                 {
                     "manufacturing_order_id": order.id,
                     "employee_id": order.commission_employee_id.id,
@@ -526,6 +566,7 @@ class ManufacturingOrder(models.Model):
                     "date": fields.Date.context_today(self),
                 }
             )
+            order.write({"commission_id": commission.id})
 
         # Create product movement record
         self.env["idil.product.movement"].create(
@@ -544,242 +585,250 @@ class ManufacturingOrder(models.Model):
     @api.model
     def write(self, vals):
         for order in self:
-            # 1. Compute product quantity difference
-            new_product_qty = vals.get("product_qty", order.product_qty)
-            product_qty_diff = new_product_qty - order.product_qty
+            # Prevent changing BOM or Product after creation
+            if "bom_id" in vals and vals["bom_id"] != order.bom_id.id:
+                raise ValidationError(
+                    "You are not allowed to modify the Bill of Materials (BOM) after the order is created. If you need to change it, please delete and recreate the manufacturing order."
+                )
 
-            # 2. Validate item quantity increase before applying
-            if "manufacturing_order_line_ids" in vals:
-                for command in vals["manufacturing_order_line_ids"]:
-                    if command[0] == 1:  # Update
-                        line_id = command[1]
-                        update_vals = command[2]
+            if "product_id" in vals and vals["product_id"] != order.product_id.id:
+                raise ValidationError(
+                    "You are not allowed to modify the Product after the order is created. If you need to change it, please delete and recreate the manufacturing order."
+                )
 
-                        line = self.env["idil.manufacturing.order.line"].browse(line_id)
-                        old_qty = line.quantity
-                        new_qty = update_vals.get("quantity", old_qty)
-                        diff_qty = new_qty - old_qty
-                        item = line.item_id
+            # ... continue your write logic below as before
+            # Store old values for diff calculation
+            old_product_qty = order.product_qty
+            old_lines = {l.id: l.quantity for l in order.manufacturing_order_line_ids}
+            old_item_ids = {
+                l.id: l.item_id.id for l in order.manufacturing_order_line_ids
+            }
 
-                        if diff_qty > 0 and item.item_type == "inventory":
-                            if item.quantity < diff_qty:
-                                raise ValidationError(
-                                    f"Not enough stock for item '{item.name}'. "
-                                    f"Need additional: {diff_qty}, Available: {item.quantity}"
-                                )
+            # --- 1. Apply changes ---
+            res = super(ManufacturingOrder, order).write(vals)
 
-            # 3. Update product stock
-            if product_qty_diff != 0:
-                product = order.product_id
-                product.stock_quantity += product_qty_diff
-                product.write({"stock_quantity": product.stock_quantity})
+            # --- 2. Adjust Product Stock ---
+            if "product_qty" in vals or "product_id" in vals:
+                diff = order.product_qty - old_product_qty
+                if diff != 0:
+                    order.product_id.stock_quantity += diff
+                    order.product_id.write(
+                        {"stock_quantity": order.product_id.stock_quantity}
+                    )
 
-            # 4. Adjust item stock based on quantity difference
-            if "manufacturing_order_line_ids" in vals:
-                for command in vals["manufacturing_order_line_ids"]:
-                    if command[0] == 1:  # Update
-                        line_id = command[1]
-                        update_vals = command[2]
+            # --- 3. Adjust Item Stock and Movement ---
+            for line in order.manufacturing_order_line_ids:
+                old_qty = old_lines.get(line.id, 0.0)
+                new_qty = line.quantity
+                item = line.item_id
+                qty_diff = new_qty - old_qty
 
-                        line = self.env["idil.manufacturing.order.line"].browse(line_id)
-                        old_qty = line.quantity
-                        new_qty = update_vals.get("quantity", old_qty)
-                        diff_qty = new_qty - old_qty
-                        item = line.item_id
+                # Adjust stock
+                if qty_diff != 0 and item.item_type == "inventory":
+                    item.quantity -= qty_diff
+                    item.write({"quantity": item.quantity})
 
-                        if diff_qty != 0 and item.item_type == "inventory":
-                            with self.env.cr.savepoint():
-                                item.with_context(
-                                    update_transaction_booking=False
-                                ).adjust_stock(diff_qty)
+                # Adjust or create movement
+                movement = self.env["idil.item.movement"].search(
+                    [
+                        (
+                            "related_document",
+                            "=",
+                            f"idil.manufacturing.order.line,{line.id}",
+                        )
+                    ],
+                    limit=1,
+                )
+                if movement:
+                    movement.write({"quantity": -new_qty, "date": fields.Date.today()})
+                else:
+                    self.env["idil.item.movement"].create(
+                        {
+                            "item_id": item.id,
+                            "date": fields.Date.today(),
+                            "quantity": -new_qty,
+                            "source": "Inventory",
+                            "destination": "Manufacturing",
+                            "movement_type": "out",
+                            "related_document": f"idil.manufacturing.order.line,{line.id}",
+                            "transaction_number": order.name,
+                        }
+                    )
 
-            # 5. Update product movement (Edit only, do not create)
-            movement = self.env["idil.product.movement"].search(
+            # --- 4. Adjust Product Movement ---
+            product_movement = self.env["idil.product.movement"].search(
                 [("manufacturing_order_id", "=", order.id)], limit=1
             )
-            if movement:
-                movement.write(
+            if product_movement:
+                product_movement.write(
                     {
-                        "quantity": new_product_qty,
-                        "date": fields.Datetime.now(),  # Optionally update date
+                        "quantity": order.product_qty,
+                        "date": fields.Datetime.now(),
                         "source_document": order.name,
                     }
                 )
-            else:
-                _logger.warning(
-                    f"No product movement found for manufacturing order {order.name} (ID: {order.id})"
-                )
-                # Optionally raise warning or pass silently
-                # raise UserError("Product movement record not found for this manufacturing order.")
 
-            # 6. Adjust item movement linked to manufacturing order lines
-            if "manufacturing_order_line_ids" in vals:
-                for command in vals["manufacturing_order_line_ids"]:
-                    if command[0] == 1:  # Update
-                        line_id = command[1]
-                        update_vals = command[2]
+            # --- 5. Adjust Booking and Booking Lines ---
+            # Find booking
+            booking = self.env["idil.transaction_booking"].search(
+                [("manufacturing_order_id", "=", order.id)], limit=1
+            )
+            if booking:
+                # Update booking amount
+                booking.write({"amount": order.product_cost})
 
-                        line = self.env["idil.manufacturing.order.line"].browse(line_id)
-                        item = line.item_id
-                        old_qty = line.quantity
-                        new_qty = update_vals.get("quantity", old_qty)
-                        qty_diff = new_qty - old_qty
+                # --- Loop each MO line ---
+                for line in order.manufacturing_order_line_ids:
+                    cost_usd = line.cost_price * line.quantity
+                    cost_sos = cost_usd * (order.rate or 1.0)
 
-                        item_movement = self.env["idil.item.movement"].search(
+                    # 1. Product asset account (Debit)
+                    bl = self.env["idil.transaction_bookingline"].search(
+                        [
+                            ("transaction_booking_id", "=", booking.id),
+                            ("item_id", "=", line.item_id.id),
+                            (
+                                "account_number",
+                                "=",
+                                order.product_id.asset_account_id.id,
+                            ),
+                            ("transaction_type", "=", "dr"),
+                        ],
+                        limit=1,
+                    )
+                    if bl:
+                        bl.write({"dr_amount": cost_sos, "cr_amount": 0.0})
+                    # (Optionally create if missing)
+
+                    # 2. Target clearing account (Credit)
+                    target_clearing_account = self.env["idil.chart.account"].search(
+                        [
+                            ("name", "=", "Exchange Clearing Account"),
+                            (
+                                "currency_id",
+                                "=",
+                                order.product_id.asset_account_id.currency_id.id,
+                            ),
+                        ],
+                        limit=1,
+                    )
+                    if target_clearing_account:
+                        bl = self.env["idil.transaction_bookingline"].search(
                             [
-                                (
-                                    "related_document",
-                                    "=",
-                                    f"idil.manufacturing.order.line,{line.id}",
-                                )
+                                ("transaction_booking_id", "=", booking.id),
+                                ("item_id", "=", line.item_id.id),
+                                ("account_number", "=", target_clearing_account.id),
+                                ("transaction_type", "=", "cr"),
                             ],
                             limit=1,
                         )
+                        if bl:
+                            bl.write({"dr_amount": 0.0, "cr_amount": cost_sos})
 
-                        if item_movement:
-                            # Adjust the item movement quantity
-                            item_movement.write(
-                                {
-                                    "quantity": -1
-                                    * new_qty,  # Always out movement, so negative
-                                    "date": fields.Date.today(),
-                                    "transaction_number": order.name,
-                                }
-                            )
-                        else:
-                            # If movement record is missing, optionally recreate it
-                            _logger.warning(
-                                f"No item movement found for MO Line ID {line.id}. Creating new one."
-                            )
-                            self.env["idil.item.movement"].create(
-                                {
-                                    "item_id": item.id,
-                                    "date": fields.Date.today(),
-                                    "quantity": -1 * new_qty,
-                                    "source": "Inventory",
-                                    "destination": "Manufacturing",
-                                    "movement_type": "out",
-                                    "related_document": f"idil.manufacturing.order.line,{line.id}",
-                                    "transaction_number": order.name,
-                                }
-                            )
+                    # 3. Source clearing account (Debit)
+                    source_clearing_account = self.env["idil.chart.account"].search(
+                        [
+                            ("name", "=", "Exchange Clearing Account"),
+                            (
+                                "currency_id",
+                                "=",
+                                line.item_id.asset_account_id.currency_id.id,
+                            ),
+                        ],
+                        limit=1,
+                    )
+                    if source_clearing_account:
+                        bl = self.env["idil.transaction_bookingline"].search(
+                            [
+                                ("transaction_booking_id", "=", booking.id),
+                                ("item_id", "=", line.item_id.id),
+                                ("account_number", "=", source_clearing_account.id),
+                                ("transaction_type", "=", "dr"),
+                            ],
+                            limit=1,
+                        )
+                        if bl:
+                            bl.write({"dr_amount": line.row_total, "cr_amount": 0.0})
 
-            res = super(ManufacturingOrder, self).write(
-                vals
-            )  # <<< apply the update first
-            # 7. Delete and recreate transaction booking and lines
-            old_booking = self.env["idil.transaction_booking"].search(
+                    # 4. Item asset account (Credit)
+                    bl = self.env["idil.transaction_bookingline"].search(
+                        [
+                            ("transaction_booking_id", "=", booking.id),
+                            ("item_id", "=", line.item_id.id),
+                            ("account_number", "=", line.item_id.asset_account_id.id),
+                            ("transaction_type", "=", "cr"),
+                        ],
+                        limit=1,
+                    )
+                    if bl:
+                        bl.write({"dr_amount": 0.0, "cr_amount": line.row_total})
+
+                # --- Commission (if any) ---
+                if order.commission_amount > 0:
+                    # Commission expense (Debit)
+                    bl = self.env["idil.transaction_bookingline"].search(
+                        [
+                            ("transaction_booking_id", "=", booking.id),
+                            ("product_id", "=", order.product_id.id),
+                            ("account_number", "=", order.product_id.account_id.id),
+                            ("transaction_type", "=", "dr"),
+                        ],
+                        limit=1,
+                    )
+                    if bl:
+                        bl.write(
+                            {"dr_amount": order.commission_amount, "cr_amount": 0.0}
+                        )
+
+                    # Commission liability (Credit)
+                    bl = self.env["idil.transaction_bookingline"].search(
+                        [
+                            ("transaction_booking_id", "=", booking.id),
+                            ("product_id", "=", order.product_id.id),
+                            (
+                                "account_number",
+                                "=",
+                                order.commission_employee_id.account_id.id,
+                            ),
+                            ("transaction_type", "=", "cr"),
+                        ],
+                        limit=1,
+                    )
+                    if bl:
+                        bl.write(
+                            {"dr_amount": 0.0, "cr_amount": order.commission_amount}
+                        )
+
+                # ... handle exchange/currency booking lines if needed
+
+            # --- 6. Adjust Commission Record and Lines ---
+            commission_amount = order._calculate_commission_amount(order)
+            commission = self.env["idil.commission"].search(
                 [("manufacturing_order_id", "=", order.id)], limit=1
             )
-
-            if old_booking:
-                old_booking.booking_lines.unlink()
-                old_booking.unlink()
-
-            rate = order.rate or 1.0
-
-            new_booking = self.env["idil.transaction_booking"].create(
-                {
-                    "transaction_number": self.env["ir.sequence"].next_by_code(
-                        "idil.transaction_booking"
-                    ),
-                    "reffno": order.name,
-                    "manufacturing_order_id": order.id,
-                    "order_number": order.name,
-                    "amount": order.product_cost,
-                    "trx_date": fields.Date.today(),
-                    "payment_status": "paid",
-                }
-            )
-
-            for line in order.manufacturing_order_line_ids:
-                cost_usd = line.cost_price * line.quantity
-                cost_sos = cost_usd * rate
-
-                source_account = self.env["idil.chart.account"].search(
-                    [
-                        ("name", "=", "Exchange Clearing Account"),
-                        (
-                            "currency_id",
-                            "=",
-                            line.item_id.asset_account_id.currency_id.id,
-                        ),
-                    ],
-                    limit=1,
-                )
-
-                target_account = self.env["idil.chart.account"].search(
-                    [
-                        ("name", "=", "Exchange Clearing Account"),
-                        (
-                            "currency_id",
-                            "=",
-                            order.product_id.asset_account_id.currency_id.id,
-                        ),
-                    ],
-                    limit=1,
-                )
-
-                if not source_account or not target_account:
-                    raise ValidationError("Exchange clearing accounts are required.")
-
-                self.env["idil.transaction_bookingline"].create(
+            if commission:
+                commission.write(
                     {
-                        "transaction_booking_id": new_booking.id,
-                        "description": "MO Update - Debit Product Stock",
-                        "item_id": line.item_id.id,
-                        "product_id": order.product_id.id,
-                        "account_number": order.product_id.asset_account_id.id,
-                        "transaction_type": "dr",
-                        "dr_amount": cost_sos,
-                        "cr_amount": 0.0,
-                        "transaction_date": fields.Date.today(),
+                        "commission_amount": commission_amount,
+                        "commission_remaining": commission_amount,  # reset if business logic says so
                     }
                 )
+            else:
+                if commission_amount > 0 and order.commission_employee_id:
+                    commission = self.env["idil.commission"].create(
+                        {
+                            "manufacturing_order_id": order.id,
+                            "employee_id": order.commission_employee_id.id,
+                            "commission_amount": commission_amount,
+                            "commission_paid": 0,
+                            "payment_status": "pending",
+                            "commission_remaining": commission_amount,
+                            "date": fields.Date.context_today(self),
+                        }
+                    )
+                    order.write({"commission_id": commission.id})
 
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": new_booking.id,
-                        "description": "MO Update - Credit Target Clearing",
-                        "item_id": line.item_id.id,
-                        "product_id": order.product_id.id,
-                        "account_number": target_account.id,
-                        "transaction_type": "cr",
-                        "dr_amount": 0.0,
-                        "cr_amount": cost_sos,
-                        "transaction_date": fields.Date.today(),
-                    }
-                )
-
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": new_booking.id,
-                        "description": "MO Update - Debit Source Clearing",
-                        "item_id": line.item_id.id,
-                        "product_id": order.product_id.id,
-                        "account_number": source_account.id,
-                        "transaction_type": "dr",
-                        "dr_amount": line.row_total,
-                        "cr_amount": 0.0,
-                        "transaction_date": fields.Date.today(),
-                    }
-                )
-
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": new_booking.id,
-                        "description": "MO Update - Credit Item Asset",
-                        "item_id": line.item_id.id,
-                        "product_id": order.product_id.id,
-                        "account_number": line.item_id.asset_account_id.id,
-                        "transaction_type": "cr",
-                        "dr_amount": 0.0,
-                        "cr_amount": line.row_total,
-                        "transaction_date": fields.Date.today(),
-                    }
-                )
-
-        return res
+            return res
 
     def _get_account_balance(self, account_id):
         """Calculate the balance for an account."""
@@ -861,13 +910,30 @@ class ManufacturingOrder(models.Model):
             for b in booking:
                 b.booking_lines.unlink()
                 b.unlink()
-
+            res = super(ManufacturingOrder, self).unlink()
             # Step 7: Delete related commission record
             self.env["idil.commission"].search(
                 [("manufacturing_order_id", "=", order.id)]
             ).unlink()
 
-        return super(ManufacturingOrder, self).unlink()
+        return res
+
+    def _calculate_commission_amount(self, order, order_lines=None):
+        # If order_lines are not provided, fallback to record lines
+        order_lines = order_lines or order.manufacturing_order_line_ids
+        if not order.product_id or not order.commission_employee_id:
+            return 0.0
+        if not getattr(order.product_id, "account_id", False):
+            return 0.0
+        if not getattr(order.product_id, "is_commissionable", False):
+            return 0.0
+        commission_percentage = order.commission_employee_id.commission or 0.0
+        commission_amount = 0.0
+        for line in order_lines:
+            item = line.item_id
+            if getattr(item, "is_commission", False):
+                commission_amount += commission_percentage * line.quantity
+        return commission_amount
 
 
 class ManufacturingOrderLine(models.Model):

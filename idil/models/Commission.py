@@ -21,8 +21,9 @@ class Commission(models.Model):
         string="Manufacturing Order",
         required=True,
         tracking=True,
-        ondelete="cascade",  # Add this to enable automatic deletion
+        ondelete="cascade",  # ✅ Automatically delete commission when MO is deleted
     )
+
     employee_id = fields.Many2one(
         "idil.employee", string="Employee", required=True, readonly=True
     )
@@ -79,9 +80,22 @@ class Commission(models.Model):
                 "Please select a cash account before paying the commission."
             )
 
+        # Validate account currency consistency
+        employee_currency = self.employee_id.account_id.currency_id
+        cash_currency = self.cash_account_id.currency_id
+
+        if employee_currency.id != cash_currency.id:
+            raise ValidationError(
+                "Commission account and cash account must have the same currency to proceed with the transaction."
+            )
+
         if self._get_cash_account_balance() < self.amount:
             raise ValidationError("No sufficient amount in the cash account.")
 
+        if self.amount > self.commission_remaining:
+            raise ValidationError(
+                f"The amount to pay exceeds the remaining commission amount. Remaining Commission: {self.commission_remaining}. Amount to Pay: {self.amount}. difference: {self.amount - self.commission_remaining}."
+            )
         payment_vals = {
             "commission_id": self.id,
             "employee_id": self.employee_id.id,
@@ -138,10 +152,11 @@ class Commission(models.Model):
         self._compute_payment_status()
 
     def _create_commission_payment_transaction_lines(self, payment):
+
         # Debit line for reducing cash
         debit_line_vals = {
             "transaction_booking_id": self.manufacturing_order_id.transaction_booking_id.id,
-            "order_line": 1,
+            "sl_line": 1,
             "description": "Commission Payment - Debit",
             "product_id": self.manufacturing_order_id.product_id.id,
             "account_number": self.employee_id.account_id.id,
@@ -156,7 +171,7 @@ class Commission(models.Model):
         # Credit line for reducing employee's commission account
         credit_line_vals = {
             "transaction_booking_id": self.manufacturing_order_id.transaction_booking_id.id,
-            "order_line": 2,
+            "sl_line": 2,
             "description": "Commission Payment - Credit",
             "product_id": self.manufacturing_order_id.product_id.id,
             "account_number": self.cash_account_id.id,
@@ -167,6 +182,14 @@ class Commission(models.Model):
             "commission_payment_id": payment.id,
         }
         self.env["idil.transaction_bookingline"].create(credit_line_vals)
+
+    def unlink(self):
+        for rec in self:
+            if rec.manufacturing_order_id:
+                raise ValidationError(
+                    "You cannot delete this commission while it is still linked to a manufacturing order."
+                )
+        return super(Commission, self).unlink()
 
 
 class CommissionPayment(models.Model):

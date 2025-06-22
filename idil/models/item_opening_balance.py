@@ -23,6 +23,41 @@ class IdilItemOpeningBalance(models.Model):
         copy=True,
     )
 
+    def action_populate_zero_qty_items(self):
+        """
+        Fills the line_ids one2many in the UI with all zero-qty items,
+        SKIPPING any already-present lines.
+        DOES NOT save records to the DB until the main form is saved.
+        """
+        all_zero_items = self.env["idil.item"].search([("quantity", "=", 0)])
+        existing_item_ids = self.line_ids.mapped("item_id").ids
+        new_lines = []
+        for item in all_zero_items:
+            if item.id in existing_item_ids:
+                continue
+            new_lines.append(
+                (
+                    0,
+                    0,
+                    {
+                        "item_id": item.id,
+                        "quantity": 0,
+                        "cost_price": item.cost_price,
+                    },
+                )
+            )
+        # Append new zero-qty lines to existing ones
+        self.line_ids = (
+            list(
+                self.line_ids._origin.ids
+                and [(4, id) for id in self.line_ids._origin.ids]
+                or []
+            )
+            + new_lines
+        )
+
+    # Above: add new, retain any already present (to avoid removing manually entered)
+
     def confirm_opening_balance(self):
         TransactionBooking = self.env["idil.transaction_booking"]
         TransactionSource = self.env["idil.transaction.source"]

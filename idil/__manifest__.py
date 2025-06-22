@@ -98,6 +98,7 @@
         "views/purchase_product_view.xml",
         "views/item_opening_balance_views.xml",
         "views/purchase_return_views.xml",
+        "views/commissionbulkpayment.xml",
         "views/vendor_paymen_bulk.xml",
         "views/report_item_summary_by_vendor.xml",
         "views/report_sales_summary_by_person.xml",
