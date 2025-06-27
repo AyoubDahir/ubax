@@ -52,3 +52,5 @@ from . import vendor_paymen_bulk
 from . import commissionbulkpayment
 from . import Report_item_summary_by_vendor
 from . import report_sales_summary_by_person
+from . import sales_opening_balance
+from . import customer_opening_balance
