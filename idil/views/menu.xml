@@ -23,6 +23,12 @@
               action="action_customer_type"
               sequence="2"/>
 
+    <menuitem id="menu_idil_customer_opening_balance"
+              name="Customer Opening Balances"
+              parent="menu_idil_customers"
+              sequence="3"
+              action="action_customer_opening_balance"/>
+
 
     <menuitem id="menu_idil_Inventory"
               name="Inventory"
@@ -250,7 +256,7 @@
                 sequence="1"/>
 
     <menuitem id="menu_cusotmer_sales_orders"
-                name="Customeor Orders"
+                name="Customer Orders"
                 parent="menu_orders_customer"
                 sequence="1"
                 action="action_customer_idsale_order"/>
@@ -287,10 +293,17 @@
               sequence="2"
               action="action_sales_personnel"/>
 
+    <menuitem id="menu_sales_opening_balance" 
+              name="Sales Team Opening Balance" 
+              parent="menu_Order_Operations" 
+               sequence="3"
+              action="action_sales_opening_balance"/>
+
+
     <menuitem id="menu_salesperson_order_summary"
               name="Order Summary"
               parent="menu_Order_Operations"
-              sequence="3"
+              sequence="4"
               action="action_salesperson_order_summary"/>
 
 

@@ -7,7 +7,8 @@
             <field name="name">sales.receipt.form</field>
             <field name="model">idil.sales.receipt</field>
             <field name="arch" type="xml">
-                <form string="Sales Receipt" class="o_form_custom">
+             
+                <form string="Sales Receipt" class="o_form_custom" >
                     <header>
                         <button string="Process Receipt" type="object" class="oe_highlight oe_button"
                                 name="action_process_receipt"/>
@@ -52,7 +53,7 @@
             <field name="name">sales.receipt.tree</field>
             <field name="model">idil.sales.receipt</field>
             <field name="arch" type="xml">
-                <tree string="Sales Receipt">
+                <tree string="Sales Receipt" create="false">
                     <field name="sales_order_id"/>
                     <field name="salesperson_id"/>
                     <field name="cusotmer_sale_order_id"/>
@@ -72,6 +73,7 @@
             <field name="name">Sales Receipts</field>
             <field name="res_model">idil.sales.receipt</field>
             <field name="view_mode">tree,form</field>
+            
         </record>
 
 

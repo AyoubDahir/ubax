@@ -249,12 +249,19 @@ class SaleOrder(models.Model):
             # Define the expected currency from the salesperson's account receivable
             expected_currency = order.sales_person_id.account_receivable_id.currency_id
 
+            trx_source_id = self.env["idil.transaction.source"].search(
+                [("name", "=", "Sales Order")], limit=1
+            )
+            if not trx_source_id:
+                raise ValidationError(
+                    _('Transaction source "Purchase Order" not found.')
+                )
             # Create a transaction booking
             transaction_booking = self.env["idil.transaction_booking"].create(
                 {
                     "sales_person_id": order.sales_person_id.id,
                     "sale_order_id": order.id,  # Set the sale_order_id to the current SaleOrder's ID
-                    "trx_source_id": 3,
+                    "trx_source_id": trx_source_id.id,
                     "Sales_order_number": order.id,
                     "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
                     "payment_status": "pending",  # Assuming initial payment status; adjust as needed
@@ -492,21 +499,59 @@ class SaleOrder(models.Model):
 
         return res
 
-    def unlink(self):
-        for order in self:
+    # def unlink(self):
+    #     for order in self:
 
-            # Revert stock from order lines
+    #         # Revert stock from order lines
+    #         for line in order.order_lines:
+    #             product = line.product_id
+    #             product.stock_quantity += line.quantity
+
+    #         # Delete related product movements
+    #         movements = self.env["idil.product.movement"].search(
+    #             [("sale_order_id", "=", order.id)]
+    #         )
+    #         movements.unlink()
+
+    #         # Delete booking and booking lines
+    #         bookings = self.env["idil.transaction_booking"].search(
+    #             [("sale_order_id", "=", order.id)]
+    #         )
+    #         for booking in bookings:
+    #             booking.booking_lines.unlink()
+    #             booking.unlink()
+
+    #         # Delete salesperson transactions
+    #         self.env["idil.salesperson.transaction"].search(
+    #             [("order_id", "=", order.id)]
+    #         ).unlink()
+
+    #         # Delete sales receipt
+
+    #     res = super(SaleOrder, self).unlink()
+    #     # Delete related sales receipt if exists
+    #     # Note: This assumes that the sales receipt is linked to the sale order
+    #     self.env["idil.sales.receipt"].search(
+    #         [("sales_order_id", "=", order.id)]
+    #     ).unlink()
+
+    #     return res
+
+    def unlink(self):
+        # Gather the sale order IDs before deleting
+        order_ids = self.ids
+
+        for order in self:
+            # Revert stock, delete related product movements, bookings, etc.
             for line in order.order_lines:
                 product = line.product_id
                 product.stock_quantity += line.quantity
 
-            # Delete related product movements
             movements = self.env["idil.product.movement"].search(
                 [("sale_order_id", "=", order.id)]
             )
             movements.unlink()
 
-            # Delete booking and booking lines
             bookings = self.env["idil.transaction_booking"].search(
                 [("sale_order_id", "=", order.id)]
             )
@@ -514,17 +559,20 @@ class SaleOrder(models.Model):
                 booking.booking_lines.unlink()
                 booking.unlink()
 
-            # Delete salesperson transactions
             self.env["idil.salesperson.transaction"].search(
                 [("order_id", "=", order.id)]
             ).unlink()
+            # Do NOT delete receipt here!
 
-            # Delete sales receipt
-            self.env["idil.sales.receipt"].search(
-                [("sales_order_id", "=", order.id)]
-            ).unlink()
+        # Delete the sale order(s) and all their direct dependencies
+        res = super(SaleOrder, self).unlink()
 
-        return super(SaleOrder, self).unlink()
+        # Now delete related sales receipts for these orders (if any)
+        self.env["idil.sales.receipt"].search(
+            [("sales_order_id", "=", order.id)]
+        ).unlink()
+
+        return res
 
 
 class SaleOrderLine(models.Model):

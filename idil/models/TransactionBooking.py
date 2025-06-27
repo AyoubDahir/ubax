@@ -53,6 +53,10 @@ class TransactionBooking(models.Model):
             ("other", "Other"),
             ("internal", "Internal"),
             ("receivable", "A/R"),
+            ("opening_balance", "Opening Balance"),
+            ("pos", "POS"),
+            ("bulk_payment", "Bulk Payment"),
+            ("commission_payment", "Commission Payment"),
         ],
         string="Payment Method",
     )
@@ -166,17 +170,17 @@ class TransactionBooking(models.Model):
     bulk_payment_id = fields.Many2one(
         "idil.vendor.bulk.payment", string="Related Bulk Payment", ondelete="cascade"
     )
+    sales_opening_balance_id = fields.Many2one(
+        "idil.sales.opening.balance",
+        string="Opening Balance",
+        ondelete="cascade",
+    )
+    customer_opening_balance_id = fields.Many2one(
+        "idil.customer.opening.balance.line",
+        string="Opening Balance",
+        ondelete="cascade",
+    )
 
-    # @api.constrains("amount_paid")
-    # def _check_amount_paid(self):
-    #     if self.env.context.get("skip_validations"):
-    #         return
-    #     for record in self:
-    #         if record.amount_paid > record.amount:
-    #             raise ValidationError(
-    #                 "The paid amount cannot be greater than the balance.\nBalance: %s\nAmount Needed to Pay: %s"
-    #                 % (record.amount, record.amount_paid)
-    #             )
     @api.constrains("amount_paid")
     def _check_amount_paid(self):
         if self.env.context.get("skip_validations"):
@@ -439,6 +443,16 @@ class TransactionBookingline(models.Model):
         readonly=True,
     )
 
+    sales_opening_balance_id = fields.Many2one(
+        "idil.sales.opening.balance", string="Opening Balance", ondelete="cascade"
+    )
+
+    customer_opening_balance_id = fields.Many2one(
+        "idil.customer.opening.balance.line",
+        string="Opening Balance",
+        ondelete="cascade",
+    )
+
     @api.depends("account_number")
     def _compute_account_display(self):
         for line in self:
@@ -530,6 +544,100 @@ class TransactionBookingline(models.Model):
             "target": "new",
         }
 
+    # def compute_company_trial_balance(self, report_currency_id, company_id, as_of_date):
+    #     self.env.cr.execute(
+    #         """
+    #         SELECT
+    #             tb.account_number,
+    #             ca.currency_id,
+    #             SUM(tb.dr_amount) AS dr_total,
+    #             SUM(tb.cr_amount) AS cr_total
+    #         FROM
+    #             idil_transaction_bookingline tb
+    #         JOIN idil_chart_account ca ON tb.account_number = ca.id
+    #         WHERE
+    #             tb.company_id = %s  -- Filter by company
+    #             AND tb.transaction_date <= %s  -- Filter by as_of_date
+    #             AND ca.name != 'Exchange Clearing Account'  -- Exclude Exchange Clearing Account
+    #         GROUP BY
+    #             tb.account_number,ca.code, ca.currency_id
+    #         HAVING
+    #             SUM(tb.dr_amount) - SUM(tb.cr_amount) <> 0  -- Exclude accounts with zero net balance
+    #         ORDER BY
+    #             ca.code
+    #     """,
+    #         (company_id.id, as_of_date),
+    #     )
+
+    #     result = self.env.cr.dictfetchall()
+
+    #     total_dr_balance = 0
+    #     total_cr_balance = 0
+
+    #     # Clear previous trial balance records
+    #     self.env["idil.company.trial.balance"].search([]).unlink()
+
+    #     usd_currency = self.env["res.currency"].search([("name", "=", "USD")], limit=1)
+
+    #     for line in result:
+    #         account = self.env["idil.chart.account"].browse(line["account_number"])
+    #         dr_total = line["dr_total"]
+    #         cr_total = line["cr_total"]
+
+    #         # Convert amounts to USD using the as_of_date
+    #         if line["currency_id"] != usd_currency.id:
+    #             currency = self.env["res.currency"].browse(line["currency_id"])
+    #             dr_total = currency._convert(
+    #                 dr_total, usd_currency, self.env.user.company_id, as_of_date
+    #             )
+    #             cr_total = currency._convert(
+    #                 cr_total, usd_currency, self.env.user.company_id, as_of_date
+    #             )
+
+    #         # Calculate the net balance
+    #         net_balance = dr_total - cr_total
+
+    #         if net_balance > 0:
+    #             # Positive net balance indicates a debit balance
+    #             dr_balance = net_balance
+    #             cr_balance = 0
+    #             total_dr_balance += dr_balance
+    #         else:
+    #             # Negative net balance indicates a credit balance
+    #             dr_balance = 0
+    #             cr_balance = abs(net_balance)
+    #             total_cr_balance += cr_balance
+
+    #         # Create the trial balance record
+    #         self.env["idil.company.trial.balance"].create(
+    #             {
+    #                 "account_number": account.id,
+    #                 "header_name": account.header_name,
+    #                 "currency_id": usd_currency.id,
+    #                 "dr_balance": dr_balance,
+    #                 "cr_balance": cr_balance,
+    #             }
+    #         )
+
+    #     # Add a grand total row
+    #     self.env["idil.company.trial.balance"].create(
+    #         {
+    #             "account_number": None,
+    #             "currency_id": usd_currency.id,
+    #             "dr_balance": total_dr_balance,
+    #             "cr_balance": total_cr_balance,
+    #             "label": "Grand Total",
+    #         }
+    #     )
+
+    #     return {
+    #         "type": "ir.actions.act_window",
+    #         "name": "Company Trial Balance",
+    #         "view_mode": "tree",
+    #         "res_model": "idil.company.trial.balance",
+    #         "target": "new",
+    #     }
+
     def compute_company_trial_balance(self, report_currency_id, company_id, as_of_date):
         self.env.cr.execute(
             """
@@ -542,23 +650,20 @@ class TransactionBookingline(models.Model):
                 idil_transaction_bookingline tb
             JOIN idil_chart_account ca ON tb.account_number = ca.id
             WHERE
-                tb.company_id = %s  -- Filter by company
-                AND tb.transaction_date <= %s  -- Filter by as_of_date
-                AND ca.name != 'Exchange Clearing Account'  -- Exclude Exchange Clearing Account
+                tb.company_id = %s
+                AND tb.transaction_date <= %s
+                AND ca.name != 'Exchange Clearing Account'
             GROUP BY
-                tb.account_number,ca.code, ca.currency_id
+                tb.account_number, ca.code, ca.currency_id
             HAVING
-                SUM(tb.dr_amount) - SUM(tb.cr_amount) <> 0  -- Exclude accounts with zero net balance
+                SUM(tb.dr_amount) - SUM(tb.cr_amount) <> 0
             ORDER BY
                 ca.code
-        """,
+            """,
             (company_id.id, as_of_date),
         )
 
         result = self.env.cr.dictfetchall()
-
-        total_dr_balance = 0
-        total_cr_balance = 0
 
         # Clear previous trial balance records
         self.env["idil.company.trial.balance"].search([]).unlink()
@@ -567,34 +672,36 @@ class TransactionBookingline(models.Model):
 
         for line in result:
             account = self.env["idil.chart.account"].browse(line["account_number"])
-            dr_total = line["dr_total"]
-            cr_total = line["cr_total"]
+            dr_total = line["dr_total"] or 0.0
+            cr_total = line["cr_total"] or 0.0
 
-            # Convert amounts to USD using the as_of_date
             if line["currency_id"] != usd_currency.id:
                 currency = self.env["res.currency"].browse(line["currency_id"])
-                dr_total = currency._convert(
-                    dr_total, usd_currency, self.env.user.company_id, as_of_date
+                rate_dict = currency._get_rates(company_id, as_of_date)
+                rate = rate_dict.get(currency.id, 0)
+                if not rate:
+                    raise Exception(
+                        f"No rate found for {currency.name} on {as_of_date}"
+                    )
+                dr_total = dr_total / rate
+                cr_total = cr_total / rate
+                _logger.info(
+                    f"Account {account.code}: Converted using rate {rate} | dr_total: {dr_total} | cr_total: {cr_total}"
                 )
-                cr_total = currency._convert(
-                    cr_total, usd_currency, self.env.user.company_id, as_of_date
+            else:
+                _logger.info(
+                    f"Account {account.code}: USD - No conversion | dr_total: {dr_total} | cr_total: {cr_total}"
                 )
 
-            # Calculate the net balance
             net_balance = dr_total - cr_total
 
             if net_balance > 0:
-                # Positive net balance indicates a debit balance
                 dr_balance = net_balance
-                cr_balance = 0
-                total_dr_balance += dr_balance
+                cr_balance = 0.0
             else:
-                # Negative net balance indicates a credit balance
-                dr_balance = 0
+                dr_balance = 0.0
                 cr_balance = abs(net_balance)
-                total_cr_balance += cr_balance
 
-            # Create the trial balance record
             self.env["idil.company.trial.balance"].create(
                 {
                     "account_number": account.id,
@@ -605,13 +712,20 @@ class TransactionBookingline(models.Model):
                 }
             )
 
-        # Add a grand total row
+        # Only sum detail lines for the grand total
+        detail_lines = self.env["idil.company.trial.balance"].search(
+            [("header_name", "!=", False)]
+        )
+
+        grand_dr = sum(detail_lines.mapped("dr_balance"))
+        grand_cr = sum(detail_lines.mapped("cr_balance"))
+
         self.env["idil.company.trial.balance"].create(
             {
                 "account_number": None,
                 "currency_id": usd_currency.id,
-                "dr_balance": total_dr_balance,
-                "cr_balance": total_cr_balance,
+                "dr_balance": grand_dr,
+                "cr_balance": grand_cr,
                 "label": "Grand Total",
             }
         )
@@ -797,8 +911,8 @@ class CompanyTrialBalance(models.Model):
 
     account_number = fields.Many2one("idil.chart.account", string="Account Number")
     header_name = fields.Char(string="Account Type")
-    dr_balance = fields.Float(string="Dr", digits=(16, 5))
-    cr_balance = fields.Float(string="Cr", digits=(16, 5))
+    dr_balance = fields.Float(string="Dr", digits=(16, 3))
+    cr_balance = fields.Float(string="Cr", digits=(16, 3))
     currency_id = fields.Many2one("res.currency", string="Currency", readonly=True)
     label = fields.Char(string="Label", compute="_compute_label")
     company_id = fields.Many2one("res.company", string="Company", readonly=True)

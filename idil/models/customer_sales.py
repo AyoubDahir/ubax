@@ -50,6 +50,7 @@ class CustomerSaleOrder(models.Model):
     payment_method = fields.Selection(
         [
             ("cash", "Cash"),
+            ("bank_transfer", "Bank"),
             ("receivable", "Account Receivable"),
         ],
         string="Payment Method",
@@ -74,6 +75,20 @@ class CustomerSaleOrder(models.Model):
     balance_due = fields.Float(
         string="Balance Due", compute="_compute_balance_due", store=True
     )
+    customer_opening_balance_id = fields.Many2one(
+        "idil.customer.opening.balance.line",
+        string="Opening Balance",
+        ondelete="cascade",
+    )
+
+    @api.onchange("payment_method", "customer_id")
+    def _onchange_payment_method_account(self):
+        """Auto-fill account_number based on payment method."""
+        for order in self:
+            if order.payment_method == "receivable" and order.customer_id:
+                order.account_number = order.customer_id.account_receivable_id
+            elif order.payment_method == "cash":
+                order.account_number = False  # Clear it for cash, let user choose
 
     @api.depends("payment_lines.amount")
     def _compute_total_paid(self):
@@ -181,10 +196,15 @@ class CustomerSaleOrder(models.Model):
                 raise ValidationError(
                     "Please insert a valid exchange rate greater than 0."
                 )
-            if not order.order_lines:
+            # Only check order lines if not from opening balance
+            if not order.customer_opening_balance_id and not order.order_lines:
                 raise ValidationError(
                     "You must insert at least one product to proceed with the sale."
                 )
+            # If this order is for opening balance, skip accounting booking: opening balance does its own accounting
+            if order.customer_opening_balance_id:
+                return
+
             if order.payment_method == "cash":
                 account_to_use = self.account_number
             else:
@@ -578,6 +598,11 @@ class CustomerSaleOrderLine(models.Model):
 
     subtotal = fields.Float(string="Due Amount", compute="_compute_subtotal")
     profit = fields.Float(string="Profit Amount", compute="_compute_profit")
+    customer_opening_balance_line_id = fields.Many2one(
+        "idil.customer.opening.balance.line",
+        string="Customer Opening Balance Line",
+        ondelete="cascade",
+    )
 
     @api.depends("quantity", "price_unit")
     def _compute_subtotal(self):
@@ -600,29 +625,48 @@ class CustomerSaleOrderLine(models.Model):
                     line.quantity * line.cost_price
                 )  # Fallback if no rate is found
 
+    # @api.model
+    # def create(self, vals):
+    #     record = super(CustomerSaleOrderLine, self).create(vals)
+
+    #     # Create a Salesperson Transaction
+    #     # if record.order_id.customer_id:
+    #     #     self.env["idil.salesperson.transaction"].create(
+    #     #         {
+    #     #             "customer_id": record.order_id.customer_id.id,
+    #     #             "date": fields.Date.today(),
+    #     #             "order_id": record.order_id.id,
+    #     #             "transaction_type": "out",  # Assuming 'out' for sales
+    #     #             "amount": record.subtotal,
+    #     #             "description": f"Sales Amount of - Order Line for {record.product_id.name} (Qty: {record.quantity})",
+    #     #         }
+    #     #     )
+
+    #     if self.customer_opening_balance_line_id:
+    #         return
+    #     else:
+    #         self.update_product_stock(record.product_id, record.quantity)
+    #     return record
     @api.model
     def create(self, vals):
+        # If linked to opening balance, skip product_id and stock check!
+        if vals.get("customer_opening_balance_line_id"):
+            vals["product_id"] = False  # Explicitly make sure it's empty
+            return super(CustomerSaleOrderLine, self).create(vals)
+        # Else: normal process, require product and update stock
+        if not vals.get("product_id"):
+            raise ValidationError(
+                "You must select a product for this order line (unless it's for opening balance)."
+            )
         record = super(CustomerSaleOrderLine, self).create(vals)
-
-        # Create a Salesperson Transaction
-        # if record.order_id.customer_id:
-        #     self.env["idil.salesperson.transaction"].create(
-        #         {
-        #             "customer_id": record.order_id.customer_id.id,
-        #             "date": fields.Date.today(),
-        #             "order_id": record.order_id.id,
-        #             "transaction_type": "out",  # Assuming 'out' for sales
-        #             "amount": record.subtotal,
-        #             "description": f"Sales Amount of - Order Line for {record.product_id.name} (Qty: {record.quantity})",
-        #         }
-        #     )
-
         self.update_product_stock(record.product_id, record.quantity)
         return record
 
     @staticmethod
     def update_product_stock(product, quantity):
         """Static Method: Update product stock quantity based on the sale order line quantity change."""
+        # If this order is for opening balance, skip accounting booking: opening balance does its own accounting
+
         new_stock_quantity = product.stock_quantity - quantity
         if new_stock_quantity < 0:
             raise ValidationError(
@@ -637,6 +681,11 @@ class CustomerSaleOrderLine(models.Model):
     def _check_quantity_and_price(self):
         """Ensure that quantity and unit price are greater than zero."""
         for line in self:
+
+            # If this order is for opening balance, skip accounting booking: opening balance does its own accounting
+            if line.customer_opening_balance_line_id:
+                return
+
             if line.quantity <= 0:
                 raise ValidationError(
                     f"Product '{line.product_id.name}' must have a quantity greater than zero."
@@ -665,9 +714,7 @@ class CustomerSalePayment(models.Model):
     _name = "idil.customer.sale.payment"
     _description = "Sale Order Payment"
 
-    order_id = fields.Many2one(
-        "idil.customer.sale.order", string="Sale Order", required=True
-    )
+    order_id = fields.Many2one("idil.customer.sale.order", string="Customer Sale Order")
     customer_id = fields.Many2one(
         "idil.customer.registration", string="Customer", required=True
     )
@@ -688,6 +735,6 @@ class CustomerSalePayment(models.Model):
         required=True,
     )
 
-    account_id = fields.Many2one("account.account", string="Account", required=True)
+    account_id = fields.Many2one("idil.chart.account", string="Account", required=True)
 
     amount = fields.Float(string="Amount", required=True)

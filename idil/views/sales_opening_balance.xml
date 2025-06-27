@@ -1,0 +1,49 @@
+<odoo>
+    <record id="view_sales_opening_balance_form" model="ir.ui.view">
+        <field name="name">idil.sales.opening.balance.form</field>
+        <field name="model">idil.sales.opening.balance</field>
+        <field name="arch" type="xml">
+            <form string="Sales Team Opening Balance" class="oe_form_custom">
+                <header>
+                     <field name="state" widget="statusbar" statusbar_visible="draft,posted,cancel"/>
+                </header>
+                <sheet>
+                    <div class="oe_title" style="margin-bottom:16px;">
+                        <h2>
+                            <field name="name" readonly="1" class="oe_inline"/>
+                        </h2>
+                        <span class="text-muted" style="margin-left:12px;">
+                            <field name="date" class="oe_inline" readonly="1"/>
+                        </span>
+                    </div>
+
+                    <group string="General Information" col="4">
+                        <field name="internal_comment" placeholder="Add any internal notes here..."/>
+                    </group>
+                        
+                    <group>
+                        <field name="currency_id" placeholder="Currency..."/>   
+                        
+                        <field name="rate" placeholder="Rate..."/> 
+                    </group>
+
+                    <group string="Opening Balances" col="1" style="margin-top:16px;">
+                        <field name="line_ids" nolabel="1">
+                            <tree editable="bottom">
+                                <field name="sales_person_id"/>
+                                <field name="account_id" readonly="1"/>
+                                <field name="amount" sum="Total AMount"/>
+                            </tree>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sales_opening_balance" model="ir.actions.act_window">
+        <field name="name">Sales Team Opening Balance</field>
+        <field name="res_model">idil.sales.opening.balance</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

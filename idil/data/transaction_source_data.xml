@@ -51,12 +51,15 @@
             <field name="name">Purchase Return</field>
             <field name="description">Purchase Return</field>
         </record>
-
+ 
         <record id="trx_source_manual" model="idil.transaction.source">
-            <field name="name">Purchase Prodcuts</field>
-            <field name="description">Purchase Prodcuts</field>
+            <field name="name">sales opening balance</field>
+            <field name="description">sales opening balance</field>
         </record>
-
+        <record id="trx_source_manual" model="idil.transaction.source">
+            <field name="name">customer opening balance</field>
+            <field name="description">customer opening balance</field>
+        </record>
 
 
         <!-- Add more records as needed -->

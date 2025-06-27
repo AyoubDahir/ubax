@@ -1,0 +1,79 @@
+<odoo>
+ <record id="view_customer_opening_balance_tree" model="ir.ui.view">
+    <field name="name">idil.customer.opening.balance.tree</field>
+    <field name="model">idil.customer.opening.balance</field>
+    <field name="arch" type="xml">
+        <tree string="Customer Opening Balances">
+            <field name="name"/>
+            <field name="date"/>
+            <field name="state"/>
+            <field name="currency_id"/>
+            <field name="rate"/>
+        </tree>
+    </field>
+</record>
+
+<!-- Form View -->
+<record id="view_customer_opening_balance_form" model="ir.ui.view">
+    <field name="name">idil.customer.opening.balance.form</field>
+    <field name="model">idil.customer.opening.balance</field>
+    <field name="arch" type="xml">
+        <form string="Customer Opening Balance">
+        <header>
+            <field name="name" readonly="1" class="oe_inline"/>
+            <field name="date" class="oe_inline" readonly="1"/>
+             <field name="state" widget="statusbar" statusbar_visible="draft,posted,cancel"/>
+        </header>
+         
+            <sheet>
+                <group>
+                    <field name="name"/>
+                    <field name="date"/>
+                    <field name="state"/>
+                    <field name="currency_id"/>
+                    <field name="rate"/>
+                    <field name="internal_comment"/>
+                </group>
+                <notebook>
+                    <page string="Lines">
+                        <field name="line_ids">
+                            <tree editable="bottom">
+                                <field name="customer_id"/>
+                                <field name="account_id" readonly="1"/>
+                                <field name="amount" sum="Total Amount"/>
+                            </tree>
+                        </field>
+                    </page>
+                </notebook>
+            </sheet>
+        </form>
+    </field>
+</record>
+
+<!-- Lines (Optional) -->
+<record id="view_customer_opening_balance_line_tree" model="ir.ui.view">
+    <field name="name">idil.customer.opening.balance.line.tree</field>
+    <field name="model">idil.customer.opening.balance.line</field>
+    <field name="arch" type="xml">
+        <tree string="Customer Opening Balance Lines">
+            <field name="opening_balance_id"/>
+            <field name="customer_id"/>
+            <field name="account_id"/>
+            <field name="amount"/>
+        </tree>
+    </field>
+</record>
+
+<!-- Action -->
+<record id="action_customer_opening_balance" model="ir.actions.act_window">
+    <field name="name">Customer Opening Balances</field>
+    <field name="res_model">idil.customer.opening.balance</field>
+    <field name="view_mode">tree,form</field>
+    <field name="help" type="html">
+        <p>Manage and post opening balances for customers.</p>
+    </field>
+</record>
+
+
+   
+</odoo>
