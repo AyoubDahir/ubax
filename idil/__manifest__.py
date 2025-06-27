@@ -104,7 +104,6 @@
         "views/report_sales_summary_by_person.xml",
         "views/sales_opening_balance.xml",
         "views/customer_opening_balance.xml",
-        "views/customer_sale_return.xml",
         "views/menu_hr.xml",
         "views/menu.xml",
     ],
