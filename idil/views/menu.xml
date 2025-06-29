@@ -10,106 +10,17 @@
                 name="Dashboard"
                 action="action_idil_dashboard_stats"
                 parent="menu_idil_home"
-                sequence="1"/> -->
-
+                sequence="1"/> 
+         -->
         
-        
-        
-        
-        <menuitem id="menu_registrations_root"
-                name="Registrations"
-                parent="menu_idil_home"
-                sequence="2"/>
-                        
-                <menuitem id="menu_customer_registrations_root"
-                        name="Cusotmer Registrations"
-                        parent="menu_registrations_root"
-                        sequence="1"/>
-
-                        <menuitem id="menu_idil_customers_registration"
-                                name="Create New Customer"
-                                parent="menu_customer_registrations_root"
-                                action="action_idil_customer"   
-                                sequence="1"/>
-                                
-                        <menuitem id="menu_action_customer_type"
-                                name="Customer Type"
-                                parent="menu_customer_registrations_root"
-                                action="action_customer_type"
-                                sequence="2"/>       
  
-               <menuitem id="menu_idil_vendors_registration_root"
-                        name="Create New Vendor"
-                        parent="menu_registrations_root"
-                        action="action_idil_vendor"
-                        sequence="2"/>
+               
  
-                <menuitem id="menu_item_registrations_root"
-                        name="Item Registrations"
-                        parent="menu_idil_customers_registration"
-                        sequence="3"/>
+                
 
-                        <menuitem id="menu_idil_Items_registration"
-                                name="Create New Item"
-                                parent="menu_item_registrations_root"
-                                action="action_idil_item"
-                                sequence="3"/>
+        
 
-                        <menuitem id="menu_idil_unit_measure"
-                                name="Unit Measurement"
-                                parent="menu_item_registrations_root"
-                                action="action_unit_measure"
-                                sequence="3"/>
-
-                        <menuitem id="menu_idil_item_category"
-                                name="Unit Category"
-                                parent="menu_item_registrations_root"
-                                action="action_item_category"
-                                sequence="3"/>
-
- 
-                <menuitem id="menu_idil_product_registration"
-                        name="Create New Product"
-                        parent="menu_registrations_root"
-                        sequence="4"
-                        action="action_view_product"/>
-
-                <menuitem id="menu_sales_personnel_list"
-                                name="Register Sales Person"
-                                parent="menu_registrations_root"
-                                sequence="5"
-                                action="action_sales_personnel"/>
-
-
-        <menuitem id="menu_opening_balances"
-                name="Opening Balances"
-                parent="menu_idil_home"
-                sequence="3"/>
-
-                <menuitem id="menu_idil_customer_opening_balance"
-                        name="Customer Opening Balances"
-                        parent="menu_opening_balances"
-                        sequence="1"
-                        action="action_customer_opening_balance"/>
-
-                <menuitem id="menu_idil_vendor_opening_balance"
-                        name="Vendor Opening Balances"
-                        parent="menu_opening_balances"
-                        action="action_idil_vendor_opening_balance"
-                        sequence="3"/>
-
-                <menuitem id="menu_item_opening_balance"
-                        name="Item Opening Balance"
-                        action="action_item_opening_balance"
-                        parent="menu_opening_balances"
-                        sequence="4"/>
-
-               <menuitem id="menu_sales_opening_balance" 
-                        name="Sales Opening Balance" 
-                        parent="menu_opening_balances" 
-                        sequence="5"
-                        action="action_sales_opening_balance"/>
-
+        
                 
         
         <menuitem id="menu_inventory_purchase_root"
@@ -142,6 +53,12 @@
                                 parent="menu_purchase"/>
 
         
+                        <menuitem id="menu_idil_vendors_registration_root"
+                                name="Vendor List"
+                                parent="menu_purchase"
+                                action="action_idil_vendor"
+                                sequence="2"/>
+
                         <menuitem id="menu_vendor_transaction"
                                 name="Vendor Transactions"
                                 parent="menu_purchase"
@@ -165,27 +82,46 @@
                         parent="menu_inventory_purchase_root"
                         sequence="2"/>
 
+                        <menuitem id="menu_item_registrations_root"
+                        name="Item Operations"
+                        parent="menu_inventory"
+                        sequence="1"/>
+
+                                <menuitem id="menu_idil_Items_registration"
+                                        name="Item Management"
+                                        parent="menu_item_registrations_root"
+                                        action="action_idil_item"
+                                        sequence="1"/>
+
+                                <menuitem id="menu_idil_unit_measure"
+                                        name="Unit Measurement"
+                                        parent="menu_item_registrations_root"
+                                        action="action_unit_measure"
+                                        sequence="2"/>
+
+                                <menuitem id="menu_idil_item_category"
+                                        name="Unit Category"
+                                        parent="menu_item_registrations_root"
+                                        action="action_item_category"
+                                        sequence="3"/>
+
                         <menuitem id="menu_stock_adjustment"
                                 name="Item Stock Adjustment"
                                 parent="menu_inventory"
                                 action="action_stock_adjustment"
-                                sequence="1"/>
-
-                    <menuitem id="menu_product_adjustment" 
-                                name="Product Stock Adjustment"
-                                parent="menu_inventory"
-                                action="action_product_adjustment"
                                 sequence="2"/>
+
+                    
 
 
 
         <menuitem id="Manufacturing"
-                name="Manufacturing"
+                name="Manufacturing Operations"
                 parent="menu_idil_home"
                 sequence="5"/>
 
                 <menuitem id="menu_m_order"
-                        name="Order"
+                        name="Order Operations"
                         parent="Manufacturing"
                         sequence="1"/>
 
@@ -212,10 +148,28 @@
                                 sequence="2" 
                                 action="action_commission_bulk_payment"/>
 
+                <menuitem id="menu_idil_product_operations"
+                        name="Product Operations"
+                        parent="Manufacturing"
+                        sequence="3"
+                         />
+
+                        <menuitem id="menu_idil_product_registration"
+                                name="Product List"
+                                parent="menu_idil_product_operations"
+                                sequence="1"
+                                action="action_view_product"/>
+
+                        <menuitem id="menu_product_adjustment" 
+                                name="Product Adjustment"
+                                parent="menu_idil_product_operations"
+                                action="action_product_adjustment"
+                                sequence="2"/>
+
                 <menuitem id="menu_bom_root"
                         name="Bill Of Materials Management"
                         parent="Manufacturing"
-                        sequence="3"/>
+                        sequence="4"/>
 
                         <menuitem id="menu_bom_creation"
                                 name="Create BOM"
@@ -230,139 +184,190 @@
                                 action="action_view_bom_type"/>
 
 
-
+               
 
 
         <menuitem id="menu_sales"
-              name="Sales"
+              name="Sales Operations"
               parent="menu_idil_home"
               sequence="6"/>
 
+
                 <menuitem id="menu_orders"
-                        name="Orders"
+                        name="Orders Managment"
                         parent="menu_sales"
                         sequence="1"/>
-
-                        <menuitem id="menu_sales_orders_root"
-                                name="Sales Person &amp; Customer Order Management"
-                                parent="menu_orders"
-                                sequence="1"/>
+                                <menuitem id="menu_place_an_order"
+                                        name="Place an Order"
+                                        parent="menu_orders"
+                                        sequence="1"
+                                        action="action_salesperson_order_tree"/>  
 
                                 <menuitem id="menu_sales_orders"
                                         name="Sales Orders"
-                                        parent="menu_sales_orders_root"
-                                        sequence="1"
+                                        parent="menu_orders"
+                                        sequence="2"
                                         action="action_sale_order"/>
 
-                                        <menuitem id="menu_cusotmer_sales_orders"
-                                                name="Customer Orders"
-                                                parent="menu_sales_orders_root"
-                                                sequence="1"
-                                                action="action_customer_idsale_order"/>
-
-                <menuitem id="menu_receipts"
-                                name="Sales &amp; Customers Receip"
-                                parent="menu_sales"
-                                sequence="2"/>
-
+                                <menuitem id="menu_sale_return"
+                                        name="Sales Return"
+                                        parent="menu_orders"
+                                        sequence="3"
+                                        action="action_sales_return"/>
+                                
                                 <menuitem id="menu_sales_receipt"
                                         name="Sales Receipt"
-                                        parent="menu_receipts"
-                                        sequence="1"
+                                        parent="menu_orders"
+                                        sequence="4"
                                         action="action_sales_receipt"/>
 
                                 <menuitem id="menu_idil_receipt_bulk_payment_root"
-                                        name="Sales &amp; Customers Bulk Receipt"
-                                        parent="menu_receipts"
+                                        name="Bulk Receipt"
+                                        parent="menu_orders"
                                         action="action_idil_receipt_bulk_payment"
-                                        sequence="1"/>
-
-                <menuitem id="menu_sale_return_root"
-                        name="Sales Returns"
-                        parent="menu_orders"
-                        sequence="3"
-                        />
-
-                        <menuitem id="menu_sale_return"
-                                                name="Sales Returns"
-                                                parent="menu_sale_return_root"
-                                                sequence="1"
-                                                action="action_sales_return"/>
-
-                        <menuitem id="menu_customer_sale_return"
-                                        name="Customer Sale Returns"
-                                        parent="menu_sale_return_root"
-                                        action="action_customer_sale_return"
-                                        sequence="2"/>     
-
-
-                <menuitem id="menu_Order_Operations"
-                                name="Order Operations"
-                                parent="menu_sales"
-                                sequence="4"/>
-
-                        <menuitem id="menu_place_an_order"
-                                name="Place an Order"
-                                parent="menu_Order_Operations"
-                                sequence="1"
-                                action="action_salesperson_order_tree"/>  
+                                        sequence="5"/>
                         
-                        <menuitem id="menu_salesperson_order_summary"
-                                name="Order Summary"
-                                parent="menu_Order_Operations"
-                                sequence="2"
-                                action="action_salesperson_order_summary"/>
+                        <menuitem id="menu_customer_Operations"
+                                name="Customer Management"
+                                parent="menu_sales"
+                                sequence="2"/>
+
+                                <menuitem id="menu_cusotmer_sales_orders"
+                                        name="Customer Orders"
+                                        parent="menu_customer_Operations"
+                                        sequence="1"
+                                        action="action_customer_idsale_order"/>
+
+                                <menuitem id="menu_customer_sale_return"
+                                        name="Customer Sale Returns"
+                                        parent="menu_customer_Operations"
+                                        action="action_customer_sale_return"
+                                        sequence="2"/>   
+
+                                <menuitem id="menu_idil_customers_registration"
+                                        name="Customer Operations"
+                                        parent="menu_customer_Operations"
+                                        action="action_idil_customer"   
+                                        sequence="3"/>
+                                        
+                                <menuitem id="menu_action_customer_type"
+                                        name="Customer Type"
+                                        parent="menu_customer_Operations"
+                                        action="action_customer_type"
+                                        sequence="4"/>
 
 
+                        <menuitem id="menu_general_Operations"
+                                name="General Operations"
+                                parent="menu_sales"
+                                sequence="3"/>
 
-
-
-
-
+                        <menuitem id="menu_sales_personnel_list"
+                                        name="SalesPerson List"
+                                        parent="menu_general_Operations"
+                                        sequence="1"
+                                        action="action_sales_personnel"/>
+        
+                                <menuitem id="menu_salesperson_order_summary"
+                                        name="Order Summary"
+                                        parent="menu_general_Operations"
+                                        sequence="2"
+                                        action="action_salesperson_order_summary"/>
 
 
     <menuitem id="menu_idil_accounting"
-              name="Accounting"
+              name="Accounting Operations"
               parent="menu_idil_home"
               sequence="7"/>
 
+                <menuitem id="menu_journal_entry_main"
+                        name="Journal Releted Operations"
+                        parent="menu_idil_accounting"
+                        sequence="1"/>
+                        
+                        <menuitem id="menu_journal_entry"
+                                name="Journal Entries"
+                                parent="menu_journal_entry_main"
+                                action="action_journal_entry"
+                                sequence="1"/>
 
-    <menuitem id="menu_idil_chart_account_tree"
-              name="Chart of Accounts"
-              parent="menu_idil_accounting"
-              action="action_idil_chart_account"
-              sequence="1"/>
+                        <menuitem id="menu_idil_chart_account_tree"
+                                name="Chart of Accounts"
+                                parent="menu_journal_entry_main"
+                                action="action_idil_chart_account"
+                                sequence="2"/>
 
-    <menuitem id="menu_idil_journal_entry"
-              name="360 -- All Transactions"
-              parent="menu_idil_accounting"
-              action="action_transaction_booking"
+                        <menuitem id="menu_idil_journal_entry"
+                                name="360 -- All Transactions"
+                                parent="menu_journal_entry_main"
+                                action="action_transaction_booking"
+                                sequence="3"/>
 
-              sequence="2"/>
+                <menuitem id="menu_currency_exchange_root"
+                        name="Currency Exchange Operations"
+                        parent="menu_idil_accounting"
+                        sequence="2"/>
 
-    <menuitem id="menu_journal_entry"
-              name="Journal Entries"
-              parent="menu_idil_accounting"
-              action="action_journal_entry"/>
+                        <menuitem id="menu_currency_exchange"
+                                name="Currency Exchange"
+                                parent="menu_currency_exchange_root"
+                                action="action_currency_exchange"
+                                sequence="1"/>
 
-    <!-- Menu Item for Currency Exchange -->
-    <menuitem id="menu_currency_exchange"
-              name="Currency Exchange"
-              parent="menu_idil_accounting"
-              action="action_currency_exchange"/>
+                
+                <menuitem id="menu_general_setup_main"
+                        name="General Setup"
+                        parent="menu_idil_accounting"
+                        sequence="3"/>
+                        
+                        <menuitem id="menu_idil_trx_source"
+                                name="Transaction Sources"
+                                parent="menu_general_setup_main"
+                                action="action_trx_source"
+                                sequence="1"/>
 
-    <menuitem id="menu_idil_trx_source"
-              name="Transaction Sources"
-              parent="menu_idil_accounting"
-              action="action_trx_source"
-              sequence="3"/>
+                        <menuitem id="menu_payment_method"
+                                name="Payment Methods"
+                                parent="menu_general_setup_main"
+                                action="action_payment_method" 
+                                sequence="2"/>
 
-    <menuitem id="menu_payment_method"
-              name="Payment Methods"
-              parent="menu_idil_accounting"
-              action="action_payment_method" sequence="4"/>
+                        <menuitem id="menu_idil_acc_opening_balances"
+                                name="Opening Balance Operations"
+                                parent="menu_general_setup_main"
+                                sequence="3"/>
 
-   
+                                <menuitem id="menu_opening_balances"
+                                                name="Opening Balances"
+                                                parent="menu_idil_acc_opening_balances"
+                                                sequence="1"/>
+
+                                                <menuitem id="menu_idil_customer_opening_balance"
+                                                        name="Customer Opening Balances"
+                                                        parent="menu_opening_balances"
+                                                        sequence="1"
+                                                        action="action_customer_opening_balance"/>
+
+                                                <menuitem id="menu_idil_vendor_opening_balance"
+                                                        name="Vendor Opening Balances"
+                                                        parent="menu_opening_balances"
+                                                        action="action_idil_vendor_opening_balance"
+                                                        sequence="2"/>
+
+                                                <menuitem id="menu_item_opening_balance"
+                                                        name="Item Opening Balance"
+                                                        action="action_item_opening_balance"
+                                                        parent="menu_opening_balances"
+                                                        sequence="3"/>
+
+                                        <menuitem id="menu_sales_opening_balance" 
+                                                        name="Sales Opening Balance" 
+                                                        parent="menu_opening_balances" 
+                                                        sequence="4"
+                                                        action="action_sales_opening_balance"/>
+
+
+
 
     <menuitem id="Reports"
               name="Reports"
