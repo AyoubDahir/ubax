@@ -213,12 +213,19 @@ class CustomerSaleOrder(models.Model):
             # Define the expected currency from the salesperson's account receivable
             expected_currency = order.customer_id.account_receivable_id.currency_id
 
+            # Search for transaction source ID using "Receipt"
+            trx_source = self.env["idil.transaction.source"].search(
+                [("name", "=", "Receipt")], limit=1
+            )
+            if not trx_source:
+                raise UserError("Transaction source 'Receipt' not found.")
+
             # Create a transaction booking
             transaction_booking = self.env["idil.transaction_booking"].create(
                 {
                     "customer_id": order.customer_id.id,
                     "cusotmer_sale_order_id": order.id,  # Set the sale_order_id to the current SaleOrder's ID
-                    "trx_source_id": 3,
+                    "trx_source_id": trx_source.id,
                     "Sales_order_number": order.id,
                     "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
                     "payment_status": "pending",  # Assuming initial payment status; adjust as needed

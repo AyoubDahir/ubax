@@ -55,46 +55,79 @@ class ProductPurchaseOrder(models.Model):
         return super().create(vals)
 
     def unlink(self):
+        order_ids = []
+
+        # Step 1: Validate all orders first
         for order in self:
             for line in order.order_lines:
                 product = line.product_id
+                if product and line.quantity:
+                    if product.stock_quantity < line.quantity:
+                        raise ValidationError(
+                            f"Cannot delete Purchase Order '{order.name}' because product '{product.name}' "
+                            f"has only {product.stock_quantity} in stock, but {line.quantity} is needed to reverse."
+                        )
+            order_ids.append(order.id)
 
-                # 1. Decrease stock
+        # Step 2: Adjust stock before deletion
+        for order in self:
+            for line in order.order_lines:
+                product = line.product_id
                 if product and line.quantity:
                     product.stock_quantity -= line.quantity
 
-                # 2. Delete related transaction lines
-                self.env["idil.transaction_bookingline"].search(
-                    [
-                        ("product_purchase_order_id", "=", order.id),
-                        ("product_id", "=", product.id),
-                    ]
-                ).unlink()
+        # Step 3: Delete main purchase orders
+        res = super(ProductPurchaseOrder, self).unlink()
 
-                # 3. Delete product movement
-                self.env["idil.product.movement"].search(
-                    [
-                        ("product_purchase_order_id", "=", order.id),
-                        ("product_id", "=", product.id),
-                        ("movement_type", "=", "in"),
-                    ]
-                ).unlink()
+        # Step 4: Cleanup related records after deletion
+        for order_id in order_ids:
+            # Delete related transaction lines
+            self.env["idil.transaction_bookingline"].search(
+                [("product_purchase_order_id", "=", order_id)]
+            ).unlink()
 
-            # 4. Delete vendor transaction
+            # Delete product movements
+            self.env["idil.product.movement"].search(
+                [("product_purchase_order_id", "=", order_id)]
+            ).unlink()
+
+            # Delete vendor transactions
             self.env["idil.vendor_transaction"].search(
-                [
-                    ("product_purchase_order_id", "=", order.id),
-                ]
+                [("product_purchase_order_id", "=", order_id)]
             ).unlink()
 
-            # 5. Delete transaction booking
+            # Delete transaction bookings
             self.env["idil.transaction_booking"].search(
-                [
-                    ("product_purchase_order_id", "=", order.id),
-                ]
+                [("product_purchase_order_id", "=", order_id)]
             ).unlink()
 
-        return super(ProductPurchaseOrder, self).unlink()
+        return res
+
+    def write(self, vals):
+        # Check if order_lines are being updated
+        if "order_lines" in vals:
+            for command in vals["order_lines"]:
+                if command[0] in [1, 0]:  # update or create
+                    line_vals = command[2] or {}
+                    line_id = command[1]
+                    if line_id and "quantity" in line_vals:
+                        # Fetch current line record
+                        line = self.env["idil.product.purchase.order.line"].browse(
+                            line_id
+                        )
+                        old_qty = line.quantity
+                        new_qty = line_vals["quantity"]
+                        qty_diff = new_qty - old_qty
+
+                        if qty_diff < 0:
+                            product = line.product_id
+                            if product.stock_quantity < abs(qty_diff):
+                                raise ValidationError(
+                                    f"Cannot reduce quantity of product '{product.name}'. "
+                                    f"Available stock is {product.stock_quantity}, but trying to reduce by {abs(qty_diff)}."
+                                )
+
+        return super(ProductPurchaseOrder, self).write(vals)
 
 
 class ProductPurchaseOrderLine(models.Model):
@@ -147,7 +180,7 @@ class ProductPurchaseOrderLine(models.Model):
             ]._get_next_transaction_number()
 
             trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Purchase Prodcuts")], limit=1
+                [("name", "=", "Purchase Products")], limit=1
             )
             if not trx_source:
                 raise ValidationError(
@@ -285,6 +318,19 @@ class ProductPurchaseOrderLine(models.Model):
         for record in self:
             old_quantity = record.quantity
             old_cost = record.cost_price
+            # Get new quantity (if changed)
+            new_quantity = vals.get("quantity", old_quantity)
+            quantity_diff = new_quantity - old_quantity
+
+            # Validate against negative stock
+            if quantity_diff < 0:
+                available_stock = record.product_id.stock_quantity
+                if available_stock < abs(quantity_diff):
+                    raise ValidationError(
+                        f"Cannot reduce quantity. Available stock for product '{record.product_id.name}' is "
+                        f"{available_stock}, but the change requires removing {abs(quantity_diff)} units."
+                    )
+
             res = super(ProductPurchaseOrderLine, record).write(vals)
 
             # Update stock quantity
@@ -372,6 +418,14 @@ class ProductPurchaseOrderLine(models.Model):
 
     def unlink(self):
         for record in self:
+            # Check if product has enough stock to reverse
+            available_qty = record.product_id.stock_quantity
+            if available_qty < record.quantity:
+                raise ValidationError(
+                    f"Cannot delete line for product '{record.product_id.name}' because "
+                    f"only {available_qty} units are in stock, but {record.quantity} are required to reverse."
+                )
+
             # 1. Decrease stock
             record.product_id.stock_quantity -= record.quantity
 

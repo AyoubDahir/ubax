@@ -80,6 +80,81 @@ class StockAdjustment(models.Model):
         for record in self:
             record.total_amount = record.adjustment_qty * record.cost_price
 
+    # @api.model
+    # def create(self, vals):
+    #     if vals.get("name", "New") == "New":
+    #         item = self.env["idil.item"].browse(vals.get("item_id"))
+    #         vals["name"] = self._generate_stock_adjustment_reference(item)
+    #     adjustment = super(StockAdjustment, self).create(vals)
+    #     item = adjustment.item_id
+
+    #     if adjustment.adjustment_type == "decrease":
+    #         if item.quantity < adjustment.adjustment_qty:
+    #             raise ValidationError("Cannot decrease quantity below zero.")
+    #         new_quantity = item.quantity - adjustment.adjustment_qty
+    #         movement_quantity = -adjustment.adjustment_qty
+    #         movement_type = "out"
+    #     elif adjustment.adjustment_type == "increase":
+    #         new_quantity = item.quantity + adjustment.adjustment_qty
+    #         movement_quantity = adjustment.adjustment_qty
+    #         movement_type = "in"
+
+    #     item.with_context(update_transaction_booking=False).write(
+    #         {"quantity": new_quantity}
+    #     )
+
+    #     trx_source = self.env["idil.transaction.source"].search(
+    #         [("name", "=", "stock_adjustments")], limit=1
+    #     )
+
+    #     transaction = self.env["idil.transaction_booking"].create(
+    #         {
+    #             "reffno": "Stock Adjustments%s" % adjustment.id,
+    #             "trx_date": adjustment.adjustment_date,
+    #             "amount": abs(adjustment.adjustment_qty * adjustment.cost_price),
+    #             "trx_source_id": trx_source.id if trx_source else False,
+    #         }
+    #     )
+
+    #     self.env["idil.transaction_bookingline"].create(
+    #         [
+    #             {
+    #                 "transaction_booking_id": transaction.id,
+    #                 "description": "Stock Adjustment Debit",
+    #                 "item_id": item.id,
+    #                 "account_number": item.adjustment_account_id.id,
+    #                 "transaction_type": "cr",
+    #                 "dr_amount": 0.0,
+    #                 "cr_amount": adjustment.adjustment_qty * item.cost_price,
+    #                 "transaction_date": adjustment.adjustment_date,
+    #             },
+    #             {
+    #                 "transaction_booking_id": transaction.id,
+    #                 "description": "Stock Adjustment Credit",
+    #                 "item_id": item.id,
+    #                 "account_number": item.asset_account_id.id,
+    #                 "transaction_type": "dr",
+    #                 "cr_amount": 0.0,
+    #                 "dr_amount": adjustment.adjustment_qty * item.cost_price,
+    #                 "transaction_date": adjustment.adjustment_date,
+    #             },
+    #         ]
+    #     )
+
+    #     self.env["idil.item.movement"].create(
+    #         {
+    #             "item_id": item.id,
+    #             "date": adjustment.adjustment_date,
+    #             "quantity": movement_quantity,
+    #             "source": "Stock Adjustment",
+    #             "destination": item.name,
+    #             "movement_type": movement_type,
+    #             "related_document": "idil.stock.adjustment,%d" % adjustment.id,
+    #             "transaction_number": transaction.id or "/",
+    #         }
+    #     )
+
+    #     return adjustment
     @api.model
     def create(self, vals):
         if vals.get("name", "New") == "New":
@@ -116,30 +191,56 @@ class StockAdjustment(models.Model):
             }
         )
 
-        self.env["idil.transaction_bookingline"].create(
-            [
+        # Corrected DR/CR logic for decrease/increase
+        amount = abs(adjustment.adjustment_qty * adjustment.cost_price)
+        if adjustment.adjustment_type == "decrease":
+            booking_lines = [
                 {
                     "transaction_booking_id": transaction.id,
-                    "description": "Stock Adjustment Debit",
+                    "description": "Stock Adjustment Decrease - Credit Asset",
                     "item_id": item.id,
-                    "account_number": item.adjustment_account_id.id,
+                    "account_number": item.asset_account_id.id,  # Asset account (Credit)
                     "transaction_type": "cr",
                     "dr_amount": 0.0,
-                    "cr_amount": adjustment.adjustment_qty * item.cost_price,
+                    "cr_amount": amount,
                     "transaction_date": adjustment.adjustment_date,
                 },
                 {
                     "transaction_booking_id": transaction.id,
-                    "description": "Stock Adjustment Credit",
+                    "description": "Stock Adjustment Decrease - Debit Adjustment Account",
                     "item_id": item.id,
-                    "account_number": item.asset_account_id.id,
+                    "account_number": item.adjustment_account_id.id,  # Adjustment/Loss account (Debit)
                     "transaction_type": "dr",
                     "cr_amount": 0.0,
-                    "dr_amount": adjustment.adjustment_qty * item.cost_price,
+                    "dr_amount": amount,
                     "transaction_date": adjustment.adjustment_date,
                 },
             ]
-        )
+        else:
+            booking_lines = [
+                {
+                    "transaction_booking_id": transaction.id,
+                    "description": "Stock Adjustment Increase - Debit Asset",
+                    "item_id": item.id,
+                    "account_number": item.asset_account_id.id,  # Asset account (Debit)
+                    "transaction_type": "dr",
+                    "cr_amount": 0.0,
+                    "dr_amount": amount,
+                    "transaction_date": adjustment.adjustment_date,
+                },
+                {
+                    "transaction_booking_id": transaction.id,
+                    "description": "Stock Adjustment Increase - Credit Adjustment Account",
+                    "item_id": item.id,
+                    "account_number": item.adjustment_account_id.id,  # Adjustment/Gain account (Credit)
+                    "transaction_type": "cr",
+                    "dr_amount": 0.0,
+                    "cr_amount": amount,
+                    "transaction_date": adjustment.adjustment_date,
+                },
+            ]
+
+        self.env["idil.transaction_bookingline"].create(booking_lines)
 
         self.env["idil.item.movement"].create(
             {
@@ -156,6 +257,85 @@ class StockAdjustment(models.Model):
 
         return adjustment
 
+    # def write(self, vals):
+    #     for record in self:
+    #         old_qty = record.adjustment_qty
+    #         new_qty = vals.get("adjustment_qty", old_qty)
+    #         difference = new_qty - old_qty
+
+    #         if difference == 0 and not any(
+    #             k in vals for k in ["adjustment_date", "cost_price"]
+    #         ):
+    #             return super(StockAdjustment, self).write(vals)
+
+    #         item = record.item_id
+    #         cost_price = item.cost_price
+    #         adjustment_date = vals.get("adjustment_date", record.adjustment_date)
+
+    #         new_item_qty = item.quantity
+
+    #         if record.adjustment_type == "decrease":
+    #             if difference > 0:
+    #                 if item.quantity < difference:
+    #                     raise ValidationError("Cannot decrease quantity below zero.")
+    #                 new_item_qty = item.quantity - difference
+    #             elif difference < 0:
+    #                 new_item_qty = item.quantity + abs(difference)
+    #             movement_quantity = -new_qty
+    #         elif record.adjustment_type == "increase":
+    #             if difference > 0:
+    #                 new_item_qty = item.quantity + difference
+    #             elif difference < 0:
+    #                 if item.quantity < abs(difference):
+    #                     raise ValidationError("Cannot decrease quantity below zero.")
+    #                 new_item_qty = item.quantity - abs(difference)
+    #             movement_quantity = new_qty
+
+    #         item.with_context(update_transaction_booking=False).write(
+    #             {"quantity": new_item_qty}
+    #         )
+
+    #         transaction = self.env["idil.transaction_booking"].search(
+    #             [("reffno", "=", "Stock Adjustments%s" % record.id)], limit=1
+    #         )
+
+    #         if transaction:
+    #             transaction.write(
+    #                 {
+    #                     "amount": abs(new_qty * cost_price),
+    #                     "trx_date": adjustment_date,
+    #                 }
+    #             )
+
+    #             for line in transaction.booking_lines:
+    #                 if line.transaction_type == "dr":
+    #                     line.write(
+    #                         {
+    #                             "dr_amount": new_qty * cost_price,
+    #                             "transaction_date": adjustment_date,
+    #                         }
+    #                     )
+    #                 elif line.transaction_type == "cr":
+    #                     line.write(
+    #                         {
+    #                             "cr_amount": new_qty * cost_price,
+    #                             "transaction_date": adjustment_date,
+    #                         }
+    #                     )
+
+    #         movement = self.env["idil.item.movement"].search(
+    #             [("related_document", "=", "idil.stock.adjustment,%d" % record.id)],
+    #             limit=1,
+    #         )
+    #         if movement:
+    #             movement.write(
+    #                 {
+    #                     "quantity": movement_quantity,
+    #                     "date": adjustment_date,
+    #                 }
+    #             )
+
+    #     return super(StockAdjustment, self).write(vals)
     def write(self, vals):
         for record in self:
             old_qty = record.adjustment_qty
@@ -198,26 +378,66 @@ class StockAdjustment(models.Model):
                 [("reffno", "=", "Stock Adjustments%s" % record.id)], limit=1
             )
 
-            if transaction:
+            amount = abs(new_qty * cost_price)
+            if transaction and transaction.booking_lines:
+                # Update header fields
                 transaction.write(
                     {
-                        "amount": abs(new_qty * cost_price),
+                        "amount": amount,
                         "trx_date": adjustment_date,
                     }
                 )
-
+                # There are always two lines: one DR, one CR
+                dr_line = None
+                cr_line = None
                 for line in transaction.booking_lines:
                     if line.transaction_type == "dr":
-                        line.write(
+                        dr_line = line
+                    elif line.transaction_type == "cr":
+                        cr_line = line
+
+                # Update DR/CR logic according to type
+                if record.adjustment_type == "decrease":
+                    # Credit asset, Debit adjustment/loss account
+                    if cr_line:
+                        cr_line.write(
                             {
-                                "dr_amount": new_qty * cost_price,
+                                "description": "Stock Adjustment Decrease - Credit Asset",
+                                "account_number": item.asset_account_id.id,
+                                "cr_amount": amount,
+                                "dr_amount": 0.0,
                                 "transaction_date": adjustment_date,
                             }
                         )
-                    elif line.transaction_type == "cr":
-                        line.write(
+                    if dr_line:
+                        dr_line.write(
                             {
-                                "cr_amount": new_qty * cost_price,
+                                "description": "Stock Adjustment Decrease - Debit Adjustment Account",
+                                "account_number": item.adjustment_account_id.id,
+                                "dr_amount": amount,
+                                "cr_amount": 0.0,
+                                "transaction_date": adjustment_date,
+                            }
+                        )
+                else:
+                    # Debit asset, Credit adjustment/gain account
+                    if dr_line:
+                        dr_line.write(
+                            {
+                                "description": "Stock Adjustment Increase - Debit Asset",
+                                "account_number": item.asset_account_id.id,
+                                "dr_amount": amount,
+                                "cr_amount": 0.0,
+                                "transaction_date": adjustment_date,
+                            }
+                        )
+                    if cr_line:
+                        cr_line.write(
+                            {
+                                "description": "Stock Adjustment Increase - Credit Adjustment Account",
+                                "account_number": item.adjustment_account_id.id,
+                                "cr_amount": amount,
+                                "dr_amount": 0.0,
                                 "transaction_date": adjustment_date,
                             }
                         )

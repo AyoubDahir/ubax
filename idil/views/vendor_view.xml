@@ -82,7 +82,7 @@
                                 <field name="account_payable_id"/>
                             </group>
                             <group>
-                             <field name="opening_balance"/>
+                             <field name="opening_balance" readonly="1"/>
                             </group>
 
                             <group string="Financial Transactions">

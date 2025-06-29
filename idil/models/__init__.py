@@ -49,8 +49,11 @@ from . import EmployeePayrollListwithSalaryAdvance
 from . import item_opening_balance
 from . import purchase_return
 from . import vendor_paymen_bulk
+from . import CustomerSaleReturn
 from . import commissionbulkpayment
 from . import Report_item_summary_by_vendor
 from . import report_sales_summary_by_person
 from . import sales_opening_balance
 from . import customer_opening_balance
+from . import sales_receipt_bulk_payment
+from . import vendor_opening_balance

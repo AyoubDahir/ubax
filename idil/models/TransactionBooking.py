@@ -84,9 +84,7 @@ class TransactionBooking(models.Model):
         string="Transaction Source",
         help="Select the transaction source.",
     )
-    amount = fields.Float(
-        string="Amount", compute="_compute_amount", store=True, digits=(16, 5)
-    )
+    amount = fields.Float(string="Amount", store=True, digits=(16, 5))
     amount_paid = fields.Float(string="Amount Paid", digits=(16, 5))
     remaining_amount = fields.Float(string="Remaining Amount", store=True)
 
@@ -178,6 +176,16 @@ class TransactionBooking(models.Model):
     customer_opening_balance_id = fields.Many2one(
         "idil.customer.opening.balance.line",
         string="Opening Balance",
+        ondelete="cascade",
+    )
+    vendor_opening_balance_id = fields.Many2one(
+        "idil.vendor.opening.balance.line",
+        string="Vendor Opening Balance",
+        ondelete="cascade",
+    )
+    customer_sales_return_id = fields.Many2one(
+        "idil.customer.sale.return.line",
+        string="Customer Sales Return",
         ondelete="cascade",
     )
 
@@ -449,7 +457,17 @@ class TransactionBookingline(models.Model):
 
     customer_opening_balance_id = fields.Many2one(
         "idil.customer.opening.balance.line",
-        string="Opening Balance",
+        string="Customer Opening Balance",
+        ondelete="cascade",
+    )
+    vendor_opening_balance_id = fields.Many2one(
+        "idil.vendor.opening.balance.line",
+        string="Vendor Opening Balance",
+        ondelete="cascade",
+    )
+    customer_sales_return_id = fields.Many2one(
+        "idil.customer.sale.return.line",
+        string="Customer Sales Return",
         ondelete="cascade",
     )
 

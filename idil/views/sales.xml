@@ -10,7 +10,7 @@
                 <field name="name"/>
                 <field name="sales_person_id"/>
                 <field name="order_date"/>
-                <field name="order_total"/>
+                <field name="order_total" sum="total"/>
                 <field name="currency_id"/>
                 <field name="rate"/>
                 <field name="state"/>

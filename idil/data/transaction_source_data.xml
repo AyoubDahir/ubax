@@ -20,6 +20,10 @@
             <field name="name">Purchase Order</field>
             <field name="description">Transaction for purchase orders</field>
         </record>
+        <record id="trx_source_customer_sales_order" model="idil.transaction.source">
+            <field name="name">Customer Sales Order</field>
+            <field name="description">Transaction for Customer Sales Order</field>
+        </record>
 
         <record id="trx_source_pos" model="idil.transaction.source">
             <field name="name">Point of Sale</field>
@@ -31,34 +35,40 @@
             <field name="description">Manual transaction entry</field>
         </record>
 
-        <record id="trx_source_manual" model="idil.transaction.source">
+         <record id="trx_source_sale_return" model="idil.transaction.source">
+            <field name="name">Sale Return</field>
+            <field name="description">Sale Return</field>
+        </record>
+
+        <record id="trx_Inventory" model="idil.transaction.source">
             <field name="name">Inventory Opening Balance</field>
             <field name="description">Inventory Opening Balance</field>
         </record>
-        <record id="trx_source_manual" model="idil.transaction.source">
+        <record id="trx_source_Vendor" model="idil.transaction.source">
             <field name="name">Vendor Balance</field>
             <field name="description">Vendor Balance</field>
         </record>
-        <record id="trx_source_manual" model="idil.transaction.source">
-            <field name="name">Inventory Opening Balance</field>
-            <field name="description">Inventory Opening Balance</field>
+        
+        <record id="trx_source_manual_purchase_products" model="idil.transaction.source">
+            <field name="name">Purchase Products</field>
+            <field name="description">Purchase Products</field>
         </record>
-        <record id="trx_source_manual" model="idil.transaction.source">
-            <field name="name">Purchase Prodcuts</field>
-            <field name="description">Purchase Prodcuts</field>
-        </record>
-        <record id="trx_source_manual" model="idil.transaction.source">
+        <record id="trx_source_manual_purchase_return" model="idil.transaction.source">
             <field name="name">Purchase Return</field>
             <field name="description">Purchase Return</field>
         </record>
  
-        <record id="trx_source_manual" model="idil.transaction.source">
+        <record id="trx_source_manual_sales_opening_balance" model="idil.transaction.source">
             <field name="name">sales opening balance</field>
             <field name="description">sales opening balance</field>
         </record>
-        <record id="trx_source_manual" model="idil.transaction.source">
+        <record id="trx_source_manual_customer_opening_balance" model="idil.transaction.source">
             <field name="name">customer opening balance</field>
             <field name="description">customer opening balance</field>
+        </record>
+        <record id="trx_source_manual_vendor_opening_balance" model="idil.transaction.source">
+            <field name="name">vendor opening balance</field>
+            <field name="description">vendor opening balance</field>
         </record>
 
 

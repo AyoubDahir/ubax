@@ -34,7 +34,7 @@
             <field name="number_next">1</field>
             <field name="number_increment">1</field>
         </record>
-
+        
         <record id="seq_commission_bulk_payment" model="ir.sequence">
             <field name="name">Commission Bulk Payment</field>
             <field name="code">idil.commission.bulk.payment.seq</field>
@@ -60,6 +60,30 @@
             <field name="company_id" eval="False"/>
         </record>
     
+        <record id="seq_idil_receipt_bulk_payment" model="ir.sequence">
+            <field name="name">Bulk Receipt Payment</field>
+            <field name="code">idil.receipt.bulk.payment.seq</field>
+            <field name="prefix">BRP/</field>
+            <field name="padding">4</field>
+        </record>
+        
+        <record id="seq_idil_vendor_opening_balance" model="ir.sequence">
+            <field name="name">Vendor Opening Balance</field>
+            <field name="code">idil.vendor.opening.balance</field>
+            <field name="prefix">VOB/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="seq_customer_sale_return" model="ir.sequence">
+            <field name="name">Customer Sale Return</field>
+            <field name="code">idil.customer.sale.return</field>
+            <field name="prefix">CSR/</field>
+            <field name="padding">4</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+        </record>
 
 
     </data>

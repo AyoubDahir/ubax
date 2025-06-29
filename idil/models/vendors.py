@@ -73,6 +73,12 @@ class Vendor(models.Model):
         store=False,  # Change to True if you want it stored
     )
 
+    @api.onchange("currency_id")
+    def _onchange_currency_id(self):
+        # Clear selected accounts
+        self.account_payable_id = False
+        self.account_receivable_id = False
+
     @api.depends("vendor_transaction_ids.remaining_amount")
     def _compute_total_due_amount(self):
         for vendor in self:
@@ -83,233 +89,12 @@ class Vendor(models.Model):
     @api.model
     def create(self, vals):
         vendor = super(Vendor, self).create(vals)
-        if vals.get("opening_balance", 0.0) > 0.0:
-            _logger.info(
-                "Invoking create_opening_balance_transaction during vendor creation for Vendor ID: %s",
-                vendor.id,
-            )
-            vendor.create_opening_balance_transaction()
+
         return vendor
-
-    def create_opening_balance_transaction(self):
-        for vendor in self:
-            if vendor.opening_balance >= 0:
-                try:
-                    _logger.info(
-                        "Attempting to create or update an opening balance transaction for vendor ID %s",
-                        vendor.id,
-                    )
-
-                    # Find the "Vendor Balance" transaction source
-                    trx_source = self.env["idil.transaction.source"].search(
-                        [("name", "=", "Vendor Balance")], limit=1
-                    )
-                    if not trx_source:
-                        raise ValidationError(
-                            _("Transaction source 'Vendor Balance' not found.")
-                        )
-
-                    # Check if an "Opening Balance" transaction already exists
-                    transaction = self.env["idil.transaction_booking"].search(
-                        [
-                            ("vendor_id", "=", vendor.id),
-                            ("reffno", "=", "Opening Balance"),
-                        ],
-                        limit=1,
-                    )
-
-                    transaction_data = {
-                        "reffno": "Opening Balance",
-                        "vendor_id": vendor.id,
-                        "trx_date": fields.Date.today(),
-                        "amount": vendor.opening_balance,
-                        "amount_paid": 0,
-                        "remaining_amount": vendor.opening_balance,
-                        "payment_status": "pending",
-                        "trx_source_id": trx_source.id,
-                    }
-
-                    if transaction:
-                        transaction.write(transaction_data)
-                        _logger.info(
-                            "Updating existing opening balance transaction ID: %s",
-                            transaction.id,
-                        )
-                    else:
-                        transaction_data["transaction_number"] = self.env[
-                            "ir.sequence"
-                        ].next_by_code("idil.transaction_booking")
-                        transaction = self.env["idil.transaction_booking"].create(
-                            transaction_data
-                        )
-                        _logger.info(
-                            "Opening balance transaction created with ID: %s",
-                            transaction.id,
-                        )
-
-                    # Commit to ensure data is saved
-                    self.env.cr.commit()
-
-                    # Update or create booking lines for the transaction
-                    self._update_or_create_booking_lines(transaction, vendor)
-
-                    # Create or update vendor transaction record
-                    self._create_or_update_vendor_transaction(transaction, vendor)
-
-                except Exception as e:
-                    _logger.error(
-                        "Error occurred while creating or updating the opening balance transaction: %s",
-                        str(e),
-                    )
-                    raise ValidationError(
-                        "Failed to create or update opening balance transaction: %s"
-                        % str(e)
-                    )
-
-    def _create_or_update_vendor_transaction(self, transaction, vendor):
-        try:
-            # Check if a Vendor Transaction already exists for the opening balance
-            vendor_transaction = self.env["idil.vendor_transaction"].search(
-                [("vendor_id", "=", vendor.id), ("reffno", "=", "Opening Balance")],
-                limit=1,
-            )
-
-            transaction_data = {
-                "order_number": "OB" + str(vendor.id),
-                "transaction_number": transaction.transaction_number,
-                "transaction_date": fields.Date.today(),
-                "vendor_id": vendor.id,
-                "amount": vendor.opening_balance,
-                "paid_amount": 0,
-                "remaining_amount": vendor.opening_balance,
-                "payment_status": "pending",
-                "payment_method": "ap",
-                "reffno": "Opening Balance",
-                "transaction_booking_id": transaction.id,
-            }
-
-            if vendor_transaction:
-                vendor_transaction.write(transaction_data)
-                _logger.info(
-                    "Updated existing vendor transaction for Vendor ID: %s", vendor.id
-                )
-            else:
-                self.env["idil.vendor_transaction"].create(transaction_data)
-                _logger.info(
-                    "Created new vendor transaction for Vendor ID: %s", vendor.id
-                )
-
-        except Exception as e:
-            _logger.error(
-                "Error occurred while creating or updating vendor transaction for Vendor ID %s: %s",
-                vendor.id,
-                str(e),
-            )
-            raise ValidationError(
-                "Failed to create or update vendor transaction for Vendor ID %s: %s"
-                % (vendor.id, str(e))
-            )
-
-    def _update_or_create_booking_lines(self, transaction, vendor):
-        try:
-            # Find existing debit and credit booking lines for the transaction
-            debit_line = self.env["idil.transaction_bookingline"].search(
-                [
-                    ("transaction_booking_id", "=", transaction.id),
-                    ("transaction_type", "=", "dr"),
-                ],
-                limit=1,
-            )
-            credit_line = self.env["idil.transaction_bookingline"].search(
-                [
-                    ("transaction_booking_id", "=", transaction.id),
-                    ("transaction_type", "=", "cr"),
-                ],
-                limit=1,
-            )
-
-            # Update or create the debit line
-            if debit_line:
-                debit_line.write(
-                    {
-                        "dr_amount": vendor.opening_balance,
-                        "cr_amount": 0,
-                        "description": "Opening Balance Debit Entry",
-                    }
-                )
-                _logger.info(
-                    "Updated debit entry booking line for Vendor ID: %s", vendor.id
-                )
-            else:
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction.id,
-                        "account_number": vendor.account_payable_id.id,
-                        "transaction_type": "cr",
-                        "dr_amount": 0,
-                        "cr_amount": vendor.opening_balance,
-                        "description": "Opening Balance Credit Entry",
-                        "transaction_date": fields.Date.today(),
-                    }
-                )
-                _logger.info(
-                    "Created new debit entry booking line for Vendor ID: %s", vendor.id
-                )
-
-            # Update or create the credit line
-            opening_balance_account = self.env["idil.chart.account"].search(
-                [("name", "=", "Opening Balance Account")], limit=1
-            )
-            if not opening_balance_account:
-                raise ValidationError(_("Opening Balance Account not found."))
-
-            if credit_line:
-                credit_line.write(
-                    {
-                        "cr_amount": vendor.opening_balance,
-                        "dr_amount": 0,
-                        "description": "Opening Balance Credit Entry",
-                    }
-                )
-                _logger.info(
-                    "Updated credit entry booking line for Vendor ID: %s", vendor.id
-                )
-            else:
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction.id,
-                        "account_number": opening_balance_account.id,
-                        "transaction_type": "dr",
-                        "cr_amount": 0,
-                        "dr_amount": vendor.opening_balance,
-                        "description": "Opening Balance Debit Entry",
-                        "transaction_date": fields.Date.today(),
-                    }
-                )
-                _logger.info(
-                    "Created new credit entry booking line for Vendor ID: %s", vendor.id
-                )
-
-        except Exception as e:
-            _logger.error(
-                "Error occurred while updating or creating booking lines for Vendor ID %s: %s",
-                vendor.id,
-                str(e),
-            )
-            raise ValidationError(
-                "Failed to update or create booking lines for Vendor ID %s: %s"
-                % (vendor.id, str(e))
-            )
 
     def write(self, vals):
         res = super(Vendor, self).write(vals)
-        if "opening_balance" in vals and vals.get("opening_balance", 0.0) >= 0.0:
-            for vendor in self:
-                _logger.info(
-                    "Invoking create_opening_balance_transaction during vendor update for Vendor ID: %s",
-                    vendor.id,
-                )
-                vendor.create_opening_balance_transaction()
+
         return res
 
     @api.constrains("phone")

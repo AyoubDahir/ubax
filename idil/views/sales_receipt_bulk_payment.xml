@@ -1,0 +1,124 @@
+<odoo>
+
+    <record id="view_tree_idil_receipt_bulk_payment" model="ir.ui.view">
+        <field name="name">idil.receipt.bulk.payment.tree</field>
+        <field name="model">idil.receipt.bulk.payment</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="state"/>
+                <field name="partner_type"/>
+                <field name="salesperson_id"/>
+                <field name="customer_id"/>
+                <field name="date"/>
+                <field name="amount_to_pay"/>
+                <field name="due_receipt_amount"/>
+                <field name="due_receipt_count"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_form_idil_receipt_bulk_payment" model="ir.ui.view">
+        <field name="name">idil.receipt.bulk.payment.form</field>
+        <field name="model">idil.receipt.bulk.payment</field>
+        <field name="arch" type="xml">
+            <form string="Bulk Sales Receipt Payment">
+                <header>
+                    <button name="action_confirm_payment" string="💰 Confirm Bulk Payment" type="object" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <h1>
+                        <field name="name" class="o_main_field"/>
+                    </h1>
+                    <group>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
+                    </group>
+
+                    <div class="oe_title">
+                        <h2>📝 Bulk Receipt Payment Details</h2>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_type" required="1" class="o_main_field"/>
+                            <field name="salesperson_id" invisible="partner_type != 'salesperson'"/>
+                            <field name="customer_id" invisible="partner_type != 'customer'"/>
+                            <field name="date"/>
+                        </group>
+                        <group>
+                            <group>
+                                <field name="amount_to_pay" class="o_main_field"   style="font-size: 16px;"/>
+                            </group>
+
+                            <div>
+                                <separator string="Receipt Status"/>
+                                <group>
+                                    <field name="due_receipt_amount" readonly="1" class="o_stat_field"/>
+                                </group>
+                                 <group>
+                                    <field name="due_receipt_count" readonly="1" class="o_stat_field"/>
+                                </group>
+                                
+                                
+                            </div>
+                        </group>
+                    </group>
+
+                    <separator string="💳 Payment Methods" colspan="4"/>
+                    <div class="oe_form_box" style="margin-bottom: 8px; background: #f8f8ff; border-radius: 10px; padding: 16px; border: 1px solid #eee;">
+                        <field name="payment_method_ids">
+                            <tree editable="bottom" decoration-success="payment_amount">
+                                <field name="payment_account_id"/>
+                                <field name="payment_amount" sum="Total"/>
+                                <field name="note"/>
+                            </tree>
+                            <form>
+                                <group>
+                                    <field name="payment_account_id"/>
+                                    <field name="payment_amount"/>
+                                    <field name="note"/>
+                                </group>
+                            </form>
+                        </field>
+                        <div style="margin-top:8px; text-align:right;">
+                            <span class="o_form_label">Total Payment Methods:</span>
+                            <field name="payment_methods_total" readonly="1" style="font-weight: bold; color: #1a73e8; font-size: 15px;"/>
+                          
+                        </div>
+
+                    </div>
+                    
+                    <notebook>
+                        <page string="🧾 Receipt Lines">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="receipt_id" />
+                                    <field name="receipt_date" readonly="1"/>
+                                    <field name="due_amount" sum="Total" readonly="1"/>
+                                    <field name="paid_amount" sum="Total" readonly="1"/>
+                                    <field name="remaining_amount" sum="Total" readonly="1"/>
+                                    <field name="paid_now" sum="Total" readonly="1"/>
+                                    <field name="receipt_status" readonly="1"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_idil_receipt_bulk_payment" model="ir.actions.act_window">
+        <field name="name">Bulk Receipt Payments</field>
+        <field name="res_model">idil.receipt.bulk.payment</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_tree_idil_receipt_bulk_payment"/>
+        <field name="help" type="html">
+            <div style="font-size: 16px;">
+                <b>Tip:</b> Use this feature to allocate and record payments for multiple outstanding sales receipts at once,
+                and split the payment among multiple accounts as needed (cash, bank, etc).
+            </div>
+        </field>
+    </record>
+</odoo>

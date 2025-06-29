@@ -231,3 +231,16 @@ class VendorTransaction(models.Model):
             }
         )
         return vendor_payment.id
+
+    def unlink(self):
+        for record in self:
+            if record.product_purchase_order_id:
+                # Ensure the linked purchase order still exists
+                purchase_order = self.env["idil.product.purchase.order"].browse(
+                    record.product_purchase_order_id.id
+                )
+                if purchase_order.exists():
+                    raise ValidationError(
+                        f"You cannot delete this Vendor Transaction because it is still linked to a Product Purchase Order: '{purchase_order.name}'."
+                    )
+        return super(VendorTransaction, self).unlink()

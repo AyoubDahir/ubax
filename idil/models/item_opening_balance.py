@@ -62,9 +62,9 @@ class IdilItemOpeningBalance(models.Model):
         TransactionBooking = self.env["idil.transaction_booking"]
         TransactionSource = self.env["idil.transaction.source"]
         ItemMovement = self.env["idil.item.movement"]
+
         EquityAccount = self.env["idil.chart.account"].search(
-            [("account_type", "=", "Owners Equity"), ("currency_id.name", "=", "USD")],
-            limit=1,
+            [("name", "=", "Opening Balance Account")], limit=1
         )
 
         source = TransactionSource.search(
