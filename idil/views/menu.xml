@@ -2,7 +2,7 @@
 <odoo>
 
 <menuitem id="menu_idil_home"
-        name=" Nagaad Halls"
+        name=" Idil Bakery &amp; Sweets"
         web_icon="Idil,static/description/icon.png"
         sequence="1"/>
    
