@@ -6,11 +6,11 @@
         web_icon="Idil,static/description/icon.png"
         sequence="1"/>
    
-        <menuitem id="menu_idil_dashboard"
+        <!-- <menuitem id="menu_idil_dashboard"
                 name="Dashboard"
                 action="action_idil_dashboard_stats"
                 parent="menu_idil_home"
-                sequence="1"/>
+                sequence="1"/> -->
 
         
         
