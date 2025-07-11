@@ -491,7 +491,19 @@ class SaleReturn(models.Model):
                     - discount_amt
                     - commission_amt
                 )
-                cost_amt = product.cost * line.returned_quantity * record.rate
+
+                bom_currency = (
+                    product.bom_id.currency_id
+                    if product.bom_id
+                    else product.currency_id
+                )
+
+                amount_in_bom_currency = product.cost * line.returned_quantity
+
+                if bom_currency.name == "USD":
+                    cost_amt = amount_in_bom_currency * self.rate
+                else:
+                    cost_amt = amount_in_bom_currency
 
                 # Booking lines
                 self.env["idil.transaction_bookingline"].create(
