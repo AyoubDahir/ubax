@@ -641,7 +641,7 @@ class SaleReturn(models.Model):
             receipt = self.env["idil.sales.receipt"].search(
                 [
                     ("sales_order_id", "=", record.sale_order_id.id),
-                    ("amount_paid", ">", 0),
+                    ("paid_amount", ">", 0),
                 ],
                 limit=1,
             )
