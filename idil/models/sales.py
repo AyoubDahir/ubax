@@ -333,7 +333,7 @@ class SaleOrder(models.Model):
                     else product.currency_id
                 )
 
-                amount_in_bom_currency = product.cost * line.quantitye
+                amount_in_bom_currency = product.cost * line.quantity
 
                 if bom_currency.name == "USD":
                     product_cost_amount = amount_in_bom_currency * self.rate
