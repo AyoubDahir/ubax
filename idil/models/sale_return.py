@@ -188,12 +188,20 @@ class SaleReturn(models.Model):
                     - (discount_quantity * return_line.price_unit)
                     - commission_amount
                 )
-                product_cost_amount = (
-                    product.cost * return_line.returned_quantity * self.rate
+
+                bom_currency = (
+                    product.bom_id.currency_id
+                    if product.bom_id
+                    else product.currency_id
                 )
-                # product.stock_quantity = (
-                #     product.stock_quantity + return_line.returned_quantity
-                # )
+
+                amount_in_bom_currency = product.cost * return_line.returned_quantity
+
+                if bom_currency.name == "USD":
+                    product_cost_amount = amount_in_bom_currency * self.rate
+                else:
+                    product_cost_amount = amount_in_bom_currency
+
                 # ------------------------------------------------------------------------------------------------------
                 # Reversed Credit entry Expanses inventory of COGS account for the product
                 self.env["idil.transaction_bookingline"].create(
