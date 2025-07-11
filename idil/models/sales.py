@@ -1,9 +1,10 @@
+from email.utils import format_datetime
 import re
 
 from odoo import models, fields, api
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools.safe_eval import datetime
 import logging
+from odoo.tools import format_datetime
 
 _logger = logging.getLogger(__name__)
 
@@ -57,6 +58,56 @@ class SaleOrder(models.Model):
         store=True,
         readonly=True,
     )
+    total_due_usd = fields.Float(
+        string="Total Due (USD)", compute="_compute_totals_in_usd", store=True
+    )
+    total_commission_usd = fields.Float(
+        string="Commission (USD)", compute="_compute_totals_in_usd", store=True
+    )
+    total_discount_usd = fields.Float(
+        string="Discount (USD)", compute="_compute_totals_in_usd", store=True
+    )
+    total_returned_qty = fields.Float(
+        string="Total Returned Quantity",
+        compute="_compute_total_returned_qty",
+        store=False,
+        readonly=True,
+    )
+
+    @api.depends("order_lines", "order_lines.product_id")
+    def _compute_total_returned_qty(self):
+        for order in self:
+            total_returned = 0.0
+
+            # Find all confirmed returns linked to this order
+            return_lines = self.env["idil.sale.return.line"].search(
+                [
+                    ("return_id.sale_order_id", "=", order.id),
+                    ("return_id.state", "=", "confirmed"),
+                ]
+            )
+
+            # Sum all returned quantities
+            total_returned = sum(return_lines.mapped("returned_quantity"))
+
+            order.total_returned_qty = total_returned
+
+    @api.depends(
+        "order_lines.subtotal",
+        "order_lines.commission_amount",
+        "order_lines.discount_amount",
+        "rate",
+    )
+    def _compute_totals_in_usd(self):
+        for order in self:
+            subtotal = sum(order.order_lines.mapped("subtotal"))
+            commission = sum(order.order_lines.mapped("commission_amount"))
+            discount = sum(order.order_lines.mapped("discount_amount"))
+
+            rate = order.rate or 0.0
+            order.total_due_usd = subtotal / rate if rate else 0.0
+            order.total_commission_usd = commission / rate if rate else 0.0
+            order.total_discount_usd = discount / rate if rate else 0.0
 
     @api.depends("currency_id")
     def _compute_exchange_rate(self):
@@ -425,17 +476,50 @@ class SaleOrder(models.Model):
 
     def write(self, vals):
         for order in self:
+            # Check for Sales Receipt
+            receipts = self.env["idil.sales.receipt"].search(
+                [("sales_order_id", "=", order.id), ("paid_amount", ">", 0)]
+            )
+            if receipts:
+                receipt_details = "\n".join(
+                    [
+                        f"- Receipt Date: {format_datetime(self.env, r.receipt_date)}, "
+                        f"Amount Paid: {r.paid_amount:.2f}, Due: {r.due_amount:.2f}, Remaining: {r.remaining_amount:.2f}"
+                        for r in receipts
+                    ]
+                )
+                raise UserError(
+                    f"Cannot edit this Sales Order because it has linked Receipts:\n{receipt_details}"
+                )
+
+            # Check for Sale Return
+            returns = self.env["idil.sale.return"].search(
+                [("sale_order_id", "=", order.id)]
+            )
+            if returns:
+                return_details = "\n".join(
+                    [
+                        f"- Return Date: {format_datetime(self.env, r.return_date)}, State: {r.state}"
+                        for r in returns
+                    ]
+                )
+                raise UserError(
+                    f"Cannot edit this Sales Order because it has linked Sale Returns:\n{return_details}"
+                )
+
+        for order in self:
             # Capture old quantities for comparison
             old_quantities = {line.id: line.quantity for line in order.order_lines}
 
         # Proceed with the standard write
-
         for order in self:
+
             for line in order.order_lines:
                 product = line.product_id
                 old_qty = old_quantities.get(line.id, 0.0)
                 new_qty = line.quantity
                 qty_diff = new_qty - old_qty
+                # 🔒 Step 3: Validate return quantity before updating
 
                 # Handle stock adjustment
                 if qty_diff > 0:
@@ -499,47 +583,44 @@ class SaleOrder(models.Model):
 
         return res
 
-    # def unlink(self):
-    #     for order in self:
-
-    #         # Revert stock from order lines
-    #         for line in order.order_lines:
-    #             product = line.product_id
-    #             product.stock_quantity += line.quantity
-
-    #         # Delete related product movements
-    #         movements = self.env["idil.product.movement"].search(
-    #             [("sale_order_id", "=", order.id)]
-    #         )
-    #         movements.unlink()
-
-    #         # Delete booking and booking lines
-    #         bookings = self.env["idil.transaction_booking"].search(
-    #             [("sale_order_id", "=", order.id)]
-    #         )
-    #         for booking in bookings:
-    #             booking.booking_lines.unlink()
-    #             booking.unlink()
-
-    #         # Delete salesperson transactions
-    #         self.env["idil.salesperson.transaction"].search(
-    #             [("order_id", "=", order.id)]
-    #         ).unlink()
-
-    #         # Delete sales receipt
-
-    #     res = super(SaleOrder, self).unlink()
-    #     # Delete related sales receipt if exists
-    #     # Note: This assumes that the sales receipt is linked to the sale order
-    #     self.env["idil.sales.receipt"].search(
-    #         [("sales_order_id", "=", order.id)]
-    #     ).unlink()
-
-    #     return res
-
     def unlink(self):
         # Gather the sale order IDs before deleting
         order_ids = self.ids
+        for order in self:
+            # Check for Sales Receipt
+            receipts = self.env["idil.sales.receipt"].search(
+                [("sales_order_id", "=", order.id)]
+            )
+
+            # Filter only receipts with non-zero paid amount
+            receipts_with_payment = receipts.filtered(lambda r: r.paid_amount > 0)
+
+            if receipts_with_payment:
+                receipt_details = "\n".join(
+                    [
+                        f"- Receipt Date: {format_datetime(self.env, r.receipt_date)}, "
+                        f"Amount Paid: {r.paid_amount:.2f}, Due: {r.due_amount:.2f}, Remaining: {r.remaining_amount:.2f}"
+                        for r in receipts_with_payment
+                    ]
+                )
+                raise UserError(
+                    f"Cannot edit this Sales Order because it has Receipts with payment:\n{receipt_details}"
+                )
+
+            # Check for Sale Return
+            returns = self.env["idil.sale.return"].search(
+                [("sale_order_id", "=", order.id)]
+            )
+            if returns:
+                return_details = "\n".join(
+                    [
+                        f"- Return Date: {format_datetime(self.env, r.return_date)}, State: {r.state}"
+                        for r in returns
+                    ]
+                )
+                raise UserError(
+                    f"Cannot edit this Sales Order because it has linked Sale Returns:\n{return_details}"
+                )
 
         for order in self:
             # Revert stock, delete related product movements, bookings, etc.
@@ -571,6 +652,8 @@ class SaleOrder(models.Model):
         self.env["idil.sales.receipt"].search(
             [("sales_order_id", "=", order.id)]
         ).unlink()
+
+        # order.salesperson_order_id.state = "draft"
 
         return res
 
@@ -612,6 +695,28 @@ class SaleOrderLine(models.Model):
     discount_quantity = fields.Float(
         string="Discount Quantity", compute="_compute_discount_quantity", store=True
     )
+    returned_quantity = fields.Float(
+        string="Returned Quantity",
+        compute="_compute_returned_quantity",
+        store=False,
+        readonly=True,
+    )
+
+    @api.depends("order_id", "product_id")
+    def _compute_returned_quantity(self):
+        for line in self:
+            if line.order_id and line.product_id:
+                # Get all confirmed return lines for this product and order
+                return_lines = self.env["idil.sale.return.line"].search(
+                    [
+                        ("return_id.sale_order_id", "=", line.order_id.id),
+                        ("product_id", "=", line.product_id.id),
+                        ("return_id.state", "=", "confirmed"),
+                    ]
+                )
+                line.returned_quantity = sum(return_lines.mapped("returned_quantity"))
+            else:
+                line.returned_quantity = 0.0
 
     @api.depends("quantity", "product_id.commission", "price_unit")
     def _compute_commission_amount(self):
@@ -714,6 +819,28 @@ class SaleOrderLine(models.Model):
 
     def write(self, vals):
         for line in self:
+            order = line.order_id
+            product = line.product_id
+            old_qty = line.quantity
+            new_qty = vals.get("quantity", old_qty)
+
+            # ✅ Step 1: Validate that the new quantity is not less than returned quantity
+            if new_qty < old_qty:
+                confirmed_returns = self.env["idil.sale.return.line"].search(
+                    [
+                        ("return_id.sale_order_id", "=", order.id),
+                        ("product_id", "=", product.id),
+                        ("return_id.state", "=", "confirmed"),
+                    ]
+                )
+                total_returned = sum(confirmed_returns.mapped("returned_quantity"))
+
+                if new_qty < total_returned:
+                    raise ValidationError(
+                        f"You cannot reduce quantity of '{product.name}' to {new_qty:.2f} "
+                        f"because {total_returned:.2f} has already been returned."
+                    )
+
             # Step 1: Update stock if quantity is changing
             if "quantity" in vals:
                 quantity_diff = vals["quantity"] - line.quantity
@@ -726,8 +853,9 @@ class SaleOrderLine(models.Model):
             order = line.order_id
 
             # Step 3: Delete old salesperson transactions for this order
+
             self.env["idil.salesperson.transaction"].search(
-                [("order_id", "=", order.id)]
+                [("order_id", "=", order.id), ("sale_return_id", "=", False)]
             ).unlink()
 
             # Step 4: Recreate transactions for all lines in the order

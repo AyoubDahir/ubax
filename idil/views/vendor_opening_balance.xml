@@ -39,7 +39,7 @@
                                     <field name="account_id" readonly="1"/>
                                     <field name="account_currency_id" readonly="1"/>
                                     
-                                    <field name="amount"/>
+                                    <field name="amount" sum="total"/>
                                 </tree>
                             </field>
                         </page>

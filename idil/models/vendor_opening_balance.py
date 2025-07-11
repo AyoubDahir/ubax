@@ -277,30 +277,194 @@ class VendorOpeningBalance(models.Model):
         record.state = "posted"
         return record
 
+    # def write(self, vals):
+    #     for record in self:
+    #         # If you want to prevent updates after posting, uncomment the next lines:
+    #         # if record.state == "posted":
+    #         #     raise ValidationError("You cannot update a posted opening balance. Please cancel it first.")
+
+    #         # If currency or amount is changed on header/line, update everything
+    #         res = super(VendorOpeningBalance, record).write(vals)
+
+    #         # Fetch the latest data
+    #         opening_balance_account = self.env["idil.chart.account"].search(
+    #             [("name", "=", "Opening Balance Account")], limit=1
+    #         )
+    #         if not opening_balance_account:
+    #             raise ValidationError(_("Opening Balance Account not found."))
+    #         if opening_balance_account.currency_id.name != "USD":
+    #             raise ValidationError(
+    #                 "The Opening Balance Account currency must always be USD!"
+    #             )
+
+    #         # You may want to check exchange rate for non-USD again
+    #         if record.currency_id.name != "USD" and not record.rate:
+    #             raise ValidationError(
+    #                 "Exchange rate is required for currency conversion."
+    #             )
+
+    #         for line in record.line_ids:
+    #             vendor_account = line.vendor_id.account_payable_id
+    #             vendor_currency = vendor_account.currency_id
+
+    #             if not vendor_account:
+    #                 raise ValidationError(
+    #                     f"Vendor '{line.vendor_id.name}' does not have a payable account."
+    #                 )
+
+    #             # If vendor account is USD, no conversion
+    #             if vendor_currency.name == "USD":
+    #                 cost_amount_usd = line.amount
+    #             else:
+    #                 if not record.rate:
+    #                     raise ValidationError(
+    #                         "Exchange rate is required for currency conversion."
+    #                     )
+    #                 cost_amount_usd = line.amount / record.rate
+
+    #             # If currencies don't match USD, require clearing accounts
+    #             if vendor_currency.name != "USD":
+    #                 # Get clearing accounts
+    #                 source_clearing_account = self.env["idil.chart.account"].search(
+    #                     [
+    #                         ("name", "=", "Exchange Clearing Account"),
+    #                         ("currency_id", "=", vendor_currency.id),
+    #                     ],
+    #                     limit=1,
+    #                 )
+    #                 target_clearing_account = self.env["idil.chart.account"].search(
+    #                     [
+    #                         ("name", "=", "Exchange Clearing Account"),
+    #                         (
+    #                             "currency_id",
+    #                             "=",
+    #                             opening_balance_account.currency_id.id,
+    #                         ),
+    #                     ],
+    #                     limit=1,
+    #                 )
+    #                 if not source_clearing_account or not target_clearing_account:
+    #                     raise ValidationError(
+    #                         "Exchange clearing accounts are required for currency conversion."
+    #                     )
+
+    #             # Update or recreate transaction_booking
+    #             booking = self.env["idil.transaction_booking"].search(
+    #                 [("vendor_opening_balance_id", "=", line.id)], limit=1
+    #             )
+    #             if booking:
+    #                 booking.write(
+    #                     {
+    #                         "trx_date": record.date,
+    #                         "amount": line.amount,
+    #                         "remaining_amount": line.amount - booking.amount_paid,
+    #                     }
+    #                 )
+    #             else:
+    #                 continue  # No booking, nothing to update
+
+    #             # Remove old booking lines and recreate (safe option for consistency)
+    #             booking.booking_lines.unlink()
+
+    #             # Recreate booking lines as in create()
+    #             if vendor_currency.name != "USD":
+    #                 # Credit source clearing account (local)
+    #                 self.env["idil.transaction_bookingline"].create(
+    #                     {
+    #                         "transaction_booking_id": booking.id,
+    #                         "vendor_opening_balance_id": line.id,
+    #                         "account_number": source_clearing_account.id,
+    #                         "transaction_type": "cr",
+    #                         "dr_amount": 0.0,
+    #                         "cr_amount": line.amount,
+    #                         "transaction_date": record.date,
+    #                         "description": f"Opening Balance Clearing ({vendor_currency.name}) for {line.vendor_id.name}",
+    #                     }
+    #                 )
+    #                 # Debit target clearing account (USD)
+    #                 self.env["idil.transaction_bookingline"].create(
+    #                     {
+    #                         "transaction_booking_id": booking.id,
+    #                         "vendor_opening_balance_id": line.id,
+    #                         "account_number": target_clearing_account.id,
+    #                         "transaction_type": "dr",
+    #                         "dr_amount": cost_amount_usd,
+    #                         "cr_amount": 0.0,
+    #                         "transaction_date": record.date,
+    #                         "description": f"Opening Balance Clearing (USD) for {line.vendor_id.name}",
+    #                     }
+    #                 )
+
+    #             # Owners Equity (Opening Balance Account) -- always USD
+    #             self.env["idil.transaction_bookingline"].create(
+    #                 {
+    #                     "transaction_booking_id": booking.id,
+    #                     "vendor_opening_balance_id": line.id,
+    #                     "account_number": opening_balance_account.id,
+    #                     "transaction_type": "dr",
+    #                     "cr_amount": 0.0,
+    #                     "dr_amount": cost_amount_usd,
+    #                     "transaction_date": record.date,
+    #                     "description": f"Opening Balance for {line.vendor_id.name}",
+    #                 }
+    #             )
+    #             # Vendor Payable (in vendor's currency)
+    #             self.env["idil.transaction_bookingline"].create(
+    #                 {
+    #                     "transaction_booking_id": booking.id,
+    #                     "vendor_opening_balance_id": line.id,
+    #                     "account_number": vendor_account.id,
+    #                     "transaction_type": "cr",
+    #                     "dr_amount": 0.0,
+    #                     "cr_amount": line.amount,
+    #                     "transaction_date": record.date,
+    #                     "description": f"Opening Balance for {line.vendor_id.name}",
+    #                 }
+    #             )
+
+    #             # Update vendor_transaction
+    #             vendor_tx = self.env["idil.vendor_transaction"].search(
+    #                 [("transaction_booking_id", "=", booking.id)], limit=1
+    #             )
+    #             if vendor_tx:
+    #                 vendor_tx.write(
+    #                     {
+    #                         "transaction_date": record.date,
+    #                         "amount": line.amount,
+    #                         "remaining_amount": line.amount - vendor_tx.paid_amount,
+    #                     }
+    #                 )
+
+    #             # Update opening balance on vendor
+    #             line.vendor_id.opening_balance = line.amount
+
+    #     return res
     def write(self, vals):
+        res = super().write(vals)
+
         for record in self:
-            # If you want to prevent updates after posting, uncomment the next lines:
-            # if record.state == "posted":
-            #     raise ValidationError("You cannot update a posted opening balance. Please cancel it first.")
-
-            # If currency or amount is changed on header/line, update everything
-            res = super(VendorOpeningBalance, record).write(vals)
-
-            # Fetch the latest data
             opening_balance_account = self.env["idil.chart.account"].search(
                 [("name", "=", "Opening Balance Account")], limit=1
             )
-            if not opening_balance_account:
-                raise ValidationError(_("Opening Balance Account not found."))
-            if opening_balance_account.currency_id.name != "USD":
+            if (
+                not opening_balance_account
+                or opening_balance_account.currency_id.name != "USD"
+            ):
                 raise ValidationError(
                     "The Opening Balance Account currency must always be USD!"
                 )
 
-            # You may want to check exchange rate for non-USD again
             if record.currency_id.name != "USD" and not record.rate:
                 raise ValidationError(
                     "Exchange rate is required for currency conversion."
+                )
+
+            trx_source_id = self.env["idil.transaction.source"].search(
+                [("name", "=", "vendor opening balance")], limit=1
+            )
+            if not trx_source_id:
+                raise ValidationError(
+                    "Transaction source 'vendor opening balance' not found."
                 )
 
             for line in record.line_ids:
@@ -312,19 +476,13 @@ class VendorOpeningBalance(models.Model):
                         f"Vendor '{line.vendor_id.name}' does not have a payable account."
                     )
 
-                # If vendor account is USD, no conversion
-                if vendor_currency.name == "USD":
-                    cost_amount_usd = line.amount
-                else:
-                    if not record.rate:
-                        raise ValidationError(
-                            "Exchange rate is required for currency conversion."
-                        )
-                    cost_amount_usd = line.amount / record.rate
+                cost_amount_usd = (
+                    line.amount
+                    if vendor_currency.name == "USD"
+                    else line.amount / record.rate
+                )
 
-                # If currencies don't match USD, require clearing accounts
                 if vendor_currency.name != "USD":
-                    # Get clearing accounts
                     source_clearing_account = self.env["idil.chart.account"].search(
                         [
                             ("name", "=", "Exchange Clearing Account"),
@@ -348,11 +506,44 @@ class VendorOpeningBalance(models.Model):
                             "Exchange clearing accounts are required for currency conversion."
                         )
 
-                # Update or recreate transaction_booking
                 booking = self.env["idil.transaction_booking"].search(
                     [("vendor_opening_balance_id", "=", line.id)], limit=1
                 )
-                if booking:
+
+                # 🟩 NEW LINE (No booking exists yet)
+                if not booking:
+                    booking = self.env["idil.transaction_booking"].create(
+                        {
+                            "trx_date": record.date,
+                            "reffno": record.name,
+                            "payment_status": "pending",
+                            "payment_method": "opening_balance",
+                            "amount": line.amount,
+                            "amount_paid": 0.0,
+                            "remaining_amount": line.amount,
+                            "trx_source_id": trx_source_id.id,
+                            "vendor_id": line.vendor_id.id,
+                            "vendor_opening_balance_id": line.id,
+                        }
+                    )
+
+                    # Create vendor transaction for new line
+                    self.env["idil.vendor_transaction"].create(
+                        {
+                            "transaction_number": booking.transaction_number,
+                            "transaction_date": record.date,
+                            "vendor_id": line.vendor_id.id,
+                            "amount": line.amount,
+                            "remaining_amount": line.amount,
+                            "paid_amount": 0.0,
+                            "payment_method": "other",
+                            "reffno": record.name,
+                            "transaction_booking_id": booking.id,
+                            "payment_status": "pending",
+                        }
+                    )
+                else:
+                    # Existing booking, just update it
                     booking.write(
                         {
                             "trx_date": record.date,
@@ -360,15 +551,10 @@ class VendorOpeningBalance(models.Model):
                             "remaining_amount": line.amount - booking.amount_paid,
                         }
                     )
-                else:
-                    continue  # No booking, nothing to update
+                    booking.booking_lines.unlink()
 
-                # Remove old booking lines and recreate (safe option for consistency)
-                booking.booking_lines.unlink()
-
-                # Recreate booking lines as in create()
+                # (Re)Create booking lines
                 if vendor_currency.name != "USD":
-                    # Credit source clearing account (local)
                     self.env["idil.transaction_bookingline"].create(
                         {
                             "transaction_booking_id": booking.id,
@@ -381,7 +567,6 @@ class VendorOpeningBalance(models.Model):
                             "description": f"Opening Balance Clearing ({vendor_currency.name}) for {line.vendor_id.name}",
                         }
                     )
-                    # Debit target clearing account (USD)
                     self.env["idil.transaction_bookingline"].create(
                         {
                             "transaction_booking_id": booking.id,
@@ -395,20 +580,21 @@ class VendorOpeningBalance(models.Model):
                         }
                     )
 
-                # Owners Equity (Opening Balance Account) -- always USD
+                # Owner equity (USD)
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": booking.id,
                         "vendor_opening_balance_id": line.id,
                         "account_number": opening_balance_account.id,
                         "transaction_type": "dr",
-                        "cr_amount": 0.0,
                         "dr_amount": cost_amount_usd,
+                        "cr_amount": 0.0,
                         "transaction_date": record.date,
                         "description": f"Opening Balance for {line.vendor_id.name}",
                     }
                 )
-                # Vendor Payable (in vendor's currency)
+
+                # Payable (local)
                 self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": booking.id,
@@ -422,7 +608,7 @@ class VendorOpeningBalance(models.Model):
                     }
                 )
 
-                # Update vendor_transaction
+                # Update vendor transaction if exists
                 vendor_tx = self.env["idil.vendor_transaction"].search(
                     [("transaction_booking_id", "=", booking.id)], limit=1
                 )
@@ -435,7 +621,7 @@ class VendorOpeningBalance(models.Model):
                         }
                     )
 
-                # Update opening balance on vendor
+                # Update vendor opening balance
                 line.vendor_id.opening_balance = line.amount
 
         return res
@@ -490,7 +676,6 @@ class VendorOpeningBalance(models.Model):
                     booking.booking_lines.unlink()
                     booking.unlink()
 
-                line.vendor_id.opening_balance -= line.amount
         return super().unlink()
 
 
@@ -549,8 +734,11 @@ class VendorOpeningBalanceLine(models.Model):
             )
             if existing_line:
                 raise ValidationError(
-                    "This vendor already has an opening balance entry. You cannot create another one."
+                    f"Vendor '{existing_line.vendor_id.name}' already has an opening balance "
+                    f"of amount {existing_line.amount:.2f} in record '{existing_line.opening_balance_id.name}'. "
+                    f"You cannot create another one."
                 )
+
         # Auto-fill account_id if missing
         if not vals.get("account_id") and vendor_id:
             vendor = self.env["idil.vendor.registration"].browse(vendor_id)
@@ -587,6 +775,8 @@ class VendorOpeningBalanceLine(models.Model):
                     ),
                 ]
             )
+            line.vendor_id.opening_balance -= line.amount
+
             vendor_transactions.unlink()
             # Remove related booking and booking lines
             bookings = self.env["idil.transaction_booking"].search(

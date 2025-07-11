@@ -83,8 +83,7 @@ class PurchaseReturn(models.Model):
     def _create_return_transaction(self, line):
 
         trx_number = self.env["idil.transaction_booking"]._get_next_transaction_number()
-        purchase_account = line.order_line_id.item_id.purchase_account_id.id
-        stock_account = line.item_id.asset_account_id.id
+
         amount = line.amount
 
         trx_source = self.env["idil.transaction.source"].search(
@@ -138,36 +137,6 @@ class PurchaseReturn(models.Model):
             return_booking_lines.append(reversed_vals)
 
         self.env["idil.transaction_bookingline"].create(return_booking_lines)
-
-        # self.env["idil.transaction_bookingline"].create(
-        #     [
-        #         {
-        #             "order_line": line.order_line_id.id,
-        #             "return_id": self.id,
-        #             "item_id": line.item_id.id,
-        #             "description": f"Return of {line.item_id.name}",
-        #             "account_number": stock_account,
-        #             "transaction_type": "cr",
-        #             "cr_amount": amount,
-        #             "dr_amount": 0,
-        #             "transaction_booking_id": trx.id,
-        #             "transaction_date": fields.Date.today(),
-        #         },
-        #         {
-        #             "order_line": line.order_line_id.id,
-        #             "return_id": self.id,
-        #             "item_id": line.item_id.id,
-        #             "description": f"Return of {line.item_id.name}",
-        #             "account_number": purchase_account,
-        #             "transaction_type": "dr",
-        #             "dr_amount": amount,
-        #             "cr_amount": 0,
-        #             "transaction_booking_id": trx.id,
-        #             "transaction_date": fields.Date.today(),
-        #         },
-        #     ]
-        # )
-        # ✅ Now update or create vendor transaction (and fix variable name)
 
         VendorTransaction = self.env["idil.vendor_transaction"]
         vendor_tx = VendorTransaction.search(

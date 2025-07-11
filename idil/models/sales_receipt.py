@@ -47,7 +47,7 @@ class SalesReceipt(models.Model):
         "idil.chart.account",
         string="Receipt Asset Account",
         help="Payment Account to be used for the receipt -- asset accounts.",
-        domain="[('account_type', 'in', ['cash', 'bank_transfer']), ('currency_id', '=', payment_account_currency_id)]",
+        domain="[('account_type', 'in', ['cash', 'bank_transfer', 'sales_expense']), ('currency_id', '=', payment_account_currency_id)]",
     )
 
     sales_opening_balance_id = fields.Many2one(
@@ -278,38 +278,47 @@ class SalesReceipt(models.Model):
         messages = []
         for receipt in self:
             # Block deletion if linked to sales order
-            if (
-                receipt.sales_order_id
-                and self.env["idil.sale.order"]
-                .browse(receipt.sales_order_id.id)
-                .exists()
-            ):
+            if receipt.sales_order_id and receipt.sales_order_id.exists():
                 order_name = (
                     receipt.sales_order_id.display_name
                     or receipt.sales_order_id.name
                     or "Unknown"
                 )
-                messages.append(f"- {order_name}")
+                messages.append(f"- Sales Order: {order_name}")
+
+            # Block deletion if linked to customer sale order
+            if (
+                receipt.cusotmer_sale_order_id
+                and receipt.cusotmer_sale_order_id.exists()
+            ):
+                order_name = (
+                    receipt.cusotmer_sale_order_id.display_name
+                    or receipt.cusotmer_sale_order_id.name
+                    or "Unknown"
+                )
+                messages.append(f"- Customer Sale Order: {order_name}")
+
             # Block deletion if linked to any opening balance
             if receipt.sales_opening_balance_id or receipt.customer_opening_balance_id:
                 raise UserError(
                     "⚠️ You cannot delete a sales receipt that was created from an opening balance."
                 )
+
         if messages:
             detail = "\n".join(messages)
             raise UserError(
                 f"""⚠️ Deletion Not Allowed!
 
-                    This sales receipt is linked to the following sales order(s):
-                    {detail}
+                This sales receipt is linked to the following source(s):
+                {detail}
 
-                    To maintain proper financial and audit records, you cannot delete a sales receipt directly.
-                    If you wish to remove this transaction, please delete the parent sales order instead.
+                To maintain proper financial and audit records, you cannot delete a sales receipt directly.
+                If you wish to remove this transaction, please delete the parent record instead.
 
-                    Do not attempt to delete sales receipts directly.
-                    Thank you for your understanding and cooperation."""
+                Do not attempt to delete sales receipts directly.
+                Thank you for your understanding and cooperation."""
             )
-        # Otherwise (no linked sale order or opening balance exists), allow deletion
+
         return super(SalesReceipt, self).unlink()
 
 

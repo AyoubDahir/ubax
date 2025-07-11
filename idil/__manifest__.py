@@ -107,6 +107,8 @@
         "views/customer_opening_balance.xml",
         "views/sales_receipt_bulk_payment.xml",
         "views/vendor_opening_balance.xml",
+        "views/product_opening_balance_views.xml",
+        "views/product_purchase_return.xml",
         "views/menu_hr.xml",
         "views/menu.xml",
     ],

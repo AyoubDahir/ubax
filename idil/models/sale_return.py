@@ -7,6 +7,7 @@ class SaleReturn(models.Model):
     _description = "Sale Return"
     _inherit = ["mail.thread", "mail.activity.mixin"]
 
+    name = fields.Char(string="Reference", default="New", readonly=True, copy=False)
     salesperson_id = fields.Many2one(
         "idil.sales.sales_personnel", string="Salesperson", required=True
     )
@@ -145,13 +146,19 @@ class SaleReturn(models.Model):
                 return_order.salesperson_id.account_receivable_id.currency_id
             )
 
+            trx_source = self.env["idil.transaction.source"].search(
+                [("name", "=", "Sales Return")], limit=1
+            )
+            if not trx_source:
+                raise UserError("Transaction source 'Sales Return' not found.")
+
             # Create a transaction booking for the return
             transaction_booking = self.env["idil.transaction_booking"].create(
                 {
                     "sales_person_id": return_order.salesperson_id.id,
                     "sale_return_id": return_order.id,
                     "sale_order_id": return_order.sale_order_id.id,  # Link to the original SaleOrder's ID
-                    "trx_source_id": 3,
+                    "trx_source_id": trx_source.id,
                     "Sales_order_number": return_order.sale_order_id.id,
                     "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
                     "payment_status": "pending",  # Assuming initial payment status; adjust as needed
@@ -292,6 +299,7 @@ class SaleReturn(models.Model):
                     {
                         "sales_person_id": return_order.salesperson_id.id,
                         "date": fields.Date.today(),
+                        "sale_return_id": return_order.id,
                         "order_id": return_order.sale_order_id.id,
                         "transaction_type": "in",  # Assuming 'out' for sales
                         "amount": subtotal + discount_amount + commission_amount,
@@ -302,6 +310,7 @@ class SaleReturn(models.Model):
                     {
                         "sales_person_id": return_order.salesperson_id.id,
                         "date": fields.Date.today(),
+                        "sale_return_id": return_order.id,
                         "order_id": return_order.sale_order_id.id,
                         "transaction_type": "in",  # Assuming 'out' for sales
                         "amount": commission_amount * -1,  # Negative for refund
@@ -312,6 +321,7 @@ class SaleReturn(models.Model):
                     {
                         "sales_person_id": return_order.salesperson_id.id,
                         "date": fields.Date.today(),
+                        "sale_return_id": return_order.id,
                         "order_id": return_order.sale_order_id.id,
                         "transaction_type": "in",  # Assuming 'out' for sales --
                         "amount": discount_amount * -1,  # Negative for refund
@@ -324,10 +334,12 @@ class SaleReturn(models.Model):
                         "movement_type": "in",
                         "quantity": return_line.returned_quantity,
                         "date": fields.Datetime.now(),
-                        "source_document": return_order.id,
+                        "source_document": return_order.name,
                         "sales_person_id": return_order.salesperson_id.id,
                     }
                 )
+                # ✅ Update product stock quantity (increase stock for returned products)
+                product.stock_quantity += return_line.returned_quantity
                 # Find the related sales receipt
             sales_receipt = self.env["idil.sales.receipt"].search(
                 [("sales_order_id", "=", return_order.sale_order_id.id)], limit=1
@@ -358,6 +370,317 @@ class SaleReturn(models.Model):
                     sales_receipt.payment_status = "paid"
                 else:
                     sales_receipt.payment_status = "pending"
+
+    def write(self, vals):
+        for record in self:
+            if record.state != "confirmed":
+                return super(SaleReturn, record).write(vals)
+
+            # 1. Capture old data
+            old_data = {
+                line.id: {"qty": line.returned_quantity, "subtotal": line.subtotal}
+                for line in record.return_lines
+            }
+            old_total_subtotal = sum(d["subtotal"] for d in old_data.values())
+
+            # 2. Perform write
+            result = super(SaleReturn, record).write(vals)
+
+            # 3. Adjust stock
+            for line in record.return_lines:
+                old_qty = old_data.get(line.id, {}).get("qty", 0.0)
+                delta_qty = line.returned_quantity - old_qty
+                if delta_qty and line.product_id:
+                    new_qty = line.product_id.stock_quantity + delta_qty
+                    line.product_id.sudo().write({"stock_quantity": new_qty})
+
+            # 4. Adjust receipt
+            receipt = self.env["idil.sales.receipt"].search(
+                [("sales_order_id", "=", record.sale_order_id.id)], limit=1
+            )
+
+            if receipt:
+                new_total_subtotal = sum(line.subtotal for line in record.return_lines)
+                total_discount = 0.0
+                total_commission = 0.0
+
+                for line in record.return_lines:
+                    product = line.product_id
+                    discount_qty = (
+                        product.discount / 100 * delta_qty
+                        if product.is_quantity_discount
+                        else 0.0
+                    )
+                    discount_amt = discount_qty * line.price_unit
+                    commission_amt = (
+                        (delta_qty - discount_qty)
+                        * product.commission
+                        * line.price_unit
+                    )
+                    total_discount += discount_amt
+                    total_commission += commission_amt
+
+                delta_amount = (
+                    new_total_subtotal
+                    - old_total_subtotal
+                    - total_discount
+                    - total_commission
+                )
+
+                receipt.due_amount -= delta_amount
+                receipt.paid_amount = min(receipt.paid_amount, receipt.due_amount)
+                receipt.remaining_amount = receipt.due_amount - receipt.paid_amount
+                receipt.payment_status = (
+                    "paid" if receipt.due_amount <= 0 else "pending"
+                )
+
+            # 5. Clear old records
+            self.env["idil.transaction_bookingline"].search(
+                [("sale_return_id", "=", record.id)]
+            ).unlink()
+
+            self.env["idil.salesperson.transaction"].search(
+                [("sale_return_id", "=", record.id)]
+            ).unlink()
+
+            self.env["idil.product.movement"].search(
+                [("source_document", "=", record.id), ("movement_type", "=", "in")]
+            ).unlink()
+
+            # 6. Re-book financials and movements
+            trx_source = self.env["idil.transaction.source"].search(
+                [("name", "=", "Sales Return")], limit=1
+            )
+            booking = self.env["idil.transaction_booking"].create(
+                {
+                    "sales_person_id": record.salesperson_id.id,
+                    "sale_return_id": record.id,
+                    "sale_order_id": record.sale_order_id.id,
+                    "trx_source_id": trx_source.id,
+                    "Sales_order_number": record.sale_order_id.id,
+                    "payment_method": "bank_transfer",
+                    "payment_status": "pending",
+                    "trx_date": fields.Date.context_today(self),
+                    "amount": sum(line.subtotal for line in record.return_lines),
+                }
+            )
+
+            for line in record.return_lines:
+                product = line.product_id
+                discount_qty = (
+                    product.discount / 100 * line.returned_quantity
+                    if product.is_quantity_discount
+                    else 0.0
+                )
+                discount_amt = discount_qty * line.price_unit
+                commission_amt = (
+                    (line.returned_quantity - discount_qty)
+                    * product.commission
+                    * line.price_unit
+                )
+                subtotal = (
+                    (line.returned_quantity * line.price_unit)
+                    - discount_amt
+                    - commission_amt
+                )
+                cost_amt = product.cost * line.returned_quantity * record.rate
+
+                # Booking lines
+                self.env["idil.transaction_bookingline"].create(
+                    {
+                        "transaction_booking_id": booking.id,
+                        "sale_return_id": record.id,
+                        "description": f"Sales Return COGS for {product.name}",
+                        "product_id": product.id,
+                        "account_number": product.account_cogs_id.id,
+                        "transaction_type": "cr",
+                        "cr_amount": cost_amt,
+                        "transaction_date": fields.Date.context_today(self),
+                    }
+                )
+                self.env["idil.transaction_bookingline"].create(
+                    {
+                        "transaction_booking_id": booking.id,
+                        "sale_return_id": record.id,
+                        "description": f"Sales Return Inventory for {product.name}",
+                        "product_id": product.id,
+                        "account_number": product.asset_account_id.id,
+                        "transaction_type": "dr",
+                        "dr_amount": cost_amt,
+                        "transaction_date": fields.Date.context_today(self),
+                    }
+                )
+                self.env["idil.transaction_bookingline"].create(
+                    {
+                        "transaction_booking_id": booking.id,
+                        "sale_return_id": record.id,
+                        "description": f"Sales Return Receivable for {product.name}",
+                        "product_id": product.id,
+                        "account_number": record.salesperson_id.account_receivable_id.id,
+                        "transaction_type": "cr",
+                        "cr_amount": subtotal,
+                        "transaction_date": fields.Date.context_today(self),
+                    }
+                )
+                self.env["idil.transaction_bookingline"].create(
+                    {
+                        "transaction_booking_id": booking.id,
+                        "sale_return_id": record.id,
+                        "description": f"Sales Return Revenue for {product.name}",
+                        "product_id": product.id,
+                        "account_number": product.income_account_id.id,
+                        "transaction_type": "dr",
+                        "dr_amount": subtotal + discount_amt + commission_amt,
+                        "transaction_date": fields.Date.context_today(self),
+                    }
+                )
+
+                if product.is_sales_commissionable and commission_amt > 0:
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_booking_id": booking.id,
+                            "sale_return_id": record.id,
+                            "description": f"Sales Return Commission for {product.name}",
+                            "product_id": product.id,
+                            "account_number": product.sales_account_id.id,
+                            "transaction_type": "cr",
+                            "cr_amount": commission_amt,
+                            "transaction_date": fields.Date.context_today(self),
+                        }
+                    )
+
+                if discount_amt > 0:
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_booking_id": booking.id,
+                            "sale_return_id": record.id,
+                            "description": f"Sales Return Discount for {product.name}",
+                            "product_id": product.id,
+                            "account_number": product.sales_discount_id.id,
+                            "transaction_type": "cr",
+                            "cr_amount": discount_amt,
+                            "transaction_date": fields.Date.context_today(self),
+                        }
+                    )
+
+                # Salesperson transactions
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": record.salesperson_id.id,
+                        "date": fields.Date.today(),
+                        "sale_return_id": record.id,
+                        "order_id": record.sale_order_id.id,
+                        "transaction_type": "in",
+                        "amount": subtotal + discount_amt + commission_amt,
+                        "description": f"Return Total for {product.name} (Qty {line.returned_quantity})",
+                    }
+                )
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": record.salesperson_id.id,
+                        "date": fields.Date.today(),
+                        "sale_return_id": record.id,
+                        "order_id": record.sale_order_id.id,
+                        "transaction_type": "in",
+                        "amount": -commission_amt,
+                        "description": f"Return Commission Reversal for {product.name}",
+                    }
+                )
+                self.env["idil.salesperson.transaction"].create(
+                    {
+                        "sales_person_id": record.salesperson_id.id,
+                        "date": fields.Date.today(),
+                        "sale_return_id": record.id,
+                        "order_id": record.sale_order_id.id,
+                        "transaction_type": "in",
+                        "amount": -discount_amt,
+                        "description": f"Return Discount Reversal for {product.name}",
+                    }
+                )
+
+                # Movement
+                self.env["idil.product.movement"].create(
+                    {
+                        "product_id": product.id,
+                        "movement_type": "in",
+                        "quantity": line.returned_quantity,
+                        "date": fields.Datetime.now(),
+                        "source_document": record.id,
+                        "sales_person_id": record.salesperson_id.id,
+                    }
+                )
+
+        return result
+
+    def unlink(self):
+        for record in self:
+            if record.state != "confirmed":
+                return super(SaleReturn, record).unlink()
+
+            # === 1. Reverse stock quantity ===
+            for line in record.return_lines:
+                if line.product_id and line.returned_quantity:
+                    new_qty = line.product_id.stock_quantity - line.returned_quantity
+                    line.product_id.sudo().write({"stock_quantity": new_qty})
+
+            # === 2. Adjust sales receipt ===
+            receipt = self.env["idil.sales.receipt"].search(
+                [("sales_order_id", "=", record.sale_order_id.id)], limit=1
+            )
+            if receipt:
+                total_subtotal = sum(line.subtotal for line in record.return_lines)
+                total_discount = 0.0
+                total_commission = 0.0
+
+                for line in record.return_lines:
+                    product = line.product_id
+                    discount_qty = (
+                        product.discount / 100 * line.returned_quantity
+                        if product.is_quantity_discount
+                        else 0.0
+                    )
+                    discount_amt = discount_qty * line.price_unit
+                    commission_amt = (
+                        (line.returned_quantity - discount_qty)
+                        * product.commission
+                        * line.price_unit
+                    )
+                    total_discount += discount_amt
+                    total_commission += commission_amt
+
+                return_amount = total_subtotal - total_discount - total_commission
+                receipt.due_amount += return_amount
+                receipt.remaining_amount = receipt.due_amount - receipt.paid_amount
+                receipt.payment_status = (
+                    "paid" if receipt.due_amount <= 0 else "pending"
+                )
+
+            # === 3. Delete related records ===
+            self.env["idil.transaction_bookingline"].search(
+                [("sale_return_id", "=", record.id)]
+            ).unlink()
+
+            self.env["idil.salesperson.transaction"].search(
+                [("sale_return_id", "=", record.id)]
+            ).unlink()
+
+            self.env["idil.product.movement"].search(
+                [("source_document", "=", record.id), ("movement_type", "=", "in")]
+            ).unlink()
+
+            self.env["idil.transaction_booking"].search(
+                [("sale_return_id", "=", record.id)]
+            ).unlink()
+
+        return super(SaleReturn, self).unlink()
+
+    @api.model
+    def create(self, vals):
+        if vals.get("name", "New") == "New":
+            vals["name"] = (
+                self.env["ir.sequence"].next_by_code("idil.sale.return") or "New"
+            )
+        return super(SaleReturn, self).create(vals)
 
 
 class SaleReturnLine(models.Model):

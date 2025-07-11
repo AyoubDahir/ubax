@@ -565,6 +565,7 @@ class Account(models.Model):
         ("kitchen", "kitchen"),
         ("Owners Equity", "Owners Equity"),
         ("Adjustment", "Adjustment"),
+        ("sales_expense", "Sales Expense"),
     ]
 
     code = fields.Char(string="Account Code", required=True, tracking=True)

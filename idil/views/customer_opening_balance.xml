@@ -40,6 +40,8 @@
                             <tree editable="bottom">
                                 <field name="customer_id"/>
                                 <field name="account_id" readonly="1"/>
+                                <field name="currency_id" readonly="1"/>
+                                
                                 <field name="amount" sum="Total Amount"/>
                             </tree>
                         </field>

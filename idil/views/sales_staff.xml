@@ -62,6 +62,9 @@
                 <field name="phone"/>
                 <field name="email"/>
                 <field name="address"/>
+                <field name="currency_id"/>
+                
+                <field name="due_amount" sum="total"/>
             </tree>
         </field>
     </record>

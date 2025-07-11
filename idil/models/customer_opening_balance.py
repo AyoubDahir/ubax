@@ -106,16 +106,12 @@ class CustomerOpeningBalance(models.Model):
                 "You must add at least one customer to set an opening balance."
             )
 
-        EquityAccount = record.env["idil.chart.account"].search(
-            [
-                ("account_type", "=", "Owners Equity"),
-                ("currency_id.name", "=", "USD"),
-            ],
-            limit=1,
+        EquityAccount = self.env["idil.chart.account"].search(
+            [("name", "=", "Opening Balance Account")], limit=1
         )
         if not EquityAccount:
             raise ValidationError(
-                "Owners Equity account not found. Please configure it."
+                "Opening Balance Account not found. Please configure it."
             )
 
         if record.rate <= 0:
@@ -297,190 +293,496 @@ class CustomerOpeningBalance(models.Model):
                     )
         return super().unlink()
 
+    # def write(self, vals):
+    #     for opening_balance in self:
+
+    #         for line in opening_balance.line_ids:
+    #             # 1. Prevent update if payment already received
+    #             receipt = self.env["idil.sales.receipt"].search(
+    #                 [
+    #                     ("customer_opening_balance_id", "=", line.id),
+    #                     ("paid_amount", ">", 0),
+    #                 ],
+    #                 limit=1,
+    #             )
+    #             if receipt:
+    #                 raise ValidationError(
+    #                     f"Cannot update opening balance for {line.customer_id.name}: payment already received."
+    #                 )
+
+    #             # 2. Prevent update if any OTHER sale order exists for this customer
+    #             other_sale_order = self.env["idil.customer.sale.order"].search(
+    #                 [
+    #                     ("customer_id", "=", line.customer_id.id),
+    #                     ("state", "=", "confirmed"),
+    #                     # Exclude this opening balance sale order
+    #                     ("customer_opening_balance_id", "!=", line.id),
+    #                 ],
+    #                 limit=1,
+    #             )
+    #             if other_sale_order:
+    #                 raise ValidationError(
+    #                     f"Cannot update opening balance for {line.customer_id.name}: "
+    #                     "another sale order already exists for this customer."
+    #                 )
+
+    #     res = super().write(vals)
+    #     for opening_balance in self:
+    #         for line in opening_balance.line_ids:
+    #             # 1. Update sale order
+    #             sale_order = self.env["idil.customer.sale.order"].search(
+    #                 [("customer_opening_balance_id", "=", line.id)], limit=1
+    #             )
+    #             if sale_order:
+    #                 sale_order.write(
+    #                     {
+    #                         "order_total": line.amount,
+    #                         "order_date": opening_balance.date,
+    #                         "balance_due": line.amount - sale_order.total_paid,
+    #                         "currency_id": opening_balance.currency_id.id,
+    #                         "rate": opening_balance.rate,
+    #                     }
+    #                 )
+    #                 # 2. Update order line
+    #                 order_line = self.env["idil.customer.sale.order.line"].search(
+    #                     [
+    #                         ("order_id", "=", sale_order.id),
+    #                         ("customer_opening_balance_line_id", "=", line.id),
+    #                     ],
+    #                     limit=1,
+    #                 )
+    #                 if order_line:
+    #                     order_line.write(
+    #                         {
+    #                             "cost_price": line.amount,
+    #                             "price_unit": line.amount,
+    #                             "quantity": 1,
+    #                             "subtotal": line.amount,  # computed if store=True
+    #                         }
+    #                     )
+
+    #             # 3. Update sales receipt
+    #             receipt = self.env["idil.sales.receipt"].search(
+    #                 [("customer_opening_balance_id", "=", line.id)], limit=1
+    #             )
+    #             if receipt:
+    #                 receipt.write(
+    #                     {
+    #                         "due_amount": line.amount,
+    #                         "remaining_amount": line.amount - receipt.paid_amount,
+    #                         "receipt_date": opening_balance.date,
+    #                     }
+    #                 )
+
+    #             # 4. Update transaction booking
+    #             booking = self.env["idil.transaction_booking"].search(
+    #                 [("customer_opening_balance_id", "=", line.id)], limit=1
+    #             )
+    #             if booking:
+    #                 booking.write(
+    #                     {
+    #                         "trx_date": opening_balance.date,
+    #                         "amount": line.amount,
+    #                         "remaining_amount": line.amount - booking.amount_paid,
+    #                     }
+    #                 )
+
+    #                 # === 5. Update clearing accounts in booking lines ===
+    #                 # Find the right clearing accounts based on updated currency/account
+    #                 source_clearing_account = self.env["idil.chart.account"].search(
+    #                     [
+    #                         ("name", "=", "Exchange Clearing Account"),
+    #                         ("currency_id", "=", line.account_id.currency_id.id),
+    #                     ],
+    #                     limit=1,
+    #                 )
+    #                 equity_account = self.env["idil.chart.account"].search(
+    #                     [
+    #                         ("account_type", "=", "Owners Equity"),
+    #                         ("currency_id.name", "=", "USD"),
+    #                     ],
+    #                     limit=1,
+    #                 )
+    #                 target_clearing_account = self.env["idil.chart.account"].search(
+    #                     [
+    #                         ("name", "=", "Exchange Clearing Account"),
+    #                         ("currency_id", "=", equity_account.currency_id.id),
+    #                     ],
+    #                     limit=1,
+    #                 )
+    #                 cost_amount_usd = line.amount / (opening_balance.rate or 1.0)
+
+    #                 for booking_line in booking.booking_lines:
+    #                     # 1. Receivable line (DR)
+    #                     if (
+    #                         booking_line.transaction_type == "dr"
+    #                         and booking_line.account_number.id == line.account_id.id
+    #                     ):
+    #                         booking_line.write(
+    #                             {
+    #                                 "dr_amount": line.amount,
+    #                                 "cr_amount": 0,
+    #                                 "transaction_date": opening_balance.date,
+    #                                 "account_number": line.account_id.id,
+    #                             }
+    #                         )
+    #                     # 2. Source clearing account (CR, local)
+    #                     elif (
+    #                         booking_line.transaction_type == "cr"
+    #                         and booking_line.account_number.name
+    #                         == "Exchange Clearing Account"
+    #                         and booking_line.account_number.currency_id.id
+    #                         == line.account_id.currency_id.id
+    #                     ):
+    #                         booking_line.write(
+    #                             {
+    #                                 "cr_amount": line.amount,
+    #                                 "dr_amount": 0,
+    #                                 "transaction_date": opening_balance.date,
+    #                                 "account_number": source_clearing_account.id,
+    #                             }
+    #                         )
+    #                     # 3. Owners equity (CR, USD)
+    #                     elif (
+    #                         booking_line.transaction_type == "cr"
+    #                         and booking_line.account_number.account_type
+    #                         == "Owners Equity"
+    #                     ):
+    #                         booking_line.write(
+    #                             {
+    #                                 "cr_amount": cost_amount_usd,
+    #                                 "dr_amount": 0,
+    #                                 "transaction_date": opening_balance.date,
+    #                                 "account_number": equity_account.id,
+    #                             }
+    #                         )
+    #                     # 4. Target clearing account (DR, USD)
+    #                     elif (
+    #                         booking_line.transaction_type == "dr"
+    #                         and booking_line.account_number.name
+    #                         == "Exchange Clearing Account"
+    #                         and booking_line.account_number.currency_id.id
+    #                         == equity_account.currency_id.id
+    #                     ):
+    #                         booking_line.write(
+    #                             {
+    #                                 "dr_amount": cost_amount_usd,
+    #                                 "cr_amount": 0,
+    #                                 "transaction_date": opening_balance.date,
+    #                                 "account_number": target_clearing_account.id,
+    #                             }
+    #                         )
+    #                     # All other lines (just update date for completeness)
+    #                     else:
+    #                         booking_line.write(
+    #                             {"transaction_date": opening_balance.date}
+    #                         )
+    #     return res
+
     def write(self, vals):
         for opening_balance in self:
+            # Save old line IDs and amounts before write
+            old_line_ids = set(opening_balance.line_ids.ids)
+            old_amounts = {line.id: line.amount for line in opening_balance.line_ids}
+
+        res = super().write(vals)
+
+        for opening_balance in self:
+            trx_source = self.env["idil.transaction.source"].search(
+                [("name", "=", "customer opening balance")], limit=1
+            )
+            equity_account = self.env["idil.chart.account"].search(
+                [("name", "=", "Opening Balance Account")], limit=1
+            )
+
+            if not trx_source or not equity_account:
+                raise ValidationError(
+                    "Missing transaction source or opening balance account."
+                )
 
             for line in opening_balance.line_ids:
-                # 1. Prevent update if payment already received
-                receipt = self.env["idil.sales.receipt"].search(
+                is_new = line.id not in old_line_ids
+                old_amount = old_amounts.get(line.id)
+                amount_changed = old_amount is not None and old_amount != line.amount
+
+                # === Prevent update if payment already received ===
+                receipt_check = self.env["idil.sales.receipt"].search(
                     [
                         ("customer_opening_balance_id", "=", line.id),
                         ("paid_amount", ">", 0),
                     ],
                     limit=1,
                 )
-                if receipt:
+                if not is_new and receipt_check:
                     raise ValidationError(
                         f"Cannot update opening balance for {line.customer_id.name}: payment already received."
                     )
 
-                # 2. Prevent update if any OTHER sale order exists for this customer
-                other_sale_order = self.env["idil.customer.sale.order"].search(
+                # === Prevent update if other sale order exists ===
+                other_so_check = self.env["idil.customer.sale.order"].search(
                     [
                         ("customer_id", "=", line.customer_id.id),
                         ("state", "=", "confirmed"),
-                        # Exclude this opening balance sale order
                         ("customer_opening_balance_id", "!=", line.id),
                     ],
                     limit=1,
                 )
-                if other_sale_order:
+                if not is_new and other_so_check:
                     raise ValidationError(
-                        f"Cannot update opening balance for {line.customer_id.name}: "
-                        "another sale order already exists for this customer."
+                        f"Cannot update opening balance for {line.customer_id.name}: another sale order already exists."
                     )
 
-        res = super().write(vals)
-        for opening_balance in self:
-            for line in opening_balance.line_ids:
-                # 1. Update sale order
-                sale_order = self.env["idil.customer.sale.order"].search(
-                    [("customer_opening_balance_id", "=", line.id)], limit=1
-                )
-                if sale_order:
-                    sale_order.write(
-                        {
-                            "order_total": line.amount,
-                            "order_date": opening_balance.date,
-                            "balance_due": line.amount - sale_order.total_paid,
-                            "currency_id": opening_balance.currency_id.id,
-                            "rate": opening_balance.rate,
-                        }
-                    )
-                    # 2. Update order line
-                    order_line = self.env["idil.customer.sale.order.line"].search(
-                        [
-                            ("order_id", "=", sale_order.id),
-                            ("customer_opening_balance_line_id", "=", line.id),
-                        ],
-                        limit=1,
-                    )
-                    if order_line:
-                        order_line.write(
-                            {
-                                "cost_price": line.amount,
-                                "price_unit": line.amount,
-                                "quantity": 1,
-                                "subtotal": line.amount,  # computed if store=True
-                            }
-                        )
-
-                # 3. Update sales receipt
-                receipt = self.env["idil.sales.receipt"].search(
-                    [("customer_opening_balance_id", "=", line.id)], limit=1
-                )
-                if receipt:
-                    receipt.write(
-                        {
-                            "due_amount": line.amount,
-                            "remaining_amount": line.amount - receipt.paid_amount,
-                            "receipt_date": opening_balance.date,
-                        }
-                    )
-
-                # 4. Update transaction booking
-                booking = self.env["idil.transaction_booking"].search(
-                    [("customer_opening_balance_id", "=", line.id)], limit=1
-                )
-                if booking:
-                    booking.write(
-                        {
-                            "trx_date": opening_balance.date,
-                            "amount": line.amount,
-                            "remaining_amount": line.amount - booking.amount_paid,
-                        }
-                    )
-
-                    # === 5. Update clearing accounts in booking lines ===
-                    # Find the right clearing accounts based on updated currency/account
-                    source_clearing_account = self.env["idil.chart.account"].search(
+                # === NEW LINE PROCESSING ===
+                if is_new:
+                    source_clearing = self.env["idil.chart.account"].search(
                         [
                             ("name", "=", "Exchange Clearing Account"),
                             ("currency_id", "=", line.account_id.currency_id.id),
                         ],
                         limit=1,
                     )
-                    equity_account = self.env["idil.chart.account"].search(
-                        [
-                            ("account_type", "=", "Owners Equity"),
-                            ("currency_id.name", "=", "USD"),
-                        ],
-                        limit=1,
-                    )
-                    target_clearing_account = self.env["idil.chart.account"].search(
+                    target_clearing = self.env["idil.chart.account"].search(
                         [
                             ("name", "=", "Exchange Clearing Account"),
                             ("currency_id", "=", equity_account.currency_id.id),
                         ],
                         limit=1,
                     )
-                    cost_amount_usd = line.amount / (opening_balance.rate or 1.0)
 
-                    for booking_line in booking.booking_lines:
-                        # 1. Receivable line (DR)
-                        if (
-                            booking_line.transaction_type == "dr"
-                            and booking_line.account_number.id == line.account_id.id
-                        ):
-                            booking_line.write(
+                    if not source_clearing or not target_clearing:
+                        raise ValidationError(
+                            "Clearing accounts not configured properly."
+                        )
+
+                    cost_usd = line.amount / (opening_balance.rate or 1.0)
+
+                    booking = self.env["idil.transaction_booking"].create(
+                        {
+                            "trx_date": opening_balance.date,
+                            "reffno": opening_balance.name,
+                            "payment_status": "pending",
+                            "payment_method": "opening_balance",
+                            "amount": line.amount,
+                            "amount_paid": 0.0,
+                            "remaining_amount": line.amount,
+                            "trx_source_id": trx_source.id,
+                            "customer_id": line.customer_id.id,
+                            "customer_opening_balance_id": line.id,
+                        }
+                    )
+
+                    self.env["idil.transaction_bookingline"].create(
+                        [
+                            {
+                                "transaction_booking_id": booking.id,
+                                "customer_opening_balance_id": line.id,
+                                "account_number": line.account_id.id,
+                                "transaction_type": "dr",
+                                "dr_amount": line.amount,
+                                "cr_amount": 0,
+                                "transaction_date": opening_balance.date,
+                                "description": f"Opening Balance for {line.customer_id.name}",
+                            },
+                            {
+                                "transaction_booking_id": booking.id,
+                                "customer_opening_balance_id": line.id,
+                                "account_number": source_clearing.id,
+                                "transaction_type": "cr",
+                                "dr_amount": 0,
+                                "cr_amount": line.amount,
+                                "transaction_date": opening_balance.date,
+                                "description": f"Opening Balance for {line.customer_id.name}",
+                            },
+                            {
+                                "transaction_booking_id": booking.id,
+                                "customer_opening_balance_id": line.id,
+                                "account_number": equity_account.id,
+                                "transaction_type": "cr",
+                                "dr_amount": 0,
+                                "cr_amount": cost_usd,
+                                "transaction_date": opening_balance.date,
+                                "description": f"Opening Balance for {line.customer_id.name}",
+                            },
+                            {
+                                "transaction_booking_id": booking.id,
+                                "customer_opening_balance_id": line.id,
+                                "account_number": target_clearing.id,
+                                "transaction_type": "dr",
+                                "dr_amount": cost_usd,
+                                "cr_amount": 0,
+                                "transaction_date": opening_balance.date,
+                                "description": f"Opening Balance for {line.customer_id.name}",
+                            },
+                        ]
+                    )
+
+                    self.env["idil.sales.receipt"].create(
+                        {
+                            "customer_id": line.customer_id.id,
+                            "due_amount": line.amount,
+                            "paid_amount": 0.0,
+                            "remaining_amount": line.amount,
+                            "receipt_date": opening_balance.date,
+                            "customer_opening_balance_id": line.id,
+                        }
+                    )
+
+                    sale_order = self.env["idil.customer.sale.order"].create(
+                        {
+                            "name": f"OB-{opening_balance.name}-{line.customer_id.name}",
+                            "customer_id": line.customer_id.id,
+                            "order_date": opening_balance.date,
+                            "account_number": line.account_id.id,
+                            "state": "confirmed",
+                            "currency_id": opening_balance.currency_id.id,
+                            "rate": opening_balance.rate,
+                            "customer_opening_balance_id": line.id,
+                            "order_total": line.amount,
+                            "total_paid": 0.0,
+                            "balance_due": line.amount,
+                        }
+                    )
+                    opening_balance.customer_sale_order_id = sale_order.id
+
+                    self.env["idil.customer.sale.order.line"].create(
+                        {
+                            "order_id": sale_order.id,
+                            "product_id": False,
+                            "quantity": 1,
+                            "cost_price": line.amount,
+                            "price_unit": line.amount,
+                            "customer_opening_balance_line_id": line.id,
+                        }
+                    )
+
+                # === EXISTING LINE UPDATE ===
+                elif amount_changed:
+                    cost_usd = line.amount / (opening_balance.rate or 1.0)
+
+                    sale_order = self.env["idil.customer.sale.order"].search(
+                        [("customer_opening_balance_id", "=", line.id)], limit=1
+                    )
+                    if sale_order:
+                        sale_order.write(
+                            {
+                                "order_total": line.amount,
+                                "order_date": opening_balance.date,
+                                "balance_due": line.amount - sale_order.total_paid,
+                                "currency_id": opening_balance.currency_id.id,
+                                "rate": opening_balance.rate,
+                            }
+                        )
+                        order_line = self.env["idil.customer.sale.order.line"].search(
+                            [
+                                ("order_id", "=", sale_order.id),
+                                ("customer_opening_balance_line_id", "=", line.id),
+                            ],
+                            limit=1,
+                        )
+                        if order_line:
+                            order_line.write(
                                 {
-                                    "dr_amount": line.amount,
-                                    "cr_amount": 0,
-                                    "transaction_date": opening_balance.date,
-                                    "account_number": line.account_id.id,
+                                    "cost_price": line.amount,
+                                    "price_unit": line.amount,
+                                    "quantity": 1,
                                 }
                             )
-                        # 2. Source clearing account (CR, local)
-                        elif (
-                            booking_line.transaction_type == "cr"
-                            and booking_line.account_number.name
-                            == "Exchange Clearing Account"
-                            and booking_line.account_number.currency_id.id
-                            == line.account_id.currency_id.id
-                        ):
-                            booking_line.write(
-                                {
-                                    "cr_amount": line.amount,
-                                    "dr_amount": 0,
-                                    "transaction_date": opening_balance.date,
-                                    "account_number": source_clearing_account.id,
-                                }
-                            )
-                        # 3. Owners equity (CR, USD)
-                        elif (
-                            booking_line.transaction_type == "cr"
-                            and booking_line.account_number.account_type
-                            == "Owners Equity"
-                        ):
-                            booking_line.write(
-                                {
-                                    "cr_amount": cost_amount_usd,
-                                    "dr_amount": 0,
-                                    "transaction_date": opening_balance.date,
-                                    "account_number": equity_account.id,
-                                }
-                            )
-                        # 4. Target clearing account (DR, USD)
-                        elif (
-                            booking_line.transaction_type == "dr"
-                            and booking_line.account_number.name
-                            == "Exchange Clearing Account"
-                            and booking_line.account_number.currency_id.id
-                            == equity_account.currency_id.id
-                        ):
-                            booking_line.write(
-                                {
-                                    "dr_amount": cost_amount_usd,
-                                    "cr_amount": 0,
-                                    "transaction_date": opening_balance.date,
-                                    "account_number": target_clearing_account.id,
-                                }
-                            )
-                        # All other lines (just update date for completeness)
-                        else:
-                            booking_line.write(
-                                {"transaction_date": opening_balance.date}
-                            )
+
+                    receipt = self.env["idil.sales.receipt"].search(
+                        [("customer_opening_balance_id", "=", line.id)], limit=1
+                    )
+                    if receipt:
+                        receipt.write(
+                            {
+                                "due_amount": line.amount,
+                                "remaining_amount": line.amount - receipt.paid_amount,
+                                "receipt_date": opening_balance.date,
+                            }
+                        )
+
+                    booking = self.env["idil.transaction_booking"].search(
+                        [("customer_opening_balance_id", "=", line.id)], limit=1
+                    )
+                    if booking:
+                        booking.write(
+                            {
+                                "trx_date": opening_balance.date,
+                                "amount": line.amount,
+                                "remaining_amount": line.amount - booking.amount_paid,
+                            }
+                        )
+
+                        source_clearing = self.env["idil.chart.account"].search(
+                            [
+                                ("name", "=", "Exchange Clearing Account"),
+                                ("currency_id", "=", line.account_id.currency_id.id),
+                            ],
+                            limit=1,
+                        )
+                        target_clearing = self.env["idil.chart.account"].search(
+                            [
+                                ("name", "=", "Exchange Clearing Account"),
+                                ("currency_id", "=", equity_account.currency_id.id),
+                            ],
+                            limit=1,
+                        )
+
+                        for booking_line in booking.booking_lines:
+                            if (
+                                booking_line.transaction_type == "dr"
+                                and booking_line.account_number.id == line.account_id.id
+                            ):
+                                booking_line.write(
+                                    {
+                                        "dr_amount": line.amount,
+                                        "cr_amount": 0,
+                                        "transaction_date": opening_balance.date,
+                                    }
+                                )
+                            elif (
+                                booking_line.transaction_type == "cr"
+                                and booking_line.account_number.name
+                                == "Exchange Clearing Account"
+                                and booking_line.account_number.currency_id.id
+                                == line.account_id.currency_id.id
+                            ):
+                                booking_line.write(
+                                    {
+                                        "cr_amount": line.amount,
+                                        "dr_amount": 0,
+                                        "transaction_date": opening_balance.date,
+                                        "account_number": source_clearing.id,
+                                    }
+                                )
+                            elif (
+                                booking_line.transaction_type == "cr"
+                                and booking_line.account_number.name
+                                == "Opening Balance Account"
+                            ):
+                                booking_line.write(
+                                    {
+                                        "cr_amount": cost_usd,
+                                        "dr_amount": 0,
+                                        "transaction_date": opening_balance.date,
+                                        "account_number": equity_account.id,
+                                    }
+                                )
+                            elif (
+                                booking_line.transaction_type == "dr"
+                                and booking_line.account_number.name
+                                == "Exchange Clearing Account"
+                                and booking_line.account_number.currency_id.id
+                                == equity_account.currency_id.id
+                            ):
+                                booking_line.write(
+                                    {
+                                        "dr_amount": cost_usd,
+                                        "cr_amount": 0,
+                                        "transaction_date": opening_balance.date,
+                                        "account_number": target_clearing.id,
+                                    }
+                                )
+
         return res
 
 
@@ -501,6 +803,13 @@ class CustomerOpeningBalanceLine(models.Model):
 
     account_id = fields.Many2one(
         "idil.chart.account", string="Account", readonly=True, store=True
+    )
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Account Currency",
+        related="account_id.currency_id",
+        readonly=True,
+        store=True,
     )
 
     amount = fields.Float(string="Opening Amount", required=True)

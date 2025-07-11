@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- Tree View -->
+    <record id="view_product_purchase_return_tree" model="ir.ui.view">
+        <field name="name">product.purchase.return.tree</field>
+        <field name="model">idil.product.purchase_return</field>
+        
+        <field name="arch" type="xml">
+            <tree string="Product Purchase Returns">
+                <field name="name"/>
+                <field name="vendor_id"/>
+                <field name="original_order_id"/>
+                <field name="return_date"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_product_purchase_return_form" model="ir.ui.view">
+        <field name="name">product.purchase.return.form</field>
+        <field name="model">idil.product.purchase_return</field>
+        <field name="arch" type="xml">
+            <form string="Product Purchase Return">
+                <header>
+                    <button name="action_process_return" type="object" string="Process Return" />
+                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,cancel"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="vendor_id"/>
+                        <field name="original_order_id"/>
+                        <field name="return_date"/>
+                    </group>
+                    <notebook>
+                        <page string="Return Lines">
+                            <field name="return_lines">
+                                <tree editable="bottom">
+                                
+                                    <field name="order_line_id"/>
+                                    <field name="product_id"/>
+                                    <field name="original_qty"/>
+                                    <field name="return_qty"/>
+                                    <field name="cost_price"/>
+                                    <field name="amount" sum="sum"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_product_purchase_return" model="ir.actions.act_window">
+        <field name="name">Product Purchase Returns</field>
+        <field name="res_model">idil.product.purchase_return</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first product purchase return
+            </p>
+        </field>
+    </record>
+
+   
+
+</odoo>

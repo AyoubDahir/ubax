@@ -40,6 +40,7 @@
                         <!-- Source Account Information -->
                         <group string="Source Account"
                                style="flex: 1; border: 1px solid #d3d3d3; margin: 5px; padding: 10px;">
+                               <field name="sourcecy_currency_id" widget="selection"/>
                             <field name="source_account_id" widget="many2one"/>
                             <field name="source_currency_id" readonly="1" widget="selection"/>
                             <field name="source_account_balance" readonly="1" widget="monetary"/>
@@ -47,6 +48,7 @@
                         <!-- Target Account Information -->
                         <group string="Target Account"
                                style="flex: 1; border: 1px solid #d3d3d3; margin: 5px; padding: 10px;">
+                            <field name="targetcy_currency_id" widget="selection"/>
                             <field name="target_account_id" widget="many2one"/>
                             <field name="target_currency_id" readonly="1" widget="selection"/>
                             <field name="target_account_balance" readonly="1" widget="monetary"/>
@@ -57,6 +59,8 @@
                     <group string="Transaction Details" style="border: 1px solid #d3d3d3; margin: 5px; padding: 10px;">
                         <field name="amount" widget="monetary"/>
                         <field name="exchange_rate" widget="float" options="{'digits': (12, 4)}"/>
+                        
+                        <field name="currencycy_id" readonly="1"/>
                     </group>
                 </sheet>
             </form>

@@ -307,6 +307,11 @@ class ProductPurchaseOrderLine(models.Model):
                     "movement_type": "in",
                     "product_purchase_order_id": order.id,
                     "quantity": line.quantity,
+                    "source_document": "vendor",
+                    "destination": "Inventory",
+                    "vendor_id": order.vendor_id.id,
+                    "related_document": f"idil.product.purchase.order.line,{line.id}",
+                    "transaction_number": transaction_number,
                     "date": order.purchase_date,
                     "source_document": order.name,
                 }
@@ -316,6 +321,25 @@ class ProductPurchaseOrderLine(models.Model):
 
     def write(self, vals):
         for record in self:
+            # ✅   # Check if this line is referenced in any purchase return (that is not cancelled)
+            related_returns = self.env["idil.product.purchase_return"].search(
+                [
+                    ("return_lines.order_line_id", "=", record.id),
+                    ("state", "!=", "cancel"),
+                ]
+            )
+
+            if related_returns:
+                return_info = "\n".join(
+                    f"- Return: {ret.name}, Date: {ret.return_date}"
+                    for ret in related_returns
+                )
+                raise ValidationError(
+                    f"Cannot update this purchase line because it is referenced in the following Purchase Return(s):\n\n"
+                    f"{return_info}\n\n"
+                    "To update this line, please delete the related purchase return(s) first."
+                )
+
             old_quantity = record.quantity
             old_cost = record.cost_price
             # Get new quantity (if changed)

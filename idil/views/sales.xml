@@ -10,6 +10,11 @@
                 <field name="name"/>
                 <field name="sales_person_id"/>
                 <field name="order_date"/>
+                <field name="total_returned_qty" sum="total" readonly="1"/>
+
+                <field name="total_due_usd" sum="total"/>
+                <field name="total_commission_usd" sum="total"/>
+                <field name="total_discount_usd" sum="total"/>
                 <field name="order_total" sum="total"/>
                 <field name="currency_id"/>
                 <field name="rate"/>
@@ -71,15 +76,22 @@
             <form>
                 <sheet>
                     <group>
-
-                        <!-- Corrected invisible attributes -->
                         <field name="name"/>
                         <field name="sales_person_id"/>
-                        <field name="order_date"/>
-                        <field name="commission_amount"/>
-                        <field name="currency_id"/>
-                        <field name="rate"/>
-                        <field name="state" readonly="1"/>
+                    </group>
+                   <group>
+                        <group>
+                            <field name="order_date"/>
+                            <field name="commission_amount"/>
+                            <field name="currency_id"/>
+                            <field name="rate"/>
+                            <field name="state" readonly="1"/>
+                        </group>
+                        <group string="USD Totals">
+                            <field name="total_due_usd"/>
+                            <field name="total_commission_usd"/>
+                            <field name="total_discount_usd"/>
+                        </group>
                     </group>
                     <notebook>
                         <page string="Order Lines">
@@ -97,6 +109,8 @@
                                     <field name="quantity_diff" readonly="1"
                                            help="This field automatically calculates and displays the variance between the planned (Demand) and the actual quantity used. A positive value indicates a surplus in the planned quantity, while a negative value suggests a shortfall."/>
                                     <field name="discount_quantity"/>
+                                    <field name="returned_quantity" readonly="1"/>
+
 
                                     <field name="price_unit"/>
 

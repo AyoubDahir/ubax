@@ -165,6 +165,11 @@ class TransactionBooking(models.Model):
         string="Purchase Return",
         ondelete="cascade",
     )
+    product_return_id = fields.Many2one(
+        "idil.product.purchase_return",
+        string="Purchase Return",
+        ondelete="cascade",
+    )
     bulk_payment_id = fields.Many2one(
         "idil.vendor.bulk.payment", string="Related Bulk Payment", ondelete="cascade"
     )
@@ -187,6 +192,15 @@ class TransactionBooking(models.Model):
         "idil.customer.sale.return.line",
         string="Customer Sales Return",
         ondelete="cascade",
+    )
+    currency_exchange_id = fields.Many2one(
+        "idil.currency.exchange", string="Currency Exchange", ondelete="cascade"
+    )
+    product_opening_balance_id = fields.Many2one(
+        "my_product.opening.balance",
+        string="Product Opening Balance",
+        ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
+        index=True,
     )
 
     @api.constrains("amount_paid")
@@ -469,6 +483,17 @@ class TransactionBookingline(models.Model):
         "idil.customer.sale.return.line",
         string="Customer Sales Return",
         ondelete="cascade",
+    )
+    product_return_id = fields.Many2one(
+        "idil.product.purchase_return",
+        string="Purchase Return",
+        ondelete="cascade",
+    )
+    product_opening_balance_id = fields.Many2one(
+        "my_product.opening.balance",
+        string="Product Opening Balance",
+        ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
+        index=True,
     )
 
     @api.depends("account_number")

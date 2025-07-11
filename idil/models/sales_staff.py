@@ -37,6 +37,22 @@ class SalesPersonnel(models.Model):
     transaction_ids = fields.One2many(
         "idil.salesperson.transaction", "sales_person_id", string="Transactions"
     )
+    due_amount = fields.Float(
+        string="Due Amount",
+        compute="_compute_due_amount",
+        store=False,  # Set to True only if you want to store it permanently
+    )
+
+    @api.depends("transaction_ids.amount", "transaction_ids.transaction_type")
+    def _compute_due_amount(self):
+        for person in self:
+            total_in = sum(
+                t.amount for t in person.transaction_ids if t.transaction_type == "in"
+            )
+            total_out = sum(
+                t.amount for t in person.transaction_ids if t.transaction_type == "out"
+            )
+            person.due_amount = total_out - total_in
 
     @api.onchange("currency_id")
     def _onchange_currency_id(self):
@@ -202,6 +218,11 @@ class SalespersonTransaction(models.Model):
     sales_opening_balance_id = fields.Many2one(
         "idil.sales.opening.balance",
         string="Opening Balance",
+        ondelete="cascade",
+    )
+    sale_return_id = fields.Many2one(
+        "idil.sale.return",
+        string="Sales Return",
         ondelete="cascade",
     )
 

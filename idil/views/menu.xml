@@ -73,9 +73,16 @@
                                         sequence="3"/>
 
                         <menuitem id="menu_purchase_return" 
-                                name="Purchase Returns" 
+                                name="Item Purchase Returns" 
                                 parent="menu_purchase" 
-                                action="action_purchase_return"/>
+                                action="action_purchase_return"
+                                sequence="4"/>
+
+                        <menuitem id="menu_product_purchase_return" 
+                                name="Product Purchase Returns"
+                                parent="menu_purchase" 
+                                sequence="5"
+                                action="action_product_purchase_return"/>
 
                 <menuitem id="menu_inventory"
                         name="Inventory Managment"
@@ -359,12 +366,21 @@
                                                         action="action_item_opening_balance"
                                                         parent="menu_opening_balances"
                                                         sequence="3"/>
+                                                
+                                                <menuitem id="menu_my_product_opening_balance"
+                                                        name="Product Opening Balance"
+                                                        parent="menu_opening_balances"
+                                                        action="action_my_product_opening_balance"
+                                                        sequence="4"/>
 
                                         <menuitem id="menu_sales_opening_balance" 
                                                         name="Sales Opening Balance" 
                                                         parent="menu_opening_balances" 
-                                                        sequence="4"
+                                                        sequence="5"
                                                         action="action_sales_opening_balance"/>
+                                                         
+
+                                        
 
 
 

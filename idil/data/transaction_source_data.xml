@@ -70,6 +70,18 @@
             <field name="name">vendor opening balance</field>
             <field name="description">vendor opening balance</field>
         </record>
+         <record id="trx_source_manual_product_purchase_return" model="idil.transaction.source">
+            <field name="name">Product Purchase Return</field>
+            <field name="description">Product Purchase Return</field>
+        </record>
+        <record id="trx_source_manual_product_opening_balance" model="idil.transaction.source">
+            <field name="name">Product Opening Balance</field>
+            <field name="description">Product Opening Balance</field>
+        </record>
+         <record id="trx_source_sales_return" model="idil.transaction.source">
+            <field name="name">Sales Return</field>
+            <field name="description">Sales Return</field>
+        </record>
 
 
         <!-- Add more records as needed -->

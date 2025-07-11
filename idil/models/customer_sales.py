@@ -561,11 +561,6 @@ class CustomerSaleOrder(models.Model):
                     )
                     booking_lines.unlink()
 
-            # 4. Delete sales receipt
-            self.env["idil.sales.receipt"].search(
-                [("cusotmer_sale_order_id", "=", order.id)]
-            ).unlink()
-
             # 5. Delete transaction booking if it exists
             booking = self.env["idil.transaction_booking"].search(
                 [("cusotmer_sale_order_id", "=", order.id)], limit=1
@@ -573,7 +568,14 @@ class CustomerSaleOrder(models.Model):
             if booking:
                 booking.unlink()
 
-        return super(CustomerSaleOrder, self).unlink()
+            res = super(CustomerSaleOrder, self).unlink()
+
+            # 4. Delete sales receipt
+            self.env["idil.sales.receipt"].search(
+                [("cusotmer_sale_order_id", "=", order.id)]
+            ).unlink()
+
+            return res
 
 
 class CustomerSaleOrderLine(models.Model):

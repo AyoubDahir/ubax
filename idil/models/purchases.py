@@ -483,6 +483,25 @@ class PurchaseOrder(models.Model):
 
     def write(self, vals):
         for order in self:
+            # ✅ Check if this line is referenced in any purchase return (that is not cancelled)
+            related_returns = self.env["idil.purchase_return"].search(
+                [
+                    ("original_order_id", "=", self.id),
+                    ("state", "!=", "cancel"),
+                ]
+            )
+
+            if related_returns:
+                return_info = "\n".join(
+                    f"- Return: {related_returns.name}, Date: {related_returns.return_date}"
+                    for ret in related_returns
+                )
+                raise ValidationError(
+                    f"Cannot update this purchase line because it is referenced in the following Purchase Return(s):\n\n"
+                    f"{return_info}\n\n"
+                    "To update this line, please delete the related purchase return(s) first."
+                )
+
             # ❌ Block update if payments exist
             vendor_transactions = self.env["idil.vendor_transaction"].search(
                 [("order_number", "=", order.id)]
