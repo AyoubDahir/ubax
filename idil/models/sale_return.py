@@ -637,6 +637,20 @@ class SaleReturn(models.Model):
             if record.state != "confirmed":
                 return super(SaleReturn, record).unlink()
 
+            # 🔒 Block deletion if receipt has amount_paid > 0
+            receipt = self.env["idil.sales.receipt"].search(
+                [
+                    ("sales_order_id", "=", record.sale_order_id.id),
+                    ("amount_paid", ">", 0),
+                ],
+                limit=1,
+            )
+            if receipt:
+                raise ValidationError(
+                    f"⚠️ You cannot delete this sales return '{record.name}' because a payment of "
+                    f"{receipt.amount_paid:.2f} has already been received on the related sales order."
+                )
+
             # === 1. Reverse stock quantity ===
             for line in record.return_lines:
                 if line.product_id and line.returned_quantity:
