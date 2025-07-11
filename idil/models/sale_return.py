@@ -648,7 +648,7 @@ class SaleReturn(models.Model):
             if receipt:
                 raise ValidationError(
                     f"⚠️ You cannot delete this sales return '{record.name}' because a payment of "
-                    f"{receipt.amount_paid:.2f} has already been received on the related sales order."
+                    f"{receipt.paid_amount:.2f} has already been received on the related sales order."
                 )
 
             # === 1. Reverse stock quantity ===
