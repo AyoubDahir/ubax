@@ -49,7 +49,7 @@
                     <notebook>
                         <page string="Return Lines">
                             <field name="return_lines" context="{'default_return_id': id}">
-                                <tree editable="bottom">
+                                <tree editable="bottom" create="0">
                                     <field name="product_id" required="1"/>
                                     <field name="quantity"  sum="total"  string="Original Quantity" readonly="1" force_save="1"/>
                                     <field name="previously_returned_qty"   sum="total"  readonly="1"/>
