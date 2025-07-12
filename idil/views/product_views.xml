@@ -9,15 +9,22 @@
             <field name="model">my_product.product</field>
             <field name="arch" type="xml">
                 <tree string="view_product_tree" delete="False" decoration-danger="stock_quantity &lt; 10">
+                   <field name="image_1920" widget="image" options="{'size': (20, 20)}"/>
                     <field name="name"/>
-                    <field name="internal_reference"/>
-                    <field name="stock_quantity" readonly="1"/>
-                    <field name="category_id"/>
-                    <field name="detailed_type"/>
-                    <field name="sale_price"/>
-                    <field name="is_commissionable"/>
+                    <field name="internal_reference" optional="show"/>
+                    
+                    <field name="rate_currency_id" optional="show"/>
+                    <field name="rate" optional="show"/>
 
-                    <field name="account_id"/>
+                    <field name="stock_quantity" readonly="1" optional="show"/>
+                    <field name="category_id" optional="show"/>
+                    <field name="detailed_type" optional="show"/>
+                    <field name="sale_price" optional="show"/>
+                    <field name="usd_currency_id" optional="show"/>
+                    <field name="total_value_usd" sum="total" optional="show"/>
+                    <field name="is_commissionable" optional="show"/>
+
+                    <field name="account_id" optional="show"/>
 
 
                 </tree>

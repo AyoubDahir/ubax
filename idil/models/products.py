@@ -164,6 +164,79 @@ class Product(models.Model):
     start_date = fields.Datetime(string="Start Date")
     end_date = fields.Datetime(string="End Date")
 
+    total_value_usd = fields.Monetary(
+        string="Total Value (USD)",
+        currency_field="usd_currency_id",
+        compute="_compute_total_value_usd",
+        store=False,  # ← now it will auto-refresh in UI
+    )
+
+    usd_currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency for Total Value (USD) ",
+        compute="_compute_usd_currency",
+        store=False,
+    )
+    rate_currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        required=True,
+        default=lambda self: self.env["res.currency"].search(
+            [("name", "=", "SL")], limit=1
+        ),
+        readonly=True,
+    )
+
+    rate = fields.Float(
+        string="Exchange Rate",
+        compute="_compute_exchange_rate",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("rate_currency_id")
+    def _compute_exchange_rate(self):
+        for rec in self:
+            if rec.rate_currency_id:
+                rate = self.env["res.currency.rate"].search(
+                    [
+                        ("currency_id", "=", rec.rate_currency_id.id),
+                        ("name", "=", fields.Date.today()),
+                        ("company_id", "=", self.env.company.id),
+                    ],
+                    limit=1,
+                )
+                rec.rate = rate.rate if rate else 0.0
+            else:
+                rec.rate = 0.0
+
+    @api.depends_context("uid")
+    def _compute_usd_currency(self):
+        usd_currency = self.env.ref("base.USD", raise_if_not_found=False)
+        for rec in self:
+            rec.usd_currency_id = usd_currency
+
+    @api.depends(
+        "stock_quantity", "cost", "currency_id", "bom_id", "bom_id.currency_id", "rate"
+    )
+    def _compute_total_value_usd(self):
+        usd_currency = self.env.ref("base.USD", raise_if_not_found=False)
+        for rec in self:
+            bom_currency = rec.bom_id.currency_id if rec.bom_id else rec.currency_id
+            cost_in_usd = rec.cost
+
+            # If BOM currency is SL, convert to USD using 'rate'
+            if bom_currency and bom_currency.name == "SL" and rec.rate:
+                cost_in_usd = rec.cost / rec.rate  # divide since SL → USD
+            # If BOM currency is USD, keep cost as-is
+            elif bom_currency and bom_currency.name == "USD":
+                cost_in_usd = rec.cost
+            # Fallback if no exchange rate
+            else:
+                cost_in_usd = 0.0
+
+            rec.total_value_usd = rec.stock_quantity * cost_in_usd
+
     def export_movements_to_excel(self):
         for product in self:
             # Filter movements by date range
