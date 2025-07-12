@@ -13,6 +13,7 @@ class SaleOrder(models.Model):
     _name = "idil.sale.order"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Sale Order"
+    _order = "id desc"
 
     name = fields.Char(string="Sales Reference", tracking=True)
 
