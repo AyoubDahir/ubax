@@ -38,7 +38,7 @@
                         <field name="payment_ids">
                             <tree editable="bottom">
                                 <field name="payment_date" readonly="1"/>
-                                <field name="paid_amount" readonly="1"/>
+                                <field name="paid_amount" readonly="1" sum="total"/>
                                 <field name="payment_account" readonly="1"/>
                             </tree>
                         </field>
@@ -59,11 +59,11 @@
                     <field name="cusotmer_sale_order_id"/>
                     <field name="customer_id" />
                     <field name="receipt_date"/>
-                    <field name="due_amount"/>
+                    <field name="due_amount" sum="total"/>
                     <field name="payment_status"/>
-                    <field name="paid_amount"/>
-                    <field name="remaining_amount"/>
-                    <field name="amount_paying"/>
+                    <field name="paid_amount" sum="total"/>
+                    <field name="remaining_amount" sum="total"/>
+                    <field name="amount_paying" sum="total"/>
                 </tree>
             </field>
         </record>
