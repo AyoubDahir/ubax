@@ -452,7 +452,7 @@ class SaleReturn(models.Model):
             ).unlink()
 
             self.env["idil.product.movement"].search(
-                [("source_document", "=", record.id), ("movement_type", "=", "in")]
+                [("source_document", "=", record.name), ("movement_type", "=", "in")]
             ).unlink()
 
             # 6. Re-book financials and movements
@@ -625,7 +625,7 @@ class SaleReturn(models.Model):
                         "movement_type": "in",
                         "quantity": line.returned_quantity,
                         "date": fields.Datetime.now(),
-                        "source_document": record.id,
+                        "source_document": record.name,
                         "sales_person_id": record.salesperson_id.id,
                     }
                 )
@@ -699,7 +699,7 @@ class SaleReturn(models.Model):
             ).unlink()
 
             self.env["idil.product.movement"].search(
-                [("source_document", "=", record.id), ("movement_type", "=", "in")]
+                [("source_document", "=", record.name), ("movement_type", "=", "in")]
             ).unlink()
 
             self.env["idil.transaction_booking"].search(
