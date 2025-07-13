@@ -250,7 +250,21 @@ class CustomerSaleOrder(models.Model):
             # For each order line, create a booking line entry for debit
             for line in order.order_lines:
                 product = line.product_id
-                product_cost_amount = product.cost * line.quantity
+
+                bom_currency = (
+                    product.bom_id.currency_id
+                    if product.bom_id
+                    else product.currency_id
+                )
+
+                amount_in_bom_currency = product.cost * line.quantity
+
+                if bom_currency.name == "USD":
+                    product_cost_amount = amount_in_bom_currency * self.rate
+                else:
+                    product_cost_amount = amount_in_bom_currency
+
+                # product_cost_amount = product.cost * line.quantity
                 _logger.info(
                     f"Product Cost Amount: {product_cost_amount} for product {product.name}"
                 )
