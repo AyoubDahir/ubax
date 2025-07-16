@@ -1,0 +1,27 @@
+<odoo>
+    <record id="view_system_clearing_wizard_form" model="ir.ui.view">
+        <field name="name">system.clearing.wizard.form</field>
+        <field name="model">system.clearing.wizard</field>
+        <field name="arch" type="xml">
+            <form string="System Clearing">
+                <group>
+                    <field name="confirm"/>
+                </group>
+                <footer>
+                    <button name="action_clear_system_data" type="object" class="btn btn-danger" string="Clear System"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_system_clearing_wizard" model="ir.actions.act_window">
+        <field name="name">System Clearing</field>
+        <field name="res_model">system.clearing.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_system_clearing_root" name="System Tools"/>
+    <menuitem id="menu_system_clearing" name="System Clearing" parent="menu_system_clearing_root" action="action_system_clearing_wizard"/>
+</odoo>

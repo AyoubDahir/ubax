@@ -109,6 +109,7 @@
         "views/vendor_opening_balance.xml",
         "views/product_opening_balance_views.xml",
         "views/product_purchase_return.xml",
+        "views/system_clearing_wizard_view.xml",
         "views/menu_hr.xml",
         "views/menu.xml",
     ],
