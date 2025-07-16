@@ -4,7 +4,7 @@ import re
 from odoo import models, fields, api
 from odoo.exceptions import UserError, ValidationError
 import logging
-from odoo.tools import format_datetime
+from odoo.tools import datetime, format_datetime
 
 _logger = logging.getLogger(__name__)
 

@@ -388,6 +388,7 @@ class CustomerSaleOrder(models.Model):
     def write(self, vals):
 
         for order in self:
+
             # 1.  Prevent changing payment_method from receivable → cash
             # ------------------------------------------------------------------
             if "payment_method" in vals and vals["payment_method"] == "cash":
@@ -506,7 +507,23 @@ class CustomerSaleOrder(models.Model):
 
                     order_line = matching_order_line[0]
                     product = order_line.product_id
-                    product_cost_amount = product.cost * order_line.quantity
+
+                    bom_currency = (
+                        product.bom_id.currency_id
+                        if product.bom_id
+                        else product.currency_id
+                    )
+
+                    amount_in_bom_currency = product.cost * order_line.quantity
+
+                    if bom_currency.name == "USD":
+                        product_cost_amount = amount_in_bom_currency * self.rate
+                    else:
+                        product_cost_amount = amount_in_bom_currency
+
+                    _logger.info(
+                        f"Product Cost Amount: {product_cost_amount} for product {product.name}"
+                    )
                     updated_values = {}
 
                     # COGS (DR)
@@ -549,6 +566,14 @@ class CustomerSaleOrder(models.Model):
     def unlink(self):
         for order in self:
             for line in order.order_lines:
+                # 🔒 Prevent delete if any payment has been made
+                receipt = self.env["idil.sales.receipt"].search(
+                    [("cusotmer_sale_order_id", "=", order.id)], limit=1
+                )
+                if receipt and receipt.paid_amount > 0:
+                    raise ValidationError(
+                        f"❌ Cannot delete order '{order.name}' because it has a paid amount of {receipt.paid_amount:.2f}."
+                    )
                 product = line.product_id
                 if product:
                     # 1. Restore the stock

@@ -76,27 +76,6 @@ class CustomerSaleReturn(models.Model):
                 )
             self.return_lines = lines
 
-    # @api.onchange("sale_order_id")
-    # def _onchange_sale_order_id(self):
-    #     """Auto-fill return lines based on selected sale order."""
-    #     if self.sale_order_id:
-    #         self.return_lines = [(5, 0, 0)]  # Clear lines first
-    #         lines = []
-    #         for line in self.sale_order_id.order_lines:
-    #             lines.append(
-    #                 (
-    #                     0,
-    #                     0,
-    #                     {
-    #                         "sale_order_line_id": line.id,
-    #                         "product_id": line.product_id.id,
-    #                         "original_quantity": line.quantity,
-    #                         "price_unit": line.price_unit,
-    #                     },
-    #                 )
-    #             )
-    #         self.return_lines = lines
-
     def action_process(self):
         for rec in self:
             if rec.state != "draft":
@@ -127,7 +106,7 @@ class CustomerSaleReturn(models.Model):
                         "movement_type": "in",
                         "quantity": line.return_quantity,
                         "date": fields.Datetime.now(),
-                        "source_document": rec.name,
+                        "source_document": "Customer Sale Return: " + rec.name,
                         "customer_id": rec.customer_id.id,
                     }
                 )
@@ -141,7 +120,23 @@ class CustomerSaleReturn(models.Model):
                 if not original_booking:
                     raise ValidationError("Original transaction not found.")
 
-                reverse_amount = original_line.price_unit * line.return_quantity
+                bom_currency = (
+                    product.bom_id.currency_id
+                    if product.bom_id
+                    else product.currency_id
+                )
+
+                amount_in_bom_currency = original_line.price_unit * line.return_quantity
+
+                if bom_currency.name == "USD":
+                    reverse_amount = amount_in_bom_currency * self.rate
+                else:
+                    reverse_amount = amount_in_bom_currency
+
+                _logger.info(
+                    f"Product Cost Amount: {reverse_amount} for product {product.name}"
+                )
+
                 total_return_amount += reverse_amount  # Accumulate return total
 
                 # Create new reversed booking
@@ -263,6 +258,17 @@ class CustomerSaleReturnLine(models.Model):
         compute="_compute_returned_and_returnable",
         store=False,
     )
+    total_amount = fields.Float(
+        string="Total Amount",
+        compute="_compute_total_amount",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("return_quantity", "price_unit")
+    def _compute_total_amount(self):
+        for line in self:
+            line.total_amount = line.return_quantity * line.price_unit
 
     @api.depends("sale_order_line_id")
     def _compute_returned_and_returnable(self):
