@@ -60,3 +60,4 @@ from . import vendor_opening_balance
 from . import product_opening_balance
 from . import product_purchase_return
 from . import system_clearing
+from . import report_customer_sales

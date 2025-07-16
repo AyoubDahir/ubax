@@ -492,4 +492,18 @@
                 sequence="10"
                 action="action_sales_summary_with_saelsperosn_report_wizard"/>
      
+
+
+   <menuitem id="menu_customer_sales_report_root"
+            name="Customer Reports"
+            parent="OtherReports"
+            sequence="100"/>
+
+  <menuitem id="menu_customer_sales_report"
+            name="Customer Sales Report"
+            parent="menu_customer_sales_report_root"
+            action="action_customer_sales_report_wizard"
+            sequence="10"/>
+
+     
 </odoo>
