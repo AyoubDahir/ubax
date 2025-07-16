@@ -205,7 +205,7 @@ class CustomerSaleOrder(models.Model):
             if order.customer_opening_balance_id:
                 return
 
-            if order.payment_method == "cash":
+            if order.payment_method in ["cash", "bank"]:
                 account_to_use = self.account_number
             else:
                 account_to_use = order.customer_id.account_receivable_id
@@ -235,7 +235,7 @@ class CustomerSaleOrder(models.Model):
                 }
             )
             # ✅ Only create receipt if payment method is NOT cash
-            if order.payment_method != "cash":
+            if order.payment_method not in ["cash", "bank"]:
                 self.env["idil.sales.receipt"].create(
                     {
                         "cusotmer_sale_order_id": order.id,
@@ -308,7 +308,7 @@ class CustomerSaleOrder(models.Model):
                     )
 
                 # ✅ Validate currencies if payment is cash
-                if order.payment_method == "cash":
+                if order.payment_method in ["cash", "bank"]:
                     cash_currency = order.account_number.currency_id
                     involved_accounts = {
                         "COGS": product.account_cogs_id,
@@ -391,20 +391,20 @@ class CustomerSaleOrder(models.Model):
 
             # 1.  Prevent changing payment_method from receivable → cash
             # ------------------------------------------------------------------
-            if "payment_method" in vals and vals["payment_method"] == "cash":
+            if "payment_method" in vals and vals["payment_method"] in ["cash", "bank"]:
                 for order in self:
                     if order.payment_method == "receivable":
                         raise ValidationError(
                             "You cannot switch the payment method from "
-                            "'Account Receivable' to 'Cash'.\n"
+                            "'Account Receivable' to 'Cash or bank'.\n"
                             "Receivable booking lines already exist for this order."
                         )
             if "payment_method" in vals and vals["payment_method"] == "receivable":
                 for order in self:
-                    if order.payment_method == "cash":
+                    if order.payment_method in ["cash", "bank"]:
                         raise ValidationError(
                             "You cannot switch the payment method from "
-                            "'Cash' to 'Account Receivable'.\n"
+                            "'Cash or bank' to 'Account Receivable'.\n"
                             "Cash booking lines already exist for this order."
                         )
 
@@ -545,7 +545,7 @@ class CustomerSaleOrder(models.Model):
                     # Receivable or Cash (DR)
                     elif line.transaction_type == "dr" and line.account_number.id == (
                         order.customer_id.account_receivable_id.id
-                        if order.payment_method != "cash"
+                        if order.payment_method not in ["cash", "bank"]
                         else order.account_number.id
                     ):
                         updated_values["dr_amount"] = order_line.subtotal
