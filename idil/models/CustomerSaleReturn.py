@@ -35,6 +35,49 @@ class CustomerSaleReturn(models.Model):
     return_lines = fields.One2many(
         "idil.customer.sale.return.line", "return_id", string="Return Lines"
     )
+    # Currency fields
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Currency",
+        required=True,
+        default=lambda self: self.env["res.currency"].search(
+            [("name", "=", "SL")], limit=1
+        ),
+        readonly=True,
+    )
+    rate = fields.Float(
+        string="Exchange Rate",
+        compute="_compute_exchange_rate",
+        store=True,
+        readonly=True,
+    )
+    total_return = fields.Float(
+        string="Total Return Amount",
+        compute="_compute_total_return",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("return_lines.total_amount")
+    def _compute_total_return(self):
+        for rec in self:
+            rec.total_return = sum(line.total_amount for line in rec.return_lines)
+
+    @api.depends("currency_id")
+    def _compute_exchange_rate(self):
+        for order in self:
+            if order.currency_id:
+                rate = self.env["res.currency.rate"].search(
+                    [
+                        ("currency_id", "=", order.currency_id.id),
+                        ("name", "=", fields.Date.today()),
+                        ("company_id", "=", self.env.company.id),
+                    ],
+                    limit=1,
+                )
+                order.rate = rate.rate if rate else 0.0
+            else:
+                order.rate = 0.0
 
     @api.model
     def create(self, vals):
@@ -87,6 +130,7 @@ class CustomerSaleReturn(models.Model):
             if not trx_source:
                 raise ValidationError("Transaction source 'Sale Return' not found.")
             total_return_amount = 0
+
             for line in rec.return_lines:
                 if line.return_quantity <= 0:
                     continue
@@ -120,25 +164,25 @@ class CustomerSaleReturn(models.Model):
                 if not original_booking:
                     raise ValidationError("Original transaction not found.")
 
-                bom_currency = (
-                    product.bom_id.currency_id
-                    if product.bom_id
-                    else product.currency_id
-                )
+                # bom_currency = (
+                #     product.bom_id.currency_id
+                #     if product.bom_id
+                #     else product.currency_id
+                # )
 
-                amount_in_bom_currency = original_line.price_unit * line.return_quantity
+                # amount_in_bom_currency = original_line.price_unit * line.return_quantity
 
-                if bom_currency.name == "USD":
-                    reverse_amount = amount_in_bom_currency * self.rate
-                else:
-                    reverse_amount = amount_in_bom_currency
+                # if bom_currency.name == "USD":
+                #     reverse_amount = amount_in_bom_currency
+                # else:
+                #     reverse_amount = amount_in_bom_currency
 
-                _logger.info(
-                    f"Product Cost Amount: {reverse_amount} for product {product.name}"
-                )
+                # _logger.info(
+                #     f"Product Cost Amount: {reverse_amount} for product {product.name}"
+                # )
 
-                total_return_amount += reverse_amount  # Accumulate return total
-
+                # total_return_amount += reverse_amount  # Accumulate return total
+                total_return_amount = original_line.price_unit * line.return_quantity
                 # Create new reversed booking
                 reversed_booking = self.env["idil.transaction_booking"].create(
                     {
@@ -149,7 +193,7 @@ class CustomerSaleReturn(models.Model):
                         "customer_id": rec.customer_id.id,
                         "reffno": rec.name,
                         "trx_date": rec.return_date,
-                        "amount": reverse_amount,
+                        "amount": total_return_amount,
                         "amount_paid": 0,
                         "remaining_amount": 0,
                         "payment_status": "paid",
@@ -174,10 +218,14 @@ class CustomerSaleReturn(models.Model):
                                 "cr" if orig.transaction_type == "dr" else "dr"
                             ),
                             "dr_amount": (
-                                reverse_amount if orig.transaction_type == "cr" else 0.0
+                                total_return_amount
+                                if orig.transaction_type == "cr"
+                                else 0.0
                             ),
                             "cr_amount": (
-                                reverse_amount if orig.transaction_type == "dr" else 0.0
+                                total_return_amount
+                                if orig.transaction_type == "dr"
+                                else 0.0
                             ),
                             "transaction_date": rec.return_date,
                             "company_id": self.env.company.id,

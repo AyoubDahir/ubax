@@ -148,6 +148,8 @@ class SalesReceipt(models.Model):
                 {
                     "order_number": record.sales_order_id.name,
                     "trx_source_id": trx_source.id,
+                    "customer_id": record.customer_id.id,
+                    "reffno": order_name,  # Use the Sale Order name as reference
                     "payment_method": "other",
                     "sale_order_id": record.sales_order_id.id,
                     "pos_payment_method": False,  # Update if necessary
@@ -244,6 +246,8 @@ class SalesReceipt(models.Model):
                 self.env["idil.customer.sale.payment"].create(
                     {
                         "order_id": record.cusotmer_sale_order_id.id,
+                        "sales_payment_id": payment.id,
+                        "sales_receipt_id": record.id,
                         "customer_id": record.cusotmer_sale_order_id.customer_id.id,
                         "payment_method": "cash",  # or use dynamic logic to determine the method
                         "account_id": record.payment_account.id,
@@ -256,6 +260,8 @@ class SalesReceipt(models.Model):
                 self.env["idil.customer.sale.payment"].create(
                     {
                         "order_id": record.customer_opening_balance_id.opening_balance_id.customer_sale_order_id.id,  # No order_id for opening balance
+                        "sales_payment_id": payment.id,
+                        "sales_receipt_id": record.id,
                         "customer_id": record.customer_opening_balance_id.customer_id.id,
                         "payment_method": "cash",  # or use dynamic logic to determine the method
                         "account_id": record.payment_account.id,
@@ -264,8 +270,8 @@ class SalesReceipt(models.Model):
                 )
 
             # Force recompute on customer sale order
-            record.cusotmer_sale_order_id._compute_total_paid()
-            record.cusotmer_sale_order_id._compute_balance_due()
+            # record.cusotmer_sale_order_id._compute_total_paid()
+            # record.cusotmer_sale_order_id._compute_balance_due()
 
             record.amount_paying = 0.0  # Reset the amount paying
 
@@ -349,6 +355,9 @@ class IdilSalesPayment(models.Model):
             payment.sales_receipt_id.paid_amount -= payment.paid_amount
             # Delete linked salesperson transactions
             self.env["idil.salesperson.transaction"].search(
+                [("sales_payment_id", "=", payment.id)]
+            ).unlink()
+            self.env["idil.customer.sale.payment"].search(
                 [("sales_payment_id", "=", payment.id)]
             ).unlink()
         return super(IdilSalesPayment, self).unlink()

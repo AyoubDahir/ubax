@@ -69,17 +69,43 @@ class CustomerSaleOrder(models.Model):
     )
 
     total_paid = fields.Float(
-        string="Total Paid", compute="_compute_total_paid", store=True
+        string="Total Paid", compute="_compute_total_paid", store=False
     )
 
     balance_due = fields.Float(
-        string="Balance Due", compute="_compute_balance_due", store=True
+        string="Balance Due", compute="_compute_balance_due", store=False
     )
     customer_opening_balance_id = fields.Many2one(
         "idil.customer.opening.balance.line",
         string="Opening Balance",
         ondelete="cascade",
     )
+    total_return_amount = fields.Float(
+        string="Total Returned",
+        compute="_compute_total_return_amount",
+        store=False,
+    )
+    net_balance = fields.Float(
+        string="Net Balance",
+        compute="_compute_net_balance",
+        store=False,
+    )
+
+    @api.depends("balance_due", "total_return_amount")
+    def _compute_net_balance(self):
+        for order in self:
+            order.net_balance = order.balance_due - order.total_return_amount
+
+    @api.depends("order_lines", "order_lines.product_id")  # triggers on change
+    def _compute_total_return_amount(self):
+        for order in self:
+            return_lines = self.env["idil.customer.sale.return.line"].search(
+                [
+                    ("sale_order_line_id.order_id", "=", order.id),
+                    ("return_id.state", "=", "confirmed"),
+                ]
+            )
+            order.total_return_amount = sum(return_lines.mapped("total_amount"))
 
     @api.onchange("payment_method", "customer_id")
     def _onchange_payment_method_account(self):
@@ -87,7 +113,7 @@ class CustomerSaleOrder(models.Model):
         for order in self:
             if order.payment_method == "receivable" and order.customer_id:
                 order.account_number = order.customer_id.account_receivable_id
-            elif order.payment_method == "cash":
+            elif order.payment_method in ["cash", "bank_transfer"]:
                 order.account_number = False  # Clear it for cash, let user choose
 
     @api.depends("payment_lines.amount")
@@ -98,7 +124,7 @@ class CustomerSaleOrder(models.Model):
     @api.depends("order_total", "total_paid", "payment_method")
     def _compute_balance_due(self):
         for order in self:
-            if order.payment_method == "cash":
+            if order.payment_method in ["cash", "bank_transfer"]:
                 order.balance_due = 0.0
             else:
                 order.balance_due = order.order_total - order.total_paid
@@ -205,7 +231,7 @@ class CustomerSaleOrder(models.Model):
             if order.customer_opening_balance_id:
                 return
 
-            if order.payment_method in ["cash", "bank"]:
+            if order.payment_method in ["cash", "bank_transfer"]:
                 account_to_use = self.account_number
             else:
                 account_to_use = order.customer_id.account_receivable_id
@@ -215,10 +241,10 @@ class CustomerSaleOrder(models.Model):
 
             # Search for transaction source ID using "Receipt"
             trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Receipt")], limit=1
+                [("name", "=", "Customer Sales Order")], limit=1
             )
             if not trx_source:
-                raise UserError("Transaction source 'Receipt' not found.")
+                raise UserError("Transaction source 'Customer Sales Order' not found.")
 
             # Create a transaction booking
             transaction_booking = self.env["idil.transaction_booking"].create(
@@ -226,6 +252,7 @@ class CustomerSaleOrder(models.Model):
                     "customer_id": order.customer_id.id,
                     "cusotmer_sale_order_id": order.id,  # Set the sale_order_id to the current SaleOrder's ID
                     "trx_source_id": trx_source.id,
+                    "reffno": order.name,  # Use the Sale Order name as reference
                     "Sales_order_number": order.id,
                     "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
                     "payment_status": "pending",  # Assuming initial payment status; adjust as needed
@@ -235,7 +262,7 @@ class CustomerSaleOrder(models.Model):
                 }
             )
             # ✅ Only create receipt if payment method is NOT cash
-            if order.payment_method not in ["cash", "bank"]:
+            if order.payment_method not in ["cash", "bank_transfer"]:
                 self.env["idil.sales.receipt"].create(
                     {
                         "cusotmer_sale_order_id": order.id,
@@ -243,6 +270,17 @@ class CustomerSaleOrder(models.Model):
                         "paid_amount": 0,
                         "remaining_amount": order.order_total,
                         "customer_id": order.customer_id.id,
+                    }
+                )
+
+            if order.payment_method in ["cash", "bank_transfer"]:
+                self.env["idil.customer.sale.payment"].create(
+                    {
+                        "order_id": order.id,
+                        "customer_id": order.customer_id.id,
+                        "payment_method": "cash",  # or use dynamic logic to determine the method
+                        "account_id": order.account_number.id,
+                        "amount": order.order_total,
                     }
                 )
 
@@ -308,7 +346,7 @@ class CustomerSaleOrder(models.Model):
                     )
 
                 # ✅ Validate currencies if payment is cash
-                if order.payment_method in ["cash", "bank"]:
+                if order.payment_method in ["cash", "bank_transfer"]:
                     cash_currency = order.account_number.currency_id
                     involved_accounts = {
                         "COGS": product.account_cogs_id,
@@ -391,7 +429,10 @@ class CustomerSaleOrder(models.Model):
 
             # 1.  Prevent changing payment_method from receivable → cash
             # ------------------------------------------------------------------
-            if "payment_method" in vals and vals["payment_method"] in ["cash", "bank"]:
+            if "payment_method" in vals and vals["payment_method"] in [
+                "cash",
+                "bank_transfer",
+            ]:
                 for order in self:
                     if order.payment_method == "receivable":
                         raise ValidationError(
@@ -401,7 +442,7 @@ class CustomerSaleOrder(models.Model):
                         )
             if "payment_method" in vals and vals["payment_method"] == "receivable":
                 for order in self:
-                    if order.payment_method in ["cash", "bank"]:
+                    if order.payment_method in ["cash", "bank_transfer"]:
                         raise ValidationError(
                             "You cannot switch the payment method from "
                             "'Cash or bank' to 'Account Receivable'.\n"
@@ -545,7 +586,7 @@ class CustomerSaleOrder(models.Model):
                     # Receivable or Cash (DR)
                     elif line.transaction_type == "dr" and line.account_number.id == (
                         order.customer_id.account_receivable_id.id
-                        if order.payment_method not in ["cash", "bank"]
+                        if order.payment_method not in ["cash", "bank_transfer"]
                         else order.account_number.id
                     ):
                         updated_values["dr_amount"] = order_line.subtotal
@@ -673,28 +714,6 @@ class CustomerSaleOrderLine(models.Model):
                     line.quantity * line.cost_price
                 )  # Fallback if no rate is found
 
-    # @api.model
-    # def create(self, vals):
-    #     record = super(CustomerSaleOrderLine, self).create(vals)
-
-    #     # Create a Salesperson Transaction
-    #     # if record.order_id.customer_id:
-    #     #     self.env["idil.salesperson.transaction"].create(
-    #     #         {
-    #     #             "customer_id": record.order_id.customer_id.id,
-    #     #             "date": fields.Date.today(),
-    #     #             "order_id": record.order_id.id,
-    #     #             "transaction_type": "out",  # Assuming 'out' for sales
-    #     #             "amount": record.subtotal,
-    #     #             "description": f"Sales Amount of - Order Line for {record.product_id.name} (Qty: {record.quantity})",
-    #     #         }
-    #     #     )
-
-    #     if self.customer_opening_balance_line_id:
-    #         return
-    #     else:
-    #         self.update_product_stock(record.product_id, record.quantity)
-    #     return record
     @api.model
     def create(self, vals):
         # If linked to opening balance, skip product_id and stock check!
@@ -763,6 +782,11 @@ class CustomerSalePayment(models.Model):
     _description = "Sale Order Payment"
 
     order_id = fields.Many2one("idil.customer.sale.order", string="Customer Sale Order")
+    sales_payment_id = fields.Many2one(
+        "idil.sales.payment", string="Sales Payment", ondelete="cascade"
+    )
+    sales_receipt_id = fields.Many2one("idil.sales.receipt", string="Sales Receipt")
+
     customer_id = fields.Many2one(
         "idil.customer.registration", string="Customer", required=True
     )

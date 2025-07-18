@@ -39,6 +39,18 @@ class VendorOpeningBalance(models.Model):
         store=True,
         readonly=True,
     )
+    total_amount = fields.Float(
+        string="Total Opening Amount",
+        compute="_compute_total_amount",
+        currency_field="currency_id",
+        store=True,
+        readonly=True,
+    )
+
+    @api.depends("line_ids.amount")
+    def _compute_total_amount(self):
+        for rec in self:
+            rec.total_amount = sum(line.amount for line in rec.line_ids)
 
     @api.depends("currency_id")
     def _compute_exchange_rate(self):
@@ -99,11 +111,11 @@ class VendorOpeningBalance(models.Model):
             )
 
         trx_source_id = self.env["idil.transaction.source"].search(
-            [("name", "=", "vendor opening balance")], limit=1
+            [("name", "=", "Vendor Opening Balance")], limit=1
         )
         if not trx_source_id:
             raise ValidationError(
-                'Transaction source "vendor opening balance" not found.'
+                'Transaction source "Vendor Opening Balance" not found.'
             )
 
         for line in record.line_ids:
@@ -460,11 +472,11 @@ class VendorOpeningBalance(models.Model):
                 )
 
             trx_source_id = self.env["idil.transaction.source"].search(
-                [("name", "=", "vendor opening balance")], limit=1
+                [("name", "=", "Vendor Opening Balance")], limit=1
             )
             if not trx_source_id:
                 raise ValidationError(
-                    "Transaction source 'vendor opening balance' not found."
+                    "Transaction source 'Vendor Opening Balance' not found."
                 )
 
             for line in record.line_ids:

@@ -86,7 +86,7 @@
                 <field name="phone" widget="phone" string="Customer Phone"/>
                 <field name="email" widget="email" string="Customer Email"/>
                 <field name="gender" class="oe_edit_only"/>
-                <field name="customer_balance"/>
+                <field name="customer_balance" sum="total"/>
                 
                 <field name="status" widget="boolean"/>
             </tree>

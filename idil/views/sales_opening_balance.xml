@@ -1,4 +1,19 @@
 <odoo>
+    <record id="view_sales_opening_balance_tree" model="ir.ui.view">
+        <field name="name">idil.sales.opening.balance.tree</field>
+        <field name="model">idil.sales.opening.balance</field>
+        <field name="arch" type="xml">
+            <tree string="Sales Team Opening Balance">
+                <field name="name"/>
+                <field name="total_due_balance" sum="total"/>
+                <field name="date"/>
+                <field name="state"/>
+                <field name="currency_id"/>
+                <field name="rate"/>
+            </tree>
+        </field>
+    </record>
+
     <record id="view_sales_opening_balance_form" model="ir.ui.view">
         <field name="name">idil.sales.opening.balance.form</field>
         <field name="model">idil.sales.opening.balance</field>
@@ -32,6 +47,8 @@
                             <tree editable="bottom">
                                 <field name="sales_person_id"/>
                                 <field name="account_id" readonly="1"/>
+                                <field name="account_currency_id" readonly="1"/>
+                                
                                 <field name="amount" sum="Total AMount"/>
                             </tree>
                         </field>

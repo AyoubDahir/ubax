@@ -53,6 +53,7 @@
     <field name="arch" type="xml">
       <tree>
         <field name="name"/>
+        <field name="total_amount" sum="Total Amount"/>
         <field name="date"/>
         <field name="state"/>
       </tree>

@@ -22,6 +22,14 @@ class IdilItemOpeningBalance(models.Model):
         string="Items",
         copy=True,
     )
+    total_amount = fields.Float(
+        string="Total Amount", compute="_compute_total_amount", store=True
+    )
+
+    @api.depends("line_ids.total")
+    def _compute_total_amount(self):
+        for rec in self:
+            rec.total_amount = sum(line.total for line in rec.line_ids)
 
     def action_populate_zero_qty_items(self):
         """

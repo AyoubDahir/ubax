@@ -9,6 +9,8 @@
                 <field name="customer_id"/>
                 <field name="sale_order_id"/>
                 <field name="return_date"/>
+                <field name="total_return" sum="total"/>
+                
                 <field name="state"/>
             </tree>
         </field>
@@ -31,7 +33,10 @@
                         <field name="name" readonly="1"/>
                         <field name="customer_id" required="1"/>
                         <field name="sale_order_id" domain="[('customer_id', '=', customer_id)]"/>
+                        <field name="currency_id"/>
+                        <field name="rate"/>
                         <field name="return_date"/>
+                        <field name="total_return"/>
                         <field name="state" readonly="1"/>
                     </group>
 
@@ -41,11 +46,13 @@
                                 <tree editable="bottom">
                                     <field name="sale_order_line_id" readonly="1" force_save="1" />
                                     <field name="product_id"/>
-                                    <field name="original_quantity" readonly="1" force_save="1"/>
-                                    <field name="price_unit" readonly="1" force_save="1"/>
-                                    <field name="previously_returned_quantity" readonly="1" force_save="1"/>
-                                    <field name="returnable_quantity" readonly="1" force_save="1"/>
-                                    <field name="return_quantity"/>
+                                    <field name="original_quantity" sum="total" readonly="1" force_save="1"/>
+                                    <field name="price_unit" sum="total" readonly="1" force_save="1"/>
+                                    <field name="previously_returned_quantity" sum="total" readonly="1" force_save="1"/>
+                                    <field name="returnable_quantity" sum="total" readonly="1" force_save="1"/>
+                                    <field name="return_quantity" sum="total"/>
+                                    <field name="total_amount" sum="total" readonly="1" force_save="1"/>
+                                    
                                 </tree>
                             </field>
                         </page>

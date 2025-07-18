@@ -159,11 +159,11 @@ class SalesOpeningBalance(models.Model):
             raise ValidationError("Rate cannot be zero.")
 
         trx_source_id = self.env["idil.transaction.source"].search(
-            [("name", "=", "sales opening balance")], limit=1
+            [("name", "=", "Sales Opening Balance")], limit=1
         )
         if not trx_source_id:
             raise ValidationError(
-                'Transaction source "sales opening balance" not found.'
+                'Transaction source "Sales Opening Balance" not found.'
             )
 
         # --- 2. Create actual record first ---
@@ -300,7 +300,7 @@ class SalesOpeningBalance(models.Model):
                 [("name", "=", "Opening Balance Account")], limit=1
             )
             trx_source_id = self.env["idil.transaction.source"].search(
-                [("name", "=", "sales opening balance")], limit=1
+                [("name", "=", "Sales Opening Balance")], limit=1
             )
 
             for line in opening_balance.line_ids:
@@ -596,6 +596,13 @@ class SalesOpeningBalanceLine(models.Model):
 
     account_id = fields.Many2one(
         "idil.chart.account", string="Account", readonly=True, store=True
+    )
+    account_currency_id = fields.Many2one(
+        "res.currency",
+        string="Account Currency",
+        related="account_id.currency_id",
+        readonly=True,
+        store=True,
     )
 
     amount = fields.Float(string="Opening Amount", required=True)

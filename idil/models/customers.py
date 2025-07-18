@@ -44,7 +44,7 @@ class Customer(models.Model):
     )
     customer_balance = fields.Float(
         string="Customer Balance",
-        compute="_compute_customer_balance",
+        compute="_compute_total_receipt_due",
         store=False,  # set to True if you want to store the result in the database
     )
 
@@ -66,6 +66,16 @@ class Customer(models.Model):
         help="Select Employee",
     )
 
+    @api.depends("sale_order_ids")
+    def _compute_total_receipt_due(self):
+        for rec in self:
+            total_due = 0.0
+            receipts = self.env["idil.sales.receipt"].search(
+                [("customer_id", "=", rec.id), ("payment_status", "!=", "paid")]
+            )
+            total_due = sum(receipts.mapped("remaining_amount"))
+            rec.customer_balance = total_due
+
     @api.depends("sale_order_ids.balance_due", "sale_order_ids.state")
     def _compute_customer_balance(self):
         for rec in self:
@@ -77,6 +87,11 @@ class Customer(models.Model):
 
     @api.depends("cusotmer_payment_ids.amount")
     def _compute_customer_payment_balance(self):
+        """
+        Computes the customer's payment balance by summing up the balance due for each sale order
+        associated with the customer. This method is triggered when the amount in customer payment
+        ids changes.
+        """
         for rec in self:
             balance = 0.0
             for order in rec.sale_order_ids:
