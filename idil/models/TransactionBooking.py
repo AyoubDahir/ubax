@@ -14,6 +14,7 @@ _logger = logging.getLogger(__name__)
 class TransactionBooking(models.Model):
     _name = "idil.transaction_booking"
     _description = "Transaction Booking"
+    _order = "id desc"
 
     # Primary Key Fields
     transaction_number = fields.Integer(string="Transaction Number")
@@ -370,6 +371,7 @@ class TransactionBooking(models.Model):
 class TransactionBookingline(models.Model):
     _name = "idil.transaction_bookingline"
     _description = "Transaction Booking Line"
+    _order = "id desc"
 
     # Secondary Key Fields
     transaction_booking_id = fields.Many2one(

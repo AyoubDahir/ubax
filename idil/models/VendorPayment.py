@@ -7,6 +7,7 @@ _logger = logging.getLogger(__name__)
 class VendorPayment(models.Model):
     _name = "idil.vendor_payment"
     _description = "Vendor Payment"
+    _order = "id desc"
 
     payment_date = fields.Date(
         string="Payment Date", default=lambda self: fields.Date.today()

@@ -82,6 +82,10 @@
             <field name="name">Sales Return</field>
             <field name="description">Sales Return</field>
         </record>
+        <record id="trx_source_bulk_receipt" model="idil.transaction.source">
+            <field name="name">Bulk Receipt</field>
+            <field name="description">Bulk Receipt</field>
+        </record>
 
 
         <!-- Add more records as needed -->

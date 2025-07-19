@@ -515,6 +515,7 @@ class AccountSubHeader(models.Model):
     _name = "idil.chart.account.subheader"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Idil Chart of Accounts Sub Header"
+    _order = "id desc"
 
     sub_header_code = fields.Char(string="Sub Header Code", required=True)
     name = fields.Char(string="Sub Header Name", required=True)

@@ -7,6 +7,7 @@ class ProductAdjustment(models.Model):
     _name = "idil.product.adjustment"
     _description = "Product Adjustment"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     product_id = fields.Many2one("my_product.product", string="Product", required=True)
     adjustment_date = fields.Datetime(

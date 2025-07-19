@@ -5,6 +5,8 @@
     <field name="arch" type="xml">
         <tree string="Customer Opening Balances">
             <field name="name"/>
+            <field name="total_amount" sum="total"/>
+              
             <field name="date"/>
             <field name="state"/>
             <field name="currency_id"/>
@@ -29,6 +31,7 @@
                 <group>
                     <field name="name"/>
                     <field name="date"/>
+                    
                     <field name="state"/>
                     <field name="currency_id"/>
                     <field name="rate"/>

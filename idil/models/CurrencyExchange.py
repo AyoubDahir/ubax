@@ -7,6 +7,7 @@ from odoo.exceptions import ValidationError
 class CurrencyExchange(models.Model):
     _name = "idil.currency.exchange"
     _description = "Currency Exchange"
+    _order = "id desc"
 
     name = fields.Char(
         string="Reference", required=True, default="New", copy=False, readonly=True

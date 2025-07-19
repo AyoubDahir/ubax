@@ -678,6 +678,7 @@ class SaleOrderLine(models.Model):
     _name = "idil.sale.order.line"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Sale Order Line"
+    _order = "id desc"
 
     order_id = fields.Many2one("idil.sale.order", string="Sale Order")
     product_id = fields.Many2one("my_product.product", string="Product")

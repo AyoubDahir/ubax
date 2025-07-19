@@ -5,6 +5,7 @@ from odoo.exceptions import ValidationError, UserError
 class SalespersonOrder(models.Model):
     _name = "idil.salesperson.place.order"
     _description = "Salesperson Place Order"
+    _order = "id desc"
 
     salesperson_id = fields.Many2one(
         "idil.sales.sales_personnel", string="Salesperson", required=True
@@ -100,6 +101,7 @@ class SalespersonOrderLine(models.Model):
 class SalespersonOrderSummary(models.Model):
     _name = "idil.salesperson.order.summary"
     _description = "Salesperson Order Summary"
+    _order = "id desc"
 
     salesperson_name = fields.Char(string="Salesperson Name", required=True)
     product_name = fields.Char(string="Product Name", required=True)

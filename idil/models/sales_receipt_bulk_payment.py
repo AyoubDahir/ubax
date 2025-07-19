@@ -210,7 +210,7 @@ class ReceiptBulkPayment(models.Model):
 
             # Create transaction booking
             trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Receipt")], limit=1
+                [("name", "=", "Bulk Receipt")], limit=1
             )
             if not trx_source:
                 raise UserError("Transaction source 'Receipt' not found.")
@@ -222,6 +222,10 @@ class ReceiptBulkPayment(models.Model):
                     ),
                     "trx_source_id": trx_source.id,
                     "payment_method": "other",
+                    "customer_id": (
+                        receipt.customer_id.id if receipt.customer_id else False
+                    ),
+                    "reffno": self.name,
                     "sale_order_id": (
                         receipt.sales_order_id.id if receipt.sales_order_id else False
                     ),

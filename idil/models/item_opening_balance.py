@@ -6,6 +6,7 @@ class IdilItemOpeningBalance(models.Model):
     _name = "idil.item.opening.balance"
     _description = "Multi-Item Opening Balance"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     name = fields.Char(string="Reference", readonly=True, default="New")
 
@@ -326,6 +327,7 @@ class IdilItemOpeningBalance(models.Model):
 class IdilItemOpeningBalanceLine(models.Model):
     _name = "idil.item.opening.balance.line"
     _description = "Opening Balance Line"
+    _order = "id desc"
 
     opening_balance_id = fields.Many2one(
         "idil.item.opening.balance", string="Opening Balance", ondelete="cascade"

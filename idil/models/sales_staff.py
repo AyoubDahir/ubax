@@ -198,6 +198,7 @@ class SalesPersonBalanceReport(models.TransientModel):
 class SalespersonTransaction(models.Model):
     _name = "idil.salesperson.transaction"
     _description = "Salesperson Transaction"
+    _order = "id desc"
 
     sales_person_id = fields.Many2one(
         "idil.sales.sales_personnel", string="Salesperson", required=True

@@ -12,6 +12,7 @@ class ProductOpeningBalance(models.Model):
     _name = "my_product.opening.balance"
     _description = "Product Opening Balance"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     name = fields.Char(string="Reference", readonly=True, default="New")
     date = fields.Date(string="Date", default=fields.Date.today, required=True)

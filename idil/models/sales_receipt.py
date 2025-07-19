@@ -5,6 +5,7 @@ from odoo.exceptions import UserError
 class SalesReceipt(models.Model):
     _name = "idil.sales.receipt"
     _description = "Sales Receipt"
+    _order = "id desc"
 
     sales_order_id = fields.Many2one(
         "idil.sale.order",
@@ -331,6 +332,7 @@ class SalesReceipt(models.Model):
 class IdilSalesPayment(models.Model):
     _name = "idil.sales.payment"
     _description = "Sales Payment"
+    _order = "id desc"
 
     sales_receipt_id = fields.Many2one("idil.sales.receipt", string="Sales Receipt")
     payment_account = fields.Many2one("idil.chart.account", string="Payment Account")

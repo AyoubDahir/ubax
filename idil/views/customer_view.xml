@@ -143,7 +143,7 @@
                             <field name="email" widget="email"/>
                             <field name="gender" class="oe_edit_only"/>
                             <field name="status" widget="boolean_button"/>
-                            <field name="active"/>
+                          
                             <field name="image" widget="image"
                                    options="{'size': (150, 150)}"/> <!-- Adjust size here -->
                         </group>

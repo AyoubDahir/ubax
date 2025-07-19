@@ -6,6 +6,7 @@ class PurchaseReturn(models.Model):
     _name = "idil.purchase_return"
     _description = "Purchase Return"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     name = fields.Char(
         string="Return Reference",
@@ -294,6 +295,7 @@ class PurchaseReturn(models.Model):
 class PurchaseReturnLine(models.Model):
     _name = "idil.purchase_return.line"
     _description = "Purchase Return Line"
+    _order = "id desc"
 
     return_id = fields.Many2one(
         "idil.purchase_return", string="Return", ondelete="cascade"

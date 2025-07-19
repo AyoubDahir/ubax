@@ -9,6 +9,7 @@ _logger = logging.getLogger(__name__)
 class VendorBulkPayment(models.Model):
     _name = "idil.vendor.bulk.payment"
     _description = "Vendor Bulk Payment"
+    _order = "id desc"
 
     vendor_id = fields.Many2one(
         "idil.vendor.registration", string="Vendor", required=True
@@ -325,6 +326,7 @@ class VendorBulkPayment(models.Model):
 class VendorBulkPaymentLine(models.Model):
     _name = "idil.vendor.bulk.payment.line"
     _description = "Vendor Bulk Payment Line"
+    _order = "id desc"
 
     payment_id = fields.Many2one("idil.vendor.bulk.payment", string="Payment")
     order_id = fields.Many2one("idil.vendor_transaction", string="Order")

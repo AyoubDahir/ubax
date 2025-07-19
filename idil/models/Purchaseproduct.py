@@ -6,6 +6,7 @@ class ProductPurchaseOrder(models.Model):
     _name = "idil.product.purchase.order"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Product Purchase Order"
+    _order = "id desc"
 
     name = fields.Char(string="Reference", readonly=True, default="New")
     vendor_id = fields.Many2one(
@@ -134,6 +135,7 @@ class ProductPurchaseOrderLine(models.Model):
     _name = "idil.product.purchase.order.line"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Product Purchase Order Line"
+    _order = "id desc"
 
     order_id = fields.Many2one(
         "idil.product.purchase.order", string="Order", ondelete="cascade"

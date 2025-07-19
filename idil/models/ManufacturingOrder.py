@@ -12,6 +12,7 @@ class ManufacturingOrder(models.Model):
     _name = "idil.manufacturing.order"
     _description = "Manufacturing Order"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     name = fields.Char(string="Order Reference", tracking=True)
     bom_id = fields.Many2one(
@@ -940,6 +941,7 @@ class ManufacturingOrderLine(models.Model):
     _name = "idil.manufacturing.order.line"
     _description = "Manufacturing Order Line"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     manufacturing_order_id = fields.Many2one(
         "idil.manufacturing.order",

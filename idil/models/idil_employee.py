@@ -116,6 +116,7 @@ class IdilEmployee(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Employee"
     _order = "name"
+    _order = "id desc"
 
     name = fields.Char(required=True, tracking=True)
     staff_id = fields.Char(string="Employee Id", tracking=True)
@@ -343,6 +344,7 @@ class IdilEmployeeDepartment(models.Model):
     _name = "idil.employee_department"
     _description = "Employee Department"
     _order = "name"
+    _order = "id desc"
 
     name = fields.Char(required=True)
 
@@ -350,7 +352,7 @@ class IdilEmployeeDepartment(models.Model):
 class IdilEmployeePosition(models.Model):
     _name = "idil.employee_position"
     _description = "Employee Position"
-    _order = "name"
+    _order = "id desc"
 
     name = fields.Char(required=True)
 

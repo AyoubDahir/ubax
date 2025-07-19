@@ -10,6 +10,7 @@ _logger = logging.getLogger(__name__)
 class VendorTransaction(models.Model):
     _name = "idil.vendor_transaction"
     _description = "Vendor Transaction"
+    _order = "id desc"
 
     order_number = fields.Char(string="Order Number")
     transaction_number = fields.Char(string="Transaction Number")

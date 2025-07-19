@@ -6,6 +6,7 @@ class CommissionBulkPayment(models.Model):
     _name = "idil.commission.bulk.payment"
     _description = "Bulk Commission Payment"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     name = fields.Char(string="Reference", default="New", readonly=True, copy=False)
     employee_id = fields.Many2one("idil.employee", string="Employee", required=True)
@@ -265,6 +266,7 @@ class CommissionBulkPayment(models.Model):
 class CommissionBulkPaymentLine(models.Model):
     _name = "idil.commission.bulk.payment.line"
     _description = "Bulk Commission Payment Line"
+    _order = "id desc"
 
     bulk_payment_id = fields.Many2one(
         "idil.commission.bulk.payment", string="Bulk Payment"

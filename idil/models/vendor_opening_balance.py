@@ -8,6 +8,7 @@ _logger = logging.getLogger(__name__)
 class VendorOpeningBalance(models.Model):
     _name = "idil.vendor.opening.balance"
     _description = "Vendor Opening Balance"
+    _order = "id desc"
 
     name = fields.Char(string="Reference", default="New", readonly=True, copy=False)
     date = fields.Date(
@@ -694,6 +695,7 @@ class VendorOpeningBalance(models.Model):
 class VendorOpeningBalanceLine(models.Model):
     _name = "idil.vendor.opening.balance.line"
     _description = "Vendor Opening Balance Line"
+    _order = "id desc"
 
     opening_balance_id = fields.Many2one(
         "idil.vendor.opening.balance", string="Opening Balance", ondelete="cascade"

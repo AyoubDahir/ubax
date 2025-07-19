@@ -8,6 +8,7 @@ class StockAdjustment(models.Model):
     _name = "idil.stock.adjustment"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Stock Adjustment"
+    _order = "id desc"
 
     name = fields.Char(
         string="Reference",
@@ -257,85 +258,6 @@ class StockAdjustment(models.Model):
 
         return adjustment
 
-    # def write(self, vals):
-    #     for record in self:
-    #         old_qty = record.adjustment_qty
-    #         new_qty = vals.get("adjustment_qty", old_qty)
-    #         difference = new_qty - old_qty
-
-    #         if difference == 0 and not any(
-    #             k in vals for k in ["adjustment_date", "cost_price"]
-    #         ):
-    #             return super(StockAdjustment, self).write(vals)
-
-    #         item = record.item_id
-    #         cost_price = item.cost_price
-    #         adjustment_date = vals.get("adjustment_date", record.adjustment_date)
-
-    #         new_item_qty = item.quantity
-
-    #         if record.adjustment_type == "decrease":
-    #             if difference > 0:
-    #                 if item.quantity < difference:
-    #                     raise ValidationError("Cannot decrease quantity below zero.")
-    #                 new_item_qty = item.quantity - difference
-    #             elif difference < 0:
-    #                 new_item_qty = item.quantity + abs(difference)
-    #             movement_quantity = -new_qty
-    #         elif record.adjustment_type == "increase":
-    #             if difference > 0:
-    #                 new_item_qty = item.quantity + difference
-    #             elif difference < 0:
-    #                 if item.quantity < abs(difference):
-    #                     raise ValidationError("Cannot decrease quantity below zero.")
-    #                 new_item_qty = item.quantity - abs(difference)
-    #             movement_quantity = new_qty
-
-    #         item.with_context(update_transaction_booking=False).write(
-    #             {"quantity": new_item_qty}
-    #         )
-
-    #         transaction = self.env["idil.transaction_booking"].search(
-    #             [("reffno", "=", "Stock Adjustments%s" % record.id)], limit=1
-    #         )
-
-    #         if transaction:
-    #             transaction.write(
-    #                 {
-    #                     "amount": abs(new_qty * cost_price),
-    #                     "trx_date": adjustment_date,
-    #                 }
-    #             )
-
-    #             for line in transaction.booking_lines:
-    #                 if line.transaction_type == "dr":
-    #                     line.write(
-    #                         {
-    #                             "dr_amount": new_qty * cost_price,
-    #                             "transaction_date": adjustment_date,
-    #                         }
-    #                     )
-    #                 elif line.transaction_type == "cr":
-    #                     line.write(
-    #                         {
-    #                             "cr_amount": new_qty * cost_price,
-    #                             "transaction_date": adjustment_date,
-    #                         }
-    #                     )
-
-    #         movement = self.env["idil.item.movement"].search(
-    #             [("related_document", "=", "idil.stock.adjustment,%d" % record.id)],
-    #             limit=1,
-    #         )
-    #         if movement:
-    #             movement.write(
-    #                 {
-    #                     "quantity": movement_quantity,
-    #                     "date": adjustment_date,
-    #                 }
-    #             )
-
-    #     return super(StockAdjustment, self).write(vals)
     def write(self, vals):
         for record in self:
             old_qty = record.adjustment_qty

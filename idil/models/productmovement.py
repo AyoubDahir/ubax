@@ -4,6 +4,7 @@ from odoo import models, fields
 class ProductMovement(models.Model):
     _name = "idil.product.movement"
     _description = "Product Movement History"
+    _order = "id desc"
 
     product_id = fields.Many2one(
         "my_product.product", string="Product", required=True, ondelete="cascade"

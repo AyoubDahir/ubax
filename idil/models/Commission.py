@@ -7,6 +7,7 @@ class Commission(models.Model):
     _name = "idil.commission"
     _description = "Commission"
     _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
 
     name = fields.Char(
         string="Commission Reference",
@@ -195,6 +196,7 @@ class Commission(models.Model):
 class CommissionPayment(models.Model):
     _name = "idil.commission.payment"
     _description = "Commission Payment"
+    _order = "id desc"
 
     commission_id = fields.Many2one(
         "idil.commission", string="Commission", required=True

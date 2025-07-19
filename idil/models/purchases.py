@@ -12,6 +12,7 @@ class PurchaseOrderLine(models.Model):
     _name = "idil.purchase_order.line"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Purchase Order"
+    _order = "id desc"
 
     order_id = fields.Many2one(
         "idil.purchase_order", string="Order", ondelete="cascade"
@@ -147,6 +148,7 @@ class PurchaseOrder(models.Model):
     _name = "idil.purchase_order"
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Purchase Order Lines"
+    _order = "id desc"
 
     reffno = fields.Char(string="Reference Number")  # Consider renaming for clarity
     vendor_id = fields.Many2one(

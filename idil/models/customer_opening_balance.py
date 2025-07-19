@@ -11,6 +11,7 @@ _logger = logging.getLogger(__name__)
 class CustomerOpeningBalance(models.Model):
     _name = "idil.customer.opening.balance"
     _description = "Customer Opening Balance"
+    _order = "id desc"
 
     name = fields.Char(string="Reference", default="New", readonly=True, copy=False)
     date = fields.Date(
@@ -52,6 +53,17 @@ class CustomerOpeningBalance(models.Model):
         readonly=True,
         help="First sale order created from this opening balance.",
     )
+    total_amount = fields.Monetary(
+        string="Total Amount",
+        compute="_compute_total_amount",
+        store=True,
+        currency_field="currency_id",
+    )
+
+    @api.depends("line_ids.amount")
+    def _compute_total_amount(self):
+        for record in self:
+            record.total_amount = sum(record.line_ids.mapped("amount"))
 
     @api.depends("currency_id")
     def _compute_exchange_rate(self):
@@ -603,6 +615,7 @@ class CustomerOpeningBalance(models.Model):
 class CustomerOpeningBalanceLine(models.Model):
     _name = "idil.customer.opening.balance.line"
     _description = "Customer Opening Balance Line"
+    _order = "id desc"
 
     opening_balance_id = fields.Many2one(
         "idil.customer.opening.balance", string="Opening Balance", ondelete="cascade"
