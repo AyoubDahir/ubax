@@ -96,7 +96,12 @@ class CustomerSaleOrder(models.Model):
     @api.depends("balance_due", "total_return_amount")
     def _compute_net_balance(self):
         for order in self:
-            order.net_balance = order.balance_due - order.total_return_amount
+            order.net_balance = (
+                order.order_total
+                - order.total_paid
+                - order.balance_due
+                - order.total_return_amount
+            )
 
     @api.depends("order_lines", "order_lines.product_id")  # triggers on change
     def _compute_total_return_amount(self):
