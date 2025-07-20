@@ -248,6 +248,7 @@ class CustomerOpeningBalance(models.Model):
                     "name": f"OB-{record.name}-{line.customer_id.name}",
                     "customer_id": line.customer_id.id,
                     "order_date": record.date,
+                    "payment_method": "receivable",
                     "account_number": line.account_id.id,
                     "state": "confirmed",
                     "currency_id": record.currency_id.id,
