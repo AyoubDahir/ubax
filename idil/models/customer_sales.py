@@ -93,12 +93,22 @@ class CustomerSaleOrder(models.Model):
         store=False,
     )
 
-    @api.depends("balance_due", "total_return_amount")
+    @api.depends(
+        "balance_due",
+        "total_return_amount",
+        "payment_method",
+        "order_total",
+        "total_paid",
+    )
     def _compute_net_balance(self):
         for order in self:
-            order.net_balance = (
-                order.order_total - order.total_paid
-            ) - order.total_return_amount
+            base_balance = order.order_total - order.total_paid
+
+            # If payment is cash or bank, returns don't affect due — full payment already done
+            if order.payment_method in ("cash", "bank_transfer"):
+                order.net_balance = base_balance
+            else:
+                order.net_balance = base_balance - order.total_return_amount
 
     @api.depends("order_lines", "order_lines.product_id")  # triggers on change
     def _compute_total_return_amount(self):
