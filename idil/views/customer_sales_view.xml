@@ -11,6 +11,8 @@
                 <field name="customer_id"/>
                 
                 <field name="order_date"/>
+                 <field name="payment_method"/>
+                
                 <field name="order_total" sum="total"/>
                 <field name="total_paid" sum="total"/>
                 <field name="balance_due" sum="total"/>
