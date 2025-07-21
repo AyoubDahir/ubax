@@ -18,22 +18,27 @@ class ProductAdjustment(models.Model):
     )
     # Disposal Quantity
     new_quantity = fields.Float(
-        string="Disposal Quantity", required=True, digits=(16, 4)
+        string="Disposal Quantity", required=True, digits=(16, 6)
     )
 
     cost_price = fields.Float(
-        string="Current Cost Price", readonly=True, store=True, digits=(16, 4)
+        string="Product Cost Price", readonly=True, store=True, digits=(16, 6)
     )
     adjustment_amount = fields.Float(
-        string="Adjustment Value",
+        string="Adjustment Amount",
         compute="_compute_adjustment_amount",
         store=True,
         digits=(16, 4),
     )
     old_cost_price = fields.Float(
-        string="Old Cost Price", readonly=True, store=True, digits=(16, 4)
+        string="Total Cost Price", readonly=True, store=True, digits=(16, 6)
     )
-    reason = fields.Char(string="Reason", required=True)
+
+    reason_id = fields.Many2one(
+        "idil.product.adjustment.reason",
+        string="Adjustment Reason",
+        required=True,
+    )
     source_document = fields.Char(string="Source Document")
     company_id = fields.Many2one("res.company", default=lambda self: self.env.company)
     currency_id = fields.Many2one(
@@ -75,10 +80,21 @@ class ProductAdjustment(models.Model):
             self.cost_price = self.product_id.cost
             self.old_cost_price = self.product_id.stock_quantity * self.product_id.cost
 
-    @api.depends("new_quantity", "previous_quantity", "cost_price")
+    @api.depends("new_quantity", "previous_quantity", "cost_price", "product_id")
     def _compute_adjustment_amount(self):
         for rec in self:
-            rec.adjustment_amount = abs(rec.new_quantity * rec.cost_price)
+            bom_currency = (
+                self.product_id.bom_id.currency_id
+                if self.product_id.bom_id
+                else self.product_id.currency_id
+            )
+
+            if bom_currency.name == "USD":
+                rec.adjustment_amount = (
+                    abs(rec.new_quantity * rec.cost_price) * self.rate
+                )
+            else:
+                rec.adjustment_amount = abs(rec.new_quantity * rec.cost_price)
 
     @api.model
     def create(self, vals):
@@ -95,7 +111,7 @@ class ProductAdjustment(models.Model):
     def _apply_adjustment(self):
         for rec in self:
             # Enforce: new_quantity must be LESS than previous_quantity
-            if rec.new_quantity >= rec.previous_quantity:
+            if rec.new_quantity > rec.previous_quantity:
                 raise UserError(
                     _(
                         "Invalid adjustment: Disposal Quantity (%s) must be less than Previous Quantity (%s). Stock increase is not allowed."
@@ -112,14 +128,29 @@ class ProductAdjustment(models.Model):
 
             # Search for transaction source ID using "Receipt"
             trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Receipt")], limit=1
+                [("name", "=", "Product Adjustment")], limit=1
             )
             if not trx_source:
-                raise UserError("Transaction source 'Receipt' not found.")
+                raise UserError("Transaction source 'Product Adjustment' not found.")
 
             # Update product stock quantity
             rec.product_id.stock_quantity = rec.product_id.stock_quantity - difference
             # Update stock
+
+            # Validate currency match between asset and adjustment accounts
+            asset_currency = rec.product_id.asset_account_id.currency_id
+            adjustment_currency = rec.product_id.account_adjustment_id.currency_id
+
+            if asset_currency.id != adjustment_currency.id:
+                raise ValidationError(
+                    _(
+                        "Mismatch in account currencies:\n- Asset Account: %s\n- Adjustment Account: %s\nCurrencies must be the same to proceed."
+                    )
+                    % (
+                        asset_currency.name or "Undefined",
+                        adjustment_currency.name or "Undefined",
+                    )
+                )
 
             # Create a transaction booking
             # Create a transaction booking for the adjustment
@@ -212,10 +243,24 @@ class ProductAdjustment(models.Model):
             amount = abs(new_qty) * rec.cost_price * rec.rate
 
             trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Receipt")], limit=1
+                [("name", "=", "Product Adjustment")], limit=1
             )
             if not trx_source:
-                raise UserError("Transaction source 'Receipt' not found.")
+                raise UserError("Transaction source 'Product Adjustment' not found.")
+
+            asset_currency = product.asset_account_id.currency_id
+            adjustment_currency = product.account_adjustment_id.currency_id
+
+            if asset_currency.id != adjustment_currency.id:
+                raise ValidationError(
+                    _(
+                        "Mismatch in account currencies:\n- Asset Account: %s\n- Adjustment Account: %s\nCurrencies must be the same to proceed."
+                    )
+                    % (
+                        asset_currency.name or "Undefined",
+                        adjustment_currency.name or "Undefined",
+                    )
+                )
 
             # Update or create transaction booking
             booking = self.env["idil.transaction_booking"].search(
@@ -338,3 +383,11 @@ class ProductAdjustment(models.Model):
                 booking.unlink()
 
         return super(ProductAdjustment, self).unlink()
+
+
+class ProductAdjustmentReason(models.Model):
+    _name = "idil.product.adjustment.reason"
+    _description = "Product Adjustment Reason"
+    _order = "name"
+
+    name = fields.Char(string="Reason", required=True, translate=True)

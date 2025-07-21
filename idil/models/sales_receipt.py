@@ -351,6 +351,13 @@ class IdilSalesPayment(models.Model):
         ondelete="cascade",
     )
 
+    payment_method_ids = fields.One2many(
+        "idil.receipt.bulk.payment.method",
+        "sales_payment_id",
+        string="Bulk Payment Methods",
+        ondelete="cascade",
+    )
+
     def unlink(self):
         for payment in self:
             payment.sales_receipt_id.remaining_amount += payment.paid_amount
@@ -362,4 +369,31 @@ class IdilSalesPayment(models.Model):
             self.env["idil.customer.sale.payment"].search(
                 [("sales_payment_id", "=", payment.id)]
             ).unlink()
+            # Adjust bulk payment's amount_to_pay before deleting
+            bulk_payment_methods = self.env["idil.receipt.bulk.payment.method"].search(
+                [("sales_payment_id", "=", payment.id)]
+            )
+
+            # Step 1: Find and delete related bulk payment methods first
+            bulk_payment_methods = self.env["idil.receipt.bulk.payment.method"].search(
+                [("sales_payment_id", "=", payment.id)]
+            )
+
+            related_bulk_payments = (
+                {}
+            )  # Store payment_amounts grouped by bulk_payment_id
+            for method in bulk_payment_methods:
+                if method.bulk_payment_id:
+                    if method.bulk_payment_id not in related_bulk_payments:
+                        related_bulk_payments[method.bulk_payment_id] = 0
+                    related_bulk_payments[
+                        method.bulk_payment_id
+                    ] += method.payment_amount
+
+            # Delete the payment methods before adjusting the bulk payment
+            bulk_payment_methods.unlink()
+
+            # Step 2: Now update the related bulk payment's amount_to_pay
+            for bulk_payment, total_amount in related_bulk_payments.items():
+                bulk_payment.amount_to_pay -= total_amount
         return super(IdilSalesPayment, self).unlink()

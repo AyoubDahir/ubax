@@ -86,7 +86,10 @@
             <field name="name">Bulk Receipt</field>
             <field name="description">Bulk Receipt</field>
         </record>
-
+        <record id="trx_source_product_adjusment" model="idil.transaction.source">
+                    <field name="name">Product Adjustment</field>
+                    <field name="description">Product Adjustmentt</field>
+        </record>
 
         <!-- Add more records as needed -->
     </data>

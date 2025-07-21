@@ -167,200 +167,189 @@ class ReceiptBulkPayment(models.Model):
         if not self.payment_method_ids:
             raise UserError("At least one payment method is required.")
 
-        payment_method = self.payment_method_ids[0]  # Assume only one for now
-        payment_account = payment_method.payment_account_id
+        if self.amount_to_pay <= 0:
+            raise UserError("Payment amount must be greater than zero.")
 
-        if not payment_account:
-            raise UserError("Missing payment account for this payment method.")
+        if not self.line_ids:
+            raise UserError("No receipt lines to apply payment to.")
 
-        remaining_payment = self.amount_to_pay
-        remaining_by_account = {
-            method.payment_account_id.id: method.payment_amount
-            for method in self.payment_method_ids
-        }
+        trx_source = self.env["idil.transaction.source"].search(
+            [("name", "=", "Bulk Receipt")], limit=1
+        )
+        if not trx_source:
+            raise UserError("Transaction source 'Bulk Receipt' not found.")
 
-        for line in self.line_ids:
-            if remaining_payment <= 0:
-                break
+        remaining_receipts = self.line_ids.filtered(
+            lambda l: l.receipt_id.due_amount > l.receipt_id.paid_amount
+        )
 
-            receipt = line.receipt_id
-            to_pay = min(receipt.due_amount - receipt.paid_amount, remaining_payment)
+        if not remaining_receipts:
+            raise UserError("No valid receipts with remaining due amount.")
 
-            if to_pay <= 0:
+        for method in self.payment_method_ids:
+            payment_account = method.payment_account_id
+            if not payment_account:
+                raise UserError(f"Missing payment account.")
+
+            remaining_amount = method.payment_amount
+            if remaining_amount <= 0:
                 continue
 
-            # Determine partner type
-            if self.partner_type == "salesperson":
-                ar_account = receipt.salesperson_id.account_receivable_id
-                entity_name = receipt.salesperson_id.name
-                is_salesperson = True
-            elif self.partner_type == "customer":
-                ar_account = receipt.customer_id.account_receivable_id
-                entity_name = receipt.customer_id.name
-                is_salesperson = False
-            else:
-                raise UserError("Invalid partner type.")
+            for line in remaining_receipts:
+                receipt = line.receipt_id
+                due_balance = receipt.due_amount - receipt.paid_amount
 
-            # Validate currency match
-            if ar_account.currency_id.id != payment_account.currency_id.id:
-                raise UserError(
-                    f"Currency mismatch between Payment Account ({payment_account.currency_id.name}) "
-                    f"and Receivable Account ({ar_account.currency_id.name}) for {entity_name}."
-                )
-
-            # Create transaction booking
-            trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Bulk Receipt")], limit=1
-            )
-            if not trx_source:
-                raise UserError("Transaction source 'Receipt' not found.")
-
-            trx_booking = self.env["idil.transaction_booking"].create(
-                {
-                    "order_number": (
-                        receipt.sales_order_id.name if receipt.sales_order_id else "/"
-                    ),
-                    "trx_source_id": trx_source.id,
-                    "payment_method": "other",
-                    "customer_id": (
-                        receipt.customer_id.id if receipt.customer_id else False
-                    ),
-                    "reffno": self.name,
-                    "sale_order_id": (
-                        receipt.sales_order_id.id if receipt.sales_order_id else False
-                    ),
-                    "payment_status": (
-                        "paid"
-                        if to_pay >= (receipt.due_amount - receipt.paid_amount)
-                        else "partial_paid"
-                    ),
-                    "customer_opening_balance_id": receipt.customer_opening_balance_id.id,
-                    "trx_date": fields.Datetime.now(),
-                    "amount": to_pay,
-                }
-            )
-
-            # Booking lines
-            # DR lines from payment methods (proportional allocation)
-            dr_lines = []
-            remaining_to_allocate = to_pay
-
-            for method in self.payment_method_ids:
-                acc_id = method.payment_account_id.id
-                allocatable = min(
-                    remaining_to_allocate, remaining_by_account.get(acc_id, 0)
-                )
-                if allocatable <= 0:
+                if due_balance <= 0 or remaining_amount <= 0:
                     continue
 
-                if (
-                    ar_account.currency_id.id
-                    != method.payment_account_id.currency_id.id
-                ):
+                to_pay = min(due_balance, remaining_amount)
+
+                if self.partner_type == "salesperson":
+                    ar_account = receipt.salesperson_id.account_receivable_id
+                    entity_name = receipt.salesperson_id.name
+                    is_salesperson = True
+                elif self.partner_type == "customer":
+                    ar_account = receipt.customer_id.account_receivable_id
+                    entity_name = receipt.customer_id.name
+                    is_salesperson = False
+                else:
+                    raise UserError("Invalid partner type.")
+
+                if ar_account.currency_id.id != payment_account.currency_id.id:
                     raise UserError(
-                        f"Currency mismatch between Payment Account ({method.payment_account_id.currency_id.name}) "
-                        f"and Receivable Account ({ar_account.currency_id.name}) for {entity_name}."
+                        f"Currency mismatch between payment account ({payment_account.currency_id.name}) "
+                        f"and receivable account ({ar_account.currency_id.name}) for {entity_name}."
                     )
 
+                # Create Transaction Booking
+                trx_booking = self.env["idil.transaction_booking"].create(
+                    {
+                        "order_number": (
+                            receipt.sales_order_id.name
+                            if receipt.sales_order_id
+                            else "/"
+                        ),
+                        "trx_source_id": trx_source.id,
+                        "payment_method": "other",
+                        "customer_id": (
+                            receipt.customer_id.id if receipt.customer_id else False
+                        ),
+                        "reffno": self.name,
+                        "sale_order_id": (
+                            receipt.sales_order_id.id
+                            if receipt.sales_order_id
+                            else False
+                        ),
+                        "payment_status": (
+                            "paid" if to_pay >= due_balance else "partial_paid"
+                        ),
+                        "customer_opening_balance_id": receipt.customer_opening_balance_id.id,
+                        "trx_date": fields.Datetime.now(),
+                        "amount": to_pay,
+                    }
+                )
+
+                # Booking lines (DR from method account, CR to AR)
                 dr_line = self.env["idil.transaction_bookingline"].create(
                     {
                         "transaction_booking_id": trx_booking.id,
                         "transaction_type": "dr",
-                        "account_number": acc_id,
-                        "dr_amount": allocatable,
+                        "account_number": payment_account.id,
+                        "dr_amount": to_pay,
                         "cr_amount": 0.0,
                         "transaction_date": fields.Datetime.now(),
                         "description": f"Bulk Receipt - {self.name}",
                         "customer_opening_balance_id": receipt.customer_opening_balance_id.id,
                     }
                 )
-                dr_lines.append(dr_line)
 
-                remaining_by_account[acc_id] -= allocatable
-                remaining_to_allocate -= allocatable
-
-                if remaining_to_allocate <= 0:
-                    break
-
-            if remaining_to_allocate > 0:
-                raise UserError("Insufficient payment method amounts to cover receipt.")
-
-            cr_line = self.env["idil.transaction_bookingline"].create(
-                {
-                    "transaction_booking_id": trx_booking.id,
-                    "transaction_type": "cr",
-                    "account_number": ar_account.id,
-                    "dr_amount": 0.0,
-                    "cr_amount": to_pay,
-                    "transaction_date": fields.Datetime.now(),
-                    "description": f"Bulk Receipt - {self.name}",
-                    "customer_opening_balance_id": receipt.customer_opening_balance_id.id,
-                }
-            )
-
-            # Create sales payment
-            payment = self.env["idil.sales.payment"].create(
-                {
-                    "sales_receipt_id": receipt.id,
-                    "transaction_booking_ids": [(4, trx_booking.id)],
-                    "transaction_bookingline_ids": [(4, dr_line.id), (4, cr_line.id)],
-                    "payment_account": payment_account.id,
-                    "payment_date": fields.Datetime.now(),
-                    "paid_amount": to_pay,
-                }
-            )
-
-            # Update paid/remaining
-            receipt.paid_amount += to_pay
-            receipt.remaining_amount = receipt.due_amount - receipt.paid_amount
-            receipt.payment_status = (
-                "paid" if receipt.remaining_amount <= 0 else "pending"
-            )
-            line.paid_now = to_pay
-
-            # Create salesperson or customer transaction
-            if is_salesperson:
-                self.env["idil.salesperson.transaction"].create(
+                cr_line = self.env["idil.transaction_bookingline"].create(
                     {
-                        "sales_person_id": receipt.salesperson_id.id,
-                        "date": fields.Date.today(),
-                        "sales_payment_id": payment.id,
-                        "order_id": (
-                            receipt.sales_order_id.id
-                            if receipt.sales_order_id
-                            else False
-                        ),
-                        "transaction_type": "in",
-                        "amount": to_pay,
-                        "description": f"Bulk Payment - Receipt {receipt.id} - Order {receipt.sales_order_id.name if receipt.sales_order_id else ''}",
-                    }
-                )
-            else:
-                self.env["idil.customer.sale.payment"].create(
-                    {
-                        "order_id": (
-                            receipt.cusotmer_sale_order_id.id
-                            if receipt.cusotmer_sale_order_id
-                            else False
-                        ),
-                        "customer_id": receipt.customer_id.id,
-                        "payment_method": "cash",  # static or update if needed
-                        "account_id": payment_account.id,
-                        "amount": to_pay,
+                        "transaction_booking_id": trx_booking.id,
+                        "transaction_type": "cr",
+                        "account_number": ar_account.id,
+                        "dr_amount": 0.0,
+                        "cr_amount": to_pay,
+                        "transaction_date": fields.Datetime.now(),
+                        "description": f"Bulk Receipt - {self.name}",
+                        "customer_opening_balance_id": receipt.customer_opening_balance_id.id,
                     }
                 )
 
-            # Trigger order recompute if customer
-            if receipt.cusotmer_sale_order_id:
-                receipt.cusotmer_sale_order_id._compute_total_paid()
-                receipt.cusotmer_sale_order_id._compute_balance_due()
+                # Sales Payment record (per method)
+                payment = self.env["idil.sales.payment"].create(
+                    {
+                        "sales_receipt_id": receipt.id,
+                        "payment_method_ids": [(4, method.id)],
+                        "transaction_booking_ids": [(4, trx_booking.id)],
+                        "transaction_bookingline_ids": [
+                            (4, dr_line.id),
+                            (4, cr_line.id),
+                        ],
+                        "payment_account": payment_account.id,
+                        "payment_date": fields.Datetime.now(),
+                        "paid_amount": to_pay,
+                    }
+                )
+                method.write(
+                    {"sales_payment_id": payment.id}
+                )  # If assigning after create
 
-            remaining_payment -= to_pay
+                # Update receipt
+                receipt.paid_amount += to_pay
+                receipt.remaining_amount = receipt.due_amount - receipt.paid_amount
+                receipt.payment_status = (
+                    "paid" if receipt.remaining_amount <= 0 else "pending"
+                )
+                line.paid_now += to_pay
 
-        if remaining_payment > 0:
-            raise UserError(
-                f"⚠️ Bulk Payment processed partially. Unused amount remaining: {remaining_payment:.2f}."
-            )
+                # Transaction: salesperson or customer
+                if is_salesperson:
+                    self.env["idil.salesperson.transaction"].create(
+                        {
+                            "sales_person_id": receipt.salesperson_id.id,
+                            "date": fields.Date.today(),
+                            "sales_payment_id": payment.id,
+                            "sales_receipt_id": receipt.id,
+                            "order_id": (
+                                receipt.sales_order_id.id
+                                if receipt.sales_order_id
+                                else False
+                            ),
+                            "transaction_type": "in",
+                            "amount": to_pay,
+                            "description": f"Bulk Payment - Receipt {receipt.id} - Order {receipt.sales_order_id.name if receipt.sales_order_id else ''}",
+                        }
+                    )
+                else:
+                    self.env["idil.customer.sale.payment"].create(
+                        {
+                            "order_id": (
+                                receipt.cusotmer_sale_order_id.id
+                                if receipt.cusotmer_sale_order_id
+                                else False
+                            ),
+                            "customer_id": receipt.customer_id.id,
+                            "payment_method": "cash",
+                            "sales_payment_id": payment.id,
+                            "sales_receipt_id": receipt.id,
+                            "account_id": payment_account.id,
+                            "amount": to_pay,
+                        }
+                    )
+
+                # Recompute order
+                if receipt.cusotmer_sale_order_id:
+                    receipt.cusotmer_sale_order_id._compute_total_paid()
+                    receipt.cusotmer_sale_order_id._compute_balance_due()
+
+                # Deduct from method amount
+                remaining_amount -= to_pay
+
+            if remaining_amount > 0:
+                raise UserError(
+                    f"⚠️ Payment method '{payment_account.name}' has {remaining_amount:.2f} unallocated."
+                )
 
         self.state = "confirmed"
 
@@ -373,12 +362,26 @@ class ReceiptBulkPayment(models.Model):
             )
         return super().create(vals)
 
+    # def write(self, vals):
+    #     for rec in self:
+    #         if rec.state == "confirmed":
+    #             raise ValidationError(
+    #                 "This record is confirmed and cannot be modified.\nIf changes are required, please delete and create a new bulk payment."
+    #             )
+    #     return super().write(vals)
+
     def write(self, vals):
         for rec in self:
             if rec.state == "confirmed":
-                raise ValidationError(
-                    "This record is confirmed and cannot be modified.\nIf changes are required, please delete and create a new bulk payment."
-                )
+                allowed_fields = {"amount_to_pay"}
+                incoming_fields = set(vals.keys())
+
+                # If there's any field being updated that's not allowed
+                if not incoming_fields.issubset(allowed_fields):
+                    raise ValidationError(
+                        "This record is confirmed and cannot be modified.\n"
+                        "Only 'amount_to_pay' can be adjusted automatically when a sales payment is deleted."
+                    )
         return super().write(vals)
 
     def unlink(self):
@@ -496,3 +499,8 @@ class ReceiptBulkPaymentMethod(models.Model):
     )
     payment_amount = fields.Float(string="Amount", required=True)
     note = fields.Char(string="Memo/Reference")
+    sales_payment_id = fields.Many2one(
+        "idil.sales.payment",
+        string="Linked Sales Payment",
+        ondelete="cascade",  # This makes it auto-delete if sales payment is deleted
+    )

@@ -19,7 +19,7 @@
                     <group>
                         <field name="adjustment_date"/>
                         <field name="source_document"/>
-                        <field name="reason"/>
+                        <field name="reason_id"/>
                     </group>
 
                     <notebook>
@@ -32,6 +32,8 @@
                             
                                 <group>
                                     <field name="cost_price" readonly="1"/>
+                                    <field name="currency_id" readonly="1"/>
+                                    
                                     <field name="rate" readonly="1"/>
                                     <field name="old_cost_price" readonly="1"/>
                                     <field name="adjustment_amount" readonly="1"/>
@@ -54,11 +56,18 @@
         <field name="model">idil.product.adjustment</field>
         <field name="arch" type="xml">
             <tree string="Product Adjustments">
-                <field name="product_id"/>
                 <field name="adjustment_date"/>
-                <field name="previous_quantity"/>
-                <field name="new_quantity"/>
-                <field name="reason"/>
+                <field name="product_id"/>                
+                <field name="previous_quantity" optional="show" />
+                <field name="new_quantity" optional="show"/>
+                <field name="cost_price" optional="show"/>
+                <field name="adjustment_amount" sum="total" optional="show"/>
+                <field name="old_cost_price" optional="show"/>
+                <field name="source_document" optional="show"/>
+                <field name="reason_id" optional="show"/> 
+                <field name="currency_id" optional="show"/>
+                <field name="rate" optional="show"/>
+                <field name="reason_id" optional="show"/>
             </tree>
         </field>
     </record>
