@@ -347,7 +347,7 @@ class SalesSummaryPersonReportWizard(models.TransientModel):
 
         attachment = self.env["ir.attachment"].create(
             {
-                "name": "sales_summary.pdf",
+                "name": f"Sales_Summary_Report_{self.customer_id.name} - {self.start_date} - {self.end_date}.pdf",
                 "type": "binary",
                 "datas": base64.b64encode(pdf_data),
                 "mimetype": "application/pdf",
