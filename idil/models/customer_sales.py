@@ -639,7 +639,7 @@ class CustomerSaleOrder(models.Model):
                 return res
         except Exception as e:
             _logger.error("Error in create: %s", e)
-            raise ValidationError(_("Creation failed: %s") % str(e))
+            raise ValidationError(models._("Creation failed: %s") % str(e))
 
     def unlink(self):
         try:
