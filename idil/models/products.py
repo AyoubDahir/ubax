@@ -435,58 +435,13 @@ class Product(models.Model):
     @api.model
     def create(self, vals):
         res = super(Product, self).create(vals)
-        res._sync_with_odoo_product()
 
         return res
 
     def write(self, vals):
         res = super(Product, self).write(vals)
-        self._sync_with_odoo_product()
-        return res
 
-    def _sync_with_odoo_product(self):
-        ProductProduct = self.env["product.product"]
-        type_mapping = {
-            "stockable": "product",
-            "consumable": "consu",
-            "service": "service",
-        }
-        for product in self:
-            odoo_product = ProductProduct.search(
-                [("default_code", "=", product.internal_reference)], limit=1
-            )
-            if not odoo_product:
-                odoo_product = ProductProduct.create(
-                    {
-                        "my_product_id": product.id,
-                        "name": product.name,
-                        "default_code": product.internal_reference,
-                        "type": product.detailed_type,
-                        "list_price": product.sale_price,
-                        "standard_price": product.cost,
-                        "categ_id": product.category_id.id,
-                        "pos_categ_ids": product.pos_categ_ids,
-                        "uom_id": 1,
-                        "available_in_pos": product.available_in_pos,
-                        "image_1920": product.image_1920,
-                    }
-                )
-            else:
-                odoo_product.write(
-                    {
-                        "my_product_id": product.id,
-                        "name": product.name,
-                        "default_code": product.internal_reference,
-                        "type": product.detailed_type,
-                        "list_price": product.sale_price,
-                        "standard_price": product.cost,
-                        "categ_id": product.category_id.id,
-                        "pos_categ_ids": product.pos_categ_ids,
-                        "uom_id": 1,
-                        "available_in_pos": product.available_in_pos,
-                        "image_1920": product.image_1920,
-                    }
-                )
+        return res
 
     @api.onchange("cost")
     def _onchange_cost(self):

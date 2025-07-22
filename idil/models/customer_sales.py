@@ -169,33 +169,38 @@ class CustomerSaleOrder(models.Model):
 
     @api.model
     def create(self, vals):
-        # Step 1: Check if customer_id is provided in vals
-        if "customer_id" in vals:
+        try:
+            with self.env.cr.savepoint():
+                # Step 1: Check if customer_id is provided in vals
+                if "customer_id" in vals:
 
-            # Set order reference if not provided
-            if "name" not in vals or not vals["name"]:
-                vals["name"] = self._generate_order_reference(vals)
+                    # Set order reference if not provided
+                    if "name" not in vals or not vals["name"]:
+                        vals["name"] = self._generate_order_reference(vals)
 
-        # Proceed with creating the SaleOrder with the updated vals
-        new_order = super(CustomerSaleOrder, self).create(vals)
+                # Proceed with creating the SaleOrder with the updated vals
+                new_order = super(CustomerSaleOrder, self).create(vals)
 
-        # Step 3: Create product movements for each order line
-        for line in new_order.order_lines:
-            self.env["idil.product.movement"].create(
-                {
-                    "product_id": line.product_id.id,
-                    "movement_type": "out",
-                    "quantity": line.quantity * -1,
-                    "date": fields.Datetime.now(),
-                    "source_document": new_order.name,
-                    "customer_id": new_order.customer_id.id,
-                }
-            )
+                # Step 3: Create product movements for each order line
+                for line in new_order.order_lines:
+                    self.env["idil.product.movement"].create(
+                        {
+                            "product_id": line.product_id.id,
+                            "movement_type": "out",
+                            "quantity": line.quantity * -1,
+                            "date": fields.Datetime.now(),
+                            "source_document": new_order.name,
+                            "customer_id": new_order.customer_id.id,
+                        }
+                    )
 
-        # Step 4: Book accounting entries for the new order
-        new_order.book_accounting_entry()
+                # Step 4: Book accounting entries for the new order
+                new_order.book_accounting_entry()
 
-        return new_order
+                return new_order
+        except Exception as e:
+            _logger.error(f"Create transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def _generate_order_reference(self, vals):
         bom_id = vals.get("bom_id", False)
@@ -440,238 +445,261 @@ class CustomerSaleOrder(models.Model):
                 )
 
     def write(self, vals):
-
-        for order in self:
-
-            # 1.  Prevent changing payment_method from receivable → cash
-            # ------------------------------------------------------------------
-            if "payment_method" in vals and vals["payment_method"] in [
-                "cash",
-                "bank_transfer",
-            ]:
+        try:
+            # Start transaction
+            with self.env.cr.savepoint():
                 for order in self:
-                    if order.payment_method == "receivable":
-                        raise ValidationError(
-                            "You cannot switch the payment method from "
-                            "'Account Receivable' to 'Cash or bank'.\n"
-                            "Receivable booking lines already exist for this order."
-                        )
-            if "payment_method" in vals and vals["payment_method"] == "receivable":
-                for order in self:
-                    if order.payment_method in ["cash", "bank_transfer"]:
-                        raise ValidationError(
-                            "You cannot switch the payment method from "
-                            "'Cash or bank' to 'Account Receivable'.\n"
-                            "Cash booking lines already exist for this order."
-                        )
 
-            # Loop through the lines in the database before they are updated
-            for line in order.order_lines:
-                if not line.product_id:
-                    continue
-
-                # Fetch original (pre-update) record from DB
-                original_line = self.env["idil.customer.sale.order.line"].browse(
-                    line.id
-                )
-                old_qty = original_line.quantity
-
-                # Get new quantity from vals if being changed, else use current
-                new_qty = line.quantity
-                if "order_lines" in vals:
-                    for command in vals["order_lines"]:
-                        if command[0] == 1 and command[1] == line.id:
-                            if "quantity" in command[2]:
-                                new_qty = command[2]["quantity"]
-
-                product = line.product_id
-
-                # Check if increase
-                if new_qty > old_qty:
-                    diff = new_qty - old_qty
-                    if product.stock_quantity < diff:
-                        raise ValidationError(
-                            f"Not enough stock for product '{product.name}'.\n"
-                            f"Available: {product.stock_quantity}, Required additional: {diff}"
-                        )
-                    product.stock_quantity -= diff
-
-                # If decrease
-                elif new_qty < old_qty:
-                    diff = old_qty - new_qty
-                    product.stock_quantity += diff
-
-        # === Perform the write ===
-        res = super(CustomerSaleOrder, self).write(vals)
-
-        # === Update related records ===
-        for order in self:
-            # -- Update Product Movements --
-            movements = self.env["idil.product.movement"].search(
-                [("source_document", "=", order.name)]
-            )
-            for movement in movements:
-                matching_line = order.order_lines.filtered(
-                    lambda l: l.product_id.id == movement.product_id.id
-                )
-                if matching_line:
-                    movement.write(
-                        {
-                            "quantity": matching_line[0].quantity * -1,
-                            "date": fields.Datetime.now(),
-                            "customer_id": order.customer_id.id,
-                        }
-                    )
-
-            # -- Update Sales Receipt --
-            receipt = self.env["idil.sales.receipt"].search(
-                [("cusotmer_sale_order_id", "=", order.id)], limit=1
-            )
-            if receipt:
-                receipt.write(
-                    {
-                        "due_amount": order.order_total,
-                        "paid_amount": order.total_paid,
-                        "remaining_amount": order.balance_due,
-                        "customer_id": order.customer_id.id,
-                    }
-                )
-
-            # -- Update Transaction Booking & Booking Lines --
-            booking = self.env["idil.transaction_booking"].search(
-                [("cusotmer_sale_order_id", "=", order.id)], limit=1
-            )
-            if booking:
-                booking.write(
-                    {
-                        "trx_date": fields.Date.context_today(self),
-                        "amount": order.order_total,
-                        "customer_id": order.customer_id.id,
-                        "payment_method": order.payment_method or "bank_transfer",
-                        "payment_status": "pending",
-                    }
-                )
-
-                lines = self.env["idil.transaction_bookingline"].search(
-                    [("transaction_booking_id", "=", booking.id)]
-                )
-                for line in lines:
-                    matching_order_line = order.order_lines.filtered(
-                        lambda l: l.product_id.id == line.product_id.id
-                    )
-                    if not matching_order_line:
-                        continue
-
-                    order_line = matching_order_line[0]
-                    product = order_line.product_id
-
-                    bom_currency = (
-                        product.bom_id.currency_id
-                        if product.bom_id
-                        else product.currency_id
-                    )
-
-                    amount_in_bom_currency = product.cost * order_line.quantity
-
-                    if bom_currency.name == "USD":
-                        product_cost_amount = amount_in_bom_currency * self.rate
-                    else:
-                        product_cost_amount = amount_in_bom_currency
-
-                    _logger.info(
-                        f"Product Cost Amount: {product_cost_amount} for product {product.name}"
-                    )
-                    updated_values = {}
-
-                    # COGS (DR)
+                    # 1.  Prevent changing payment_method from receivable → cash
+                    # ------------------------------------------------------------------
+                    if "payment_method" in vals and vals["payment_method"] in [
+                        "cash",
+                        "bank_transfer",
+                    ]:
+                        for order in self:
+                            if order.payment_method == "receivable":
+                                raise ValidationError(
+                                    "You cannot switch the payment method from "
+                                    "'Account Receivable' to 'Cash or bank'.\n"
+                                    "Receivable booking lines already exist for this order."
+                                )
                     if (
-                        line.transaction_type == "dr"
-                        and line.account_number.id == product.account_cogs_id.id
+                        "payment_method" in vals
+                        and vals["payment_method"] == "receivable"
                     ):
-                        updated_values["dr_amount"] = product_cost_amount
-                        updated_values["cr_amount"] = 0
+                        for order in self:
+                            if order.payment_method in ["cash", "bank_transfer"]:
+                                raise ValidationError(
+                                    "You cannot switch the payment method from "
+                                    "'Cash or bank' to 'Account Receivable'.\n"
+                                    "Cash booking lines already exist for this order."
+                                )
 
-                    # Asset Inventory (CR)
-                    elif (
-                        line.transaction_type == "cr"
-                        and line.account_number.id == product.asset_account_id.id
-                    ):
-                        updated_values["cr_amount"] = product_cost_amount
-                        updated_values["dr_amount"] = 0
+                    # Loop through the lines in the database before they are updated
+                    for line in order.order_lines:
+                        if not line.product_id:
+                            continue
 
-                    # Receivable or Cash (DR)
-                    elif line.transaction_type == "dr" and line.account_number.id == (
-                        order.customer_id.account_receivable_id.id
-                        if order.payment_method not in ["cash", "bank_transfer"]
-                        else order.account_number.id
-                    ):
-                        updated_values["dr_amount"] = order_line.subtotal
-                        updated_values["cr_amount"] = 0
+                        # Fetch original (pre-update) record from DB
+                        original_line = self.env[
+                            "idil.customer.sale.order.line"
+                        ].browse(line.id)
+                        old_qty = original_line.quantity
 
-                    # Income (CR)
-                    elif (
-                        line.transaction_type == "cr"
-                        and line.account_number.id == product.income_account_id.id
-                    ):
-                        updated_values["cr_amount"] = order_line.subtotal
-                        updated_values["dr_amount"] = 0
+                        # Get new quantity from vals if being changed, else use current
+                        new_qty = line.quantity
+                        if "order_lines" in vals:
+                            for command in vals["order_lines"]:
+                                if command[0] == 1 and command[1] == line.id:
+                                    if "quantity" in command[2]:
+                                        new_qty = command[2]["quantity"]
 
-                    line.write(updated_values)
+                        product = line.product_id
 
-        return res
+                        # Check if increase
+                        if new_qty > old_qty:
+                            diff = new_qty - old_qty
+                            if product.stock_quantity < diff:
+                                raise ValidationError(
+                                    f"Not enough stock for product '{product.name}'.\n"
+                                    f"Available: {product.stock_quantity}, Required additional: {diff}"
+                                )
+                            product.stock_quantity -= diff
+
+                        # If decrease
+                        elif new_qty < old_qty:
+                            diff = old_qty - new_qty
+                            product.stock_quantity += diff
+
+                # === Perform the write ===
+                res = super(CustomerSaleOrder, self).write(vals)
+
+                # === Update related records ===
+                for order in self:
+                    # -- Update Product Movements --
+                    movements = self.env["idil.product.movement"].search(
+                        [("source_document", "=", order.name)]
+                    )
+                    for movement in movements:
+                        matching_line = order.order_lines.filtered(
+                            lambda l: l.product_id.id == movement.product_id.id
+                        )
+                        if matching_line:
+                            movement.write(
+                                {
+                                    "quantity": matching_line[0].quantity * -1,
+                                    "date": fields.Datetime.now(),
+                                    "customer_id": order.customer_id.id,
+                                }
+                            )
+
+                    # -- Update Sales Receipt --
+                    receipt = self.env["idil.sales.receipt"].search(
+                        [("cusotmer_sale_order_id", "=", order.id)], limit=1
+                    )
+                    if receipt:
+                        receipt.write(
+                            {
+                                "due_amount": order.order_total,
+                                "paid_amount": order.total_paid,
+                                "remaining_amount": order.balance_due,
+                                "customer_id": order.customer_id.id,
+                            }
+                        )
+
+                    # -- Update Transaction Booking & Booking Lines --
+                    booking = self.env["idil.transaction_booking"].search(
+                        [("cusotmer_sale_order_id", "=", order.id)], limit=1
+                    )
+                    if booking:
+                        booking.write(
+                            {
+                                "trx_date": fields.Date.context_today(self),
+                                "amount": order.order_total,
+                                "customer_id": order.customer_id.id,
+                                "payment_method": order.payment_method
+                                or "bank_transfer",
+                                "payment_status": "pending",
+                            }
+                        )
+
+                        lines = self.env["idil.transaction_bookingline"].search(
+                            [("transaction_booking_id", "=", booking.id)]
+                        )
+                        for line in lines:
+                            matching_order_line = order.order_lines.filtered(
+                                lambda l: l.product_id.id == line.product_id.id
+                            )
+                            if not matching_order_line:
+                                continue
+
+                            order_line = matching_order_line[0]
+                            product = order_line.product_id
+
+                            bom_currency = (
+                                product.bom_id.currency_id
+                                if product.bom_id
+                                else product.currency_id
+                            )
+
+                            amount_in_bom_currency = product.cost * order_line.quantity
+
+                            if bom_currency.name == "USD":
+                                product_cost_amount = amount_in_bom_currency * self.rate
+                            else:
+                                product_cost_amount = amount_in_bom_currency
+
+                            _logger.info(
+                                f"Product Cost Amount: {product_cost_amount} for product {product.name}"
+                            )
+                            updated_values = {}
+
+                            # COGS (DR)
+                            if (
+                                line.transaction_type == "dr"
+                                and line.account_number.id == product.account_cogs_id.id
+                            ):
+                                updated_values["dr_amount"] = product_cost_amount
+                                updated_values["cr_amount"] = 0
+
+                            # Asset Inventory (CR)
+                            elif (
+                                line.transaction_type == "cr"
+                                and line.account_number.id
+                                == product.asset_account_id.id
+                            ):
+                                updated_values["cr_amount"] = product_cost_amount
+                                updated_values["dr_amount"] = 0
+
+                            # Receivable or Cash (DR)
+                            elif (
+                                line.transaction_type == "dr"
+                                and line.account_number.id
+                                == (
+                                    order.customer_id.account_receivable_id.id
+                                    if order.payment_method
+                                    not in ["cash", "bank_transfer"]
+                                    else order.account_number.id
+                                )
+                            ):
+                                updated_values["dr_amount"] = order_line.subtotal
+                                updated_values["cr_amount"] = 0
+
+                            # Income (CR)
+                            elif (
+                                line.transaction_type == "cr"
+                                and line.account_number.id
+                                == product.income_account_id.id
+                            ):
+                                updated_values["cr_amount"] = order_line.subtotal
+                                updated_values["dr_amount"] = 0
+
+                            line.write(updated_values)
+
+                return res
+        except Exception as e:
+            _logger.error("Error in create: %s", e)
+            raise ValidationError(_("Creation failed: %s") % str(e))
 
     def unlink(self):
-        for order in self:
-            for line in order.order_lines:
-                # 🔒 Prevent delete if any payment has been made
-                receipt = self.env["idil.sales.receipt"].search(
-                    [("cusotmer_sale_order_id", "=", order.id)], limit=1
-                )
-                if receipt and receipt.paid_amount > 0:
-                    raise ValidationError(
-                        f"❌ Cannot delete order '{order.name}' because it has a paid amount of {receipt.paid_amount:.2f}."
-                    )
-                product = line.product_id
-                if product:
-                    # 1. Restore the stock
-                    product.stock_quantity += line.quantity
+        try:
+            with self.env.cr.savepoint():
+                for order in self:
+                    for line in order.order_lines:
+                        # 🔒 Prevent delete if any payment has been made
+                        receipt = self.env["idil.sales.receipt"].search(
+                            [("cusotmer_sale_order_id", "=", order.id)], limit=1
+                        )
+                        if receipt and receipt.paid_amount > 0:
+                            raise ValidationError(
+                                f"❌ Cannot delete order '{order.name}' because it has a paid amount of {receipt.paid_amount:.2f}."
+                            )
+                        product = line.product_id
+                        if product:
+                            # 1. Restore the stock
+                            product.stock_quantity += line.quantity
 
-                    # 2. Delete related product movement
-                    self.env["idil.product.movement"].search(
-                        [
-                            ("product_id", "=", product.id),
-                            ("source_document", "=", order.name),
-                        ]
+                            # 2. Delete related product movement
+                            self.env["idil.product.movement"].search(
+                                [
+                                    ("product_id", "=", product.id),
+                                    ("source_document", "=", order.name),
+                                ]
+                            ).unlink()
+
+                            # 3. Delete related booking lines
+                            booking_lines = self.env[
+                                "idil.transaction_bookingline"
+                            ].search(
+                                [
+                                    ("product_id", "=", product.id),
+                                    (
+                                        "transaction_booking_id.cusotmer_sale_order_id",
+                                        "=",
+                                        order.id,
+                                    ),
+                                ]
+                            )
+                            booking_lines.unlink()
+
+                    # 5. Delete transaction booking if it exists
+                    booking = self.env["idil.transaction_booking"].search(
+                        [("cusotmer_sale_order_id", "=", order.id)], limit=1
+                    )
+                    if booking:
+                        booking.unlink()
+
+                    res = super(CustomerSaleOrder, self).unlink()
+
+                    # 4. Delete sales receipt
+                    self.env["idil.salses.receipt"].search(
+                        [("cusotmer_sale_order_id", "=", order.id)]
                     ).unlink()
 
-                    # 3. Delete related booking lines
-                    booking_lines = self.env["idil.transaction_bookingline"].search(
-                        [
-                            ("product_id", "=", product.id),
-                            (
-                                "transaction_booking_id.cusotmer_sale_order_id",
-                                "=",
-                                order.id,
-                            ),
-                        ]
-                    )
-                    booking_lines.unlink()
-
-            # 5. Delete transaction booking if it exists
-            booking = self.env["idil.transaction_booking"].search(
-                [("cusotmer_sale_order_id", "=", order.id)], limit=1
-            )
-            if booking:
-                booking.unlink()
-
-            res = super(CustomerSaleOrder, self).unlink()
-
-            # 4. Delete sales receipt
-            self.env["idil.sales.receipt"].search(
-                [("cusotmer_sale_order_id", "=", order.id)]
-            ).unlink()
-
-            return res
+                    return res
+        except Exception as e:
+            _logger.error("Error in create: %s", e)
+            raise ValidationError(_("Creation failed: %s") % str(e))
 
 
 class CustomerSaleOrderLine(models.Model):
@@ -733,18 +761,23 @@ class CustomerSaleOrderLine(models.Model):
 
     @api.model
     def create(self, vals):
-        # If linked to opening balance, skip product_id and stock check!
-        if vals.get("customer_opening_balance_line_id"):
-            vals["product_id"] = False  # Explicitly make sure it's empty
-            return super(CustomerSaleOrderLine, self).create(vals)
-        # Else: normal process, require product and update stock
-        if not vals.get("product_id"):
-            raise ValidationError(
-                "You must select a product for this order line (unless it's for opening balance)."
-            )
-        record = super(CustomerSaleOrderLine, self).create(vals)
-        self.update_product_stock(record.product_id, record.quantity)
-        return record
+        try:
+            with self.env.cr.savepoint():
+                # If linked to opening balance, skip product_id and stock check!
+                if vals.get("customer_opening_balance_line_id"):
+                    vals["product_id"] = False  # Explicitly make sure it's empty
+                    return super(CustomerSaleOrderLine, self).create(vals)
+                # Else: normal process, require product and update stock
+                if not vals.get("product_id"):
+                    raise ValidationError(
+                        "You must select a product for this order line (unless it's for opening balance)."
+                    )
+                record = super(CustomerSaleOrderLine, self).create(vals)
+                self.update_product_stock(record.product_id, record.quantity)
+                return record
+        except Exception as e:
+            _logger.error(f"Create transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     @staticmethod
     def update_product_stock(product, quantity):
@@ -825,5 +858,4 @@ class CustomerSalePayment(models.Model):
     )
 
     account_id = fields.Many2one("idil.chart.account", string="Account", required=True)
-
     amount = fields.Float(string="Amount", required=True)

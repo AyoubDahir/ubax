@@ -149,61 +149,69 @@ class SaleOrder(models.Model):
 
     @api.model
     def create(self, vals):
-        # Step 1: Check if sales_person_id is provided in vals
-        if "sales_person_id" in vals:
-            salesperson_id = vals["sales_person_id"]
+        try:
+            with self.env.cr.savepoint():
+                # Step 1: Check if sales_person_id is provided in vals
+                if "sales_person_id" in vals:
+                    salesperson_id = vals["sales_person_id"]
 
-            # Step 2: Find the most recent draft SalespersonOrder for this salesperson
-            salesperson_order = self.env["idil.salesperson.place.order"].search(
-                [("salesperson_id", "=", salesperson_id), ("state", "=", "draft")],
-                order="order_date desc",
-                limit=1,
-            )
+                    # Step 2: Find the most recent draft SalespersonOrder for this salesperson
+                    salesperson_order = self.env["idil.salesperson.place.order"].search(
+                        [
+                            ("salesperson_id", "=", salesperson_id),
+                            ("state", "=", "draft"),
+                        ],
+                        order="order_date desc",
+                        limit=1,
+                    )
 
-            if salesperson_order:
-                # Link the found SalespersonOrder to the SaleOrder being created
-                vals["salesperson_order_id"] = salesperson_order.id
-                salesperson_order.write({"state": "confirmed"})
-            else:
-                # Optionally handle the case where no draft SalespersonOrder is found
-                raise UserError(
-                    "No draft Sales person order found for the given sales person."
+                    if salesperson_order:
+                        # Link the found SalespersonOrder to the SaleOrder being created
+                        vals["salesperson_order_id"] = salesperson_order.id
+                        salesperson_order.write({"state": "confirmed"})
+                    else:
+                        # Optionally handle the case where no draft SalespersonOrder is found
+                        raise UserError(
+                            "No draft Sales person order found for the given sales person."
+                        )
+
+                    # Set order reference if not provided
+                    if "name" not in vals or not vals["name"]:
+                        vals["name"] = self._generate_order_reference(vals)
+
+                # Proceed with creating the SaleOrder with the updated vals
+                new_order = super(SaleOrder, self).create(vals)
+                # Create a corresponding SalesReceipt
+                self.env["idil.sales.receipt"].create(
+                    {
+                        "sales_order_id": new_order.id,
+                        "due_amount": new_order.order_total,
+                        "receipt_date": new_order.order_date,
+                        "paid_amount": 0,
+                        "remaining_amount": new_order.order_total,
+                        "salesperson_id": new_order.sales_person_id.id,
+                    }
                 )
 
-            # Set order reference if not provided
-            if "name" not in vals or not vals["name"]:
-                vals["name"] = self._generate_order_reference(vals)
+                for line in new_order.order_lines:
+                    self.env["idil.product.movement"].create(
+                        {
+                            "product_id": line.product_id.id,
+                            "sale_order_id": new_order.id,
+                            "movement_type": "out",
+                            "quantity": line.quantity * -1,
+                            "date": new_order.order_date,
+                            "source_document": new_order.name,
+                            "sales_person_id": new_order.sales_person_id.id,
+                        }
+                    )
 
-        # Proceed with creating the SaleOrder with the updated vals
-        new_order = super(SaleOrder, self).create(vals)
-        # Create a corresponding SalesReceipt
-        self.env["idil.sales.receipt"].create(
-            {
-                "sales_order_id": new_order.id,
-                "due_amount": new_order.order_total,
-                "receipt_date": new_order.order_date,
-                "paid_amount": 0,
-                "remaining_amount": new_order.order_total,
-                "salesperson_id": new_order.sales_person_id.id,
-            }
-        )
+                new_order.book_accounting_entry()
 
-        for line in new_order.order_lines:
-            self.env["idil.product.movement"].create(
-                {
-                    "product_id": line.product_id.id,
-                    "sale_order_id": new_order.id,
-                    "movement_type": "out",
-                    "quantity": line.quantity * -1,
-                    "date": new_order.order_date,
-                    "source_document": new_order.name,
-                    "sales_person_id": new_order.sales_person_id.id,
-                }
-            )
-
-        new_order.book_accounting_entry()
-
-        return new_order
+                return new_order
+        except Exception as e:
+            _logger.error(f"Create transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def _generate_order_reference(self, vals):
         bom_id = vals.get("bom_id", False)
@@ -491,187 +499,201 @@ class SaleOrder(models.Model):
                     )
 
     def write(self, vals):
-        for order in self:
-            # Check for Sales Receipt
-            receipts = self.env["idil.sales.receipt"].search(
-                [("sales_order_id", "=", order.id), ("paid_amount", ">", 0)]
-            )
-            if receipts:
-                receipt_details = "\n".join(
-                    [
-                        f"- Receipt Date: {format_datetime(self.env, r.receipt_date)}, "
-                        f"Amount Paid: {r.paid_amount:.2f}, Due: {r.due_amount:.2f}, Remaining: {r.remaining_amount:.2f}"
-                        for r in receipts
-                    ]
-                )
-                raise UserError(
-                    f"Cannot edit this Sales Order because it has linked Receipts:\n{receipt_details}"
-                )
-
-            # Check for Sale Return
-            returns = self.env["idil.sale.return"].search(
-                [("sale_order_id", "=", order.id)]
-            )
-            if returns:
-                return_details = "\n".join(
-                    [
-                        f"- Return Date: {format_datetime(self.env, r.return_date)}, State: {r.state}"
-                        for r in returns
-                    ]
-                )
-                raise UserError(
-                    f"Cannot edit this Sales Order because it has linked Sale Returns:\n{return_details}"
-                )
-
-        for order in self:
-            # Capture old quantities for comparison
-            old_quantities = {line.id: line.quantity for line in order.order_lines}
-
-        # Proceed with the standard write
-        for order in self:
-
-            for line in order.order_lines:
-                product = line.product_id
-                old_qty = old_quantities.get(line.id, 0.0)
-                new_qty = line.quantity
-                qty_diff = new_qty - old_qty
-                # 🔒 Step 3: Validate return quantity before updating
-
-                # Handle stock adjustment
-                if qty_diff > 0:
-                    # Increase in quantity, check availability
-                    if product.stock_quantity < qty_diff:
-                        raise ValidationError(
-                            f"Insufficient stock for product '{product.name}'. "
-                            f"Available: {product.stock_quantity}, Needed: {qty_diff}"
+        try:
+            with self.env.cr.savepoint():
+                for order in self:
+                    # Check for Sales Receipt
+                    receipts = self.env["idil.sales.receipt"].search(
+                        [("sales_order_id", "=", order.id), ("paid_amount", ">", 0)]
+                    )
+                    if receipts:
+                        receipt_details = "\n".join(
+                            [
+                                f"- Receipt Date: {format_datetime(self.env, r.receipt_date)}, "
+                                f"Amount Paid: {r.paid_amount:.2f}, Due: {r.due_amount:.2f}, Remaining: {r.remaining_amount:.2f}"
+                                for r in receipts
+                            ]
                         )
-                    product.stock_quantity -= qty_diff
-                elif qty_diff < 0:
-                    # Decrease in quantity, return stock
-                    product.stock_quantity += abs(qty_diff)
+                        raise UserError(
+                            f"Cannot edit this Sales Order because it has linked Receipts:\n{receipt_details}"
+                        )
 
-            res = super(SaleOrder, self).write(vals)
-            # Remove old movements
-            movements = self.env["idil.product.movement"].search(
-                [
-                    ("sale_order_id", "=", order.id),
-                ]
-            )
+                    # Check for Sale Return
+                    returns = self.env["idil.sale.return"].search(
+                        [("sale_order_id", "=", order.id)]
+                    )
+                    if returns:
+                        return_details = "\n".join(
+                            [
+                                f"- Return Date: {format_datetime(self.env, r.return_date)}, State: {r.state}"
+                                for r in returns
+                            ]
+                        )
+                        raise UserError(
+                            f"Cannot edit this Sales Order because it has linked Sale Returns:\n{return_details}"
+                        )
 
-            movements.unlink()
-
-            # Recreate product movements
-            for line in order.order_lines:
-                self.env["idil.product.movement"].create(
-                    {
-                        "sale_order_id": order.id,
-                        "product_id": line.product_id.id,
-                        "movement_type": "out",
-                        "quantity": line.quantity * -1,
-                        "date": order.order_date,
-                        "source_document": order.name,
-                        "sales_person_id": order.sales_person_id.id,
+                for order in self:
+                    # Capture old quantities for comparison
+                    old_quantities = {
+                        line.id: line.quantity for line in order.order_lines
                     }
-                )
 
-            # Remove and recreate booking and booking lines
-            bookings = self.env["idil.transaction_booking"].search(
-                [("sale_order_id", "=", order.id)]
-            )
-            for booking in bookings:
-                booking.booking_lines.unlink()
-                booking.unlink()
+                # Proceed with the standard write
+                for order in self:
 
-            order.book_accounting_entry()
-            # ✅ Adjust corresponding receipt if exists
-            receipt = self.env["idil.sales.receipt"].search(
-                [("sales_order_id", "=", order.id)], limit=1
-            )
-            if receipt:
-                paid_amount = receipt.paid_amount or 0.0
-                new_due = order.order_total
-                receipt.write(
-                    {
-                        "due_amount": new_due,
-                        "remaining_amount": new_due - paid_amount,
-                    }
-                )
+                    for line in order.order_lines:
+                        product = line.product_id
+                        old_qty = old_quantities.get(line.id, 0.0)
+                        new_qty = line.quantity
+                        qty_diff = new_qty - old_qty
+                        # 🔒 Step 3: Validate return quantity before updating
 
-        return res
+                        # Handle stock adjustment
+                        if qty_diff > 0:
+                            # Increase in quantity, check availability
+                            if product.stock_quantity < qty_diff:
+                                raise ValidationError(
+                                    f"Insufficient stock for product '{product.name}'. "
+                                    f"Available: {product.stock_quantity}, Needed: {qty_diff}"
+                                )
+                            product.stock_quantity -= qty_diff
+                        elif qty_diff < 0:
+                            # Decrease in quantity, return stock
+                            product.stock_quantity += abs(qty_diff)
+
+                    res = super(SaleOrder, self).write(vals)
+                    # Remove old movements
+                    movements = self.env["idil.product.movement"].search(
+                        [
+                            ("sale_order_id", "=", order.id),
+                        ]
+                    )
+
+                    movements.unlink()
+
+                    # Recreate product movements
+                    for line in order.order_lines:
+                        self.env["idil.product.movement"].create(
+                            {
+                                "sale_order_id": order.id,
+                                "product_id": line.product_id.id,
+                                "movement_type": "out",
+                                "quantity": line.quantity * -1,
+                                "date": order.order_date,
+                                "source_document": order.name,
+                                "sales_person_id": order.sales_person_id.id,
+                            }
+                        )
+
+                    # Remove and recreate booking and booking lines
+                    bookings = self.env["idil.transaction_booking"].search(
+                        [("sale_order_id", "=", order.id)]
+                    )
+                    for booking in bookings:
+                        booking.booking_lines.unlink()
+                        booking.unlink()
+
+                    order.book_accounting_entry()
+                    # ✅ Adjust corresponding receipt if exists
+                    receipt = self.env["idil.sales.receipt"].search(
+                        [("sales_order_id", "=", order.id)], limit=1
+                    )
+                    if receipt:
+                        paid_amount = receipt.paid_amount or 0.0
+                        new_due = order.order_total
+                        receipt.write(
+                            {
+                                "due_amount": new_due,
+                                "remaining_amount": new_due - paid_amount,
+                            }
+                        )
+
+                return res
+        except Exception as e:
+            _logger.error(f"Create transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def unlink(self):
-        # Gather the sale order IDs before deleting
-        order_ids = self.ids
-        for order in self:
-            # Check for Sales Receipt
-            receipts = self.env["idil.sales.receipt"].search(
-                [("sales_order_id", "=", order.id)]
-            )
+        try:
+            with self.env.cr.savepoint():
+                # Gather the sale order IDs before deleting
+                order_ids = self.ids
+                for order in self:
+                    # Check for Sales Receipt
+                    receipts = self.env["idil.sales.receipt"].search(
+                        [("sales_order_id", "=", order.id)]
+                    )
 
-            # Filter only receipts with non-zero paid amount
-            receipts_with_payment = receipts.filtered(lambda r: r.paid_amount > 0)
+                    # Filter only receipts with non-zero paid amount
+                    receipts_with_payment = receipts.filtered(
+                        lambda r: r.paid_amount > 0
+                    )
 
-            if receipts_with_payment:
-                receipt_details = "\n".join(
-                    [
-                        f"- Receipt Date: {format_datetime(self.env, r.receipt_date)}, "
-                        f"Amount Paid: {r.paid_amount:.2f}, Due: {r.due_amount:.2f}, Remaining: {r.remaining_amount:.2f}"
-                        for r in receipts_with_payment
-                    ]
-                )
-                raise UserError(
-                    f"Cannot edit this Sales Order because it has Receipts with payment:\n{receipt_details}"
-                )
+                    if receipts_with_payment:
+                        receipt_details = "\n".join(
+                            [
+                                f"- Receipt Date: {format_datetime(self.env, r.receipt_date)}, "
+                                f"Amount Paid: {r.paid_amount:.2f}, Due: {r.due_amount:.2f}, Remaining: {r.remaining_amount:.2f}"
+                                for r in receipts_with_payment
+                            ]
+                        )
+                        raise UserError(
+                            f"Cannot edit this Sales Order because it has Receipts with payment:\n{receipt_details}"
+                        )
 
-            # Check for Sale Return
-            returns = self.env["idil.sale.return"].search(
-                [("sale_order_id", "=", order.id)]
-            )
-            if returns:
-                return_details = "\n".join(
-                    [
-                        f"- Return Date: {format_datetime(self.env, r.return_date)}, State: {r.state}"
-                        for r in returns
-                    ]
-                )
-                raise UserError(
-                    f"Cannot edit this Sales Order because it has linked Sale Returns:\n{return_details}"
-                )
+                    # Check for Sale Return
+                    returns = self.env["idil.sale.return"].search(
+                        [("sale_order_id", "=", order.id)]
+                    )
+                    if returns:
+                        return_details = "\n".join(
+                            [
+                                f"- Return Date: {format_datetime(self.env, r.return_date)}, State: {r.state}"
+                                for r in returns
+                            ]
+                        )
+                        raise UserError(
+                            f"Cannot edit this Sales Order because it has linked Sale Returns:\n{return_details}"
+                        )
 
-        for order in self:
-            # Revert stock, delete related product movements, bookings, etc.
-            for line in order.order_lines:
-                product = line.product_id
-                product.stock_quantity += line.quantity
+                for order in self:
+                    # Revert stock, delete related product movements, bookings, etc.
+                    for line in order.order_lines:
+                        product = line.product_id
+                        product.stock_quantity += line.quantity
 
-            movements = self.env["idil.product.movement"].search(
-                [("sale_order_id", "=", order.id)]
-            )
-            movements.unlink()
+                    movements = self.env["idil.product.movement"].search(
+                        [("sale_order_id", "=", order.id)]
+                    )
+                    movements.unlink()
 
-            bookings = self.env["idil.transaction_booking"].search(
-                [("sale_order_id", "=", order.id)]
-            )
-            for booking in bookings:
-                booking.booking_lines.unlink()
-                booking.unlink()
+                    bookings = self.env["idil.transaction_booking"].search(
+                        [("sale_order_id", "=", order.id)]
+                    )
+                    for booking in bookings:
+                        booking.booking_lines.unlink()
+                        booking.unlink()
 
-            self.env["idil.salesperson.transaction"].search(
-                [("order_id", "=", order.id)]
-            ).unlink()
-            # Do NOT delete receipt here!
+                    self.env["idil.salesperson.transaction"].search(
+                        [("order_id", "=", order.id)]
+                    ).unlink()
+                    # Do NOT delete receipt here!
 
-        # Delete the sale order(s) and all their direct dependencies
-        res = super(SaleOrder, self).unlink()
+                # Delete the sale order(s) and all their direct dependencies
+                res = super(SaleOrder, self).unlink()
 
-        # Now delete related sales receipts for these orders (if any)
-        self.env["idil.sales.receipt"].search(
-            [("sales_order_id", "=", order.id)]
-        ).unlink()
+                # Now delete related sales receipts for these orders (if any)
+                self.env["idil.sales.receipt"].search(
+                    [("sales_order_id", "=", order.id)]
+                ).unlink()
 
-        # order.salesperson_order_id.state = "draft"
+                # order.salesperson_order_id.state = "draft"
 
-        return res
+                return res
+        except Exception as e:
+            _logger.error(f"Create transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
 
 class SaleOrderLine(models.Model):
@@ -794,125 +816,137 @@ class SaleOrderLine(models.Model):
 
     @api.model
     def create(self, vals):
-        record = super(SaleOrderLine, self).create(vals)
+        try:
+            with self.env.cr.savepoint():
+                record = super(SaleOrderLine, self).create(vals)
 
-        # Create a Salesperson Transaction
-        if record.order_id.sales_person_id:
-            self.env["idil.salesperson.transaction"].create(
-                {
-                    "sales_person_id": record.order_id.sales_person_id.id,
-                    "date": fields.Date.today(),
-                    "order_id": record.order_id.id,
-                    "transaction_type": "out",  # Assuming 'out' for sales
-                    "amount": record.subtotal
-                    + record.discount_amount
-                    + record.commission_amount,
-                    "description": f"Sales Amount of - Order Line for {record.product_id.name} (Qty: {record.quantity})",
-                }
-            )
-            self.env["idil.salesperson.transaction"].create(
-                {
-                    "sales_person_id": record.order_id.sales_person_id.id,
-                    "date": fields.Date.today(),
-                    "order_id": record.order_id.id,
-                    "transaction_type": "out",  # Assuming 'out' for sales
-                    "amount": record.commission_amount * -1,
-                    "description": f"Sales Commission Amount of - Order Line for  {record.product_id.name} (Qty: {record.quantity})",
-                }
-            )
-            self.env["idil.salesperson.transaction"].create(
-                {
-                    "sales_person_id": record.order_id.sales_person_id.id,
-                    "date": fields.Date.today(),
-                    "order_id": record.order_id.id,
-                    "transaction_type": "out",  # Assuming 'out' for sales
-                    "amount": record.discount_amount * -1,
-                    "description": f"Sales Discount Amount of - Order Line for  {record.product_id.name} (Qty: {record.quantity})",
-                }
-            )
-
-        self.update_product_stock(record.product_id, record.quantity)
-        return record
-
-    def write(self, vals):
-        for line in self:
-            order = line.order_id
-            product = line.product_id
-            old_qty = line.quantity
-            new_qty = vals.get("quantity", old_qty)
-
-            # ✅ Step 1: Validate that the new quantity is not less than returned quantity
-            if new_qty < old_qty:
-                confirmed_returns = self.env["idil.sale.return.line"].search(
-                    [
-                        ("return_id.sale_order_id", "=", order.id),
-                        ("product_id", "=", product.id),
-                        ("return_id.state", "=", "confirmed"),
-                    ]
-                )
-                total_returned = sum(confirmed_returns.mapped("returned_quantity"))
-
-                if new_qty < total_returned:
-                    raise ValidationError(
-                        f"You cannot reduce quantity of '{product.name}' to {new_qty:.2f} "
-                        f"because {total_returned:.2f} has already been returned."
+                # Create a Salesperson Transaction
+                if record.order_id.sales_person_id:
+                    self.env["idil.salesperson.transaction"].create(
+                        {
+                            "sales_person_id": record.order_id.sales_person_id.id,
+                            "date": fields.Date.today(),
+                            "order_id": record.order_id.id,
+                            "transaction_type": "out",  # Assuming 'out' for sales
+                            "amount": record.subtotal
+                            + record.discount_amount
+                            + record.commission_amount,
+                            "description": f"Sales Amount of - Order Line for {record.product_id.name} (Qty: {record.quantity})",
+                        }
+                    )
+                    self.env["idil.salesperson.transaction"].create(
+                        {
+                            "sales_person_id": record.order_id.sales_person_id.id,
+                            "date": fields.Date.today(),
+                            "order_id": record.order_id.id,
+                            "transaction_type": "out",  # Assuming 'out' for sales
+                            "amount": record.commission_amount * -1,
+                            "description": f"Sales Commission Amount of - Order Line for  {record.product_id.name} (Qty: {record.quantity})",
+                        }
+                    )
+                    self.env["idil.salesperson.transaction"].create(
+                        {
+                            "sales_person_id": record.order_id.sales_person_id.id,
+                            "date": fields.Date.today(),
+                            "order_id": record.order_id.id,
+                            "transaction_type": "out",  # Assuming 'out' for sales
+                            "amount": record.discount_amount * -1,
+                            "description": f"Sales Discount Amount of - Order Line for  {record.product_id.name} (Qty: {record.quantity})",
+                        }
                     )
 
-            # Step 1: Update stock if quantity is changing
-            if "quantity" in vals:
-                quantity_diff = vals["quantity"] - line.quantity
-                self.update_product_stock(line.product_id, quantity_diff)
+                self.update_product_stock(record.product_id, record.quantity)
+                return record
+        except Exception as e:
+            _logger.error(f"Create transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
-        # Step 2: Proceed with the actual write
-        res = super(SaleOrderLine, self).write(vals)
+    def write(self, vals):
+        try:
+            with self.env.cr.savepoint():
+                for line in self:
+                    order = line.order_id
+                    product = line.product_id
+                    old_qty = line.quantity
+                    new_qty = vals.get("quantity", old_qty)
 
-        for line in self:
-            order = line.order_id
+                    # ✅ Step 1: Validate that the new quantity is not less than returned quantity
+                    if new_qty < old_qty:
+                        confirmed_returns = self.env["idil.sale.return.line"].search(
+                            [
+                                ("return_id.sale_order_id", "=", order.id),
+                                ("product_id", "=", product.id),
+                                ("return_id.state", "=", "confirmed"),
+                            ]
+                        )
+                        total_returned = sum(
+                            confirmed_returns.mapped("returned_quantity")
+                        )
 
-            # Step 3: Delete old salesperson transactions for this order
+                        if new_qty < total_returned:
+                            raise ValidationError(
+                                f"You cannot reduce quantity of '{product.name}' to {new_qty:.2f} "
+                                f"because {total_returned:.2f} has already been returned."
+                            )
 
-            self.env["idil.salesperson.transaction"].search(
-                [("order_id", "=", order.id), ("sale_return_id", "=", False)]
-            ).unlink()
+                    # Step 1: Update stock if quantity is changing
+                    if "quantity" in vals:
+                        quantity_diff = vals["quantity"] - line.quantity
+                        self.update_product_stock(line.product_id, quantity_diff)
 
-            # Step 4: Recreate transactions for all lines in the order
-            for updated_line in order.order_lines:
-                self.env["idil.salesperson.transaction"].create(
-                    {
-                        "sales_person_id": order.sales_person_id.id,
-                        "date": fields.Date.today(),
-                        "order_id": order.id,
-                        "transaction_type": "out",
-                        "amount": updated_line.subtotal
-                        + updated_line.discount_amount
-                        + updated_line.commission_amount,
-                        "description": f"Sales Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
-                    }
-                )
+                # Step 2: Proceed with the actual write
+                res = super(SaleOrderLine, self).write(vals)
 
-                self.env["idil.salesperson.transaction"].create(
-                    {
-                        "sales_person_id": order.sales_person_id.id,
-                        "date": fields.Date.today(),
-                        "order_id": order.id,
-                        "transaction_type": "in",
-                        "amount": updated_line.commission_amount,
-                        "description": f"Sales Commission Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
-                    }
-                )
+                for line in self:
+                    order = line.order_id
 
-                self.env["idil.salesperson.transaction"].create(
-                    {
-                        "sales_person_id": order.sales_person_id.id,
-                        "date": fields.Date.today(),
-                        "order_id": order.id,
-                        "transaction_type": "in",
-                        "amount": updated_line.discount_amount,
-                        "description": f"Sales Discount Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
-                    }
-                )
+                    # Step 3: Delete old salesperson transactions for this order
 
-        return res
+                    self.env["idil.salesperson.transaction"].search(
+                        [("order_id", "=", order.id), ("sale_return_id", "=", False)]
+                    ).unlink()
+
+                    # Step 4: Recreate transactions for all lines in the order
+                    for updated_line in order.order_lines:
+                        self.env["idil.salesperson.transaction"].create(
+                            {
+                                "sales_person_id": order.sales_person_id.id,
+                                "date": fields.Date.today(),
+                                "order_id": order.id,
+                                "transaction_type": "out",
+                                "amount": updated_line.subtotal
+                                + updated_line.discount_amount
+                                + updated_line.commission_amount,
+                                "description": f"Sales Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
+                            }
+                        )
+
+                        self.env["idil.salesperson.transaction"].create(
+                            {
+                                "sales_person_id": order.sales_person_id.id,
+                                "date": fields.Date.today(),
+                                "order_id": order.id,
+                                "transaction_type": "in",
+                                "amount": updated_line.commission_amount,
+                                "description": f"Sales Commission Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
+                            }
+                        )
+
+                        self.env["idil.salesperson.transaction"].create(
+                            {
+                                "sales_person_id": order.sales_person_id.id,
+                                "date": fields.Date.today(),
+                                "order_id": order.id,
+                                "transaction_type": "in",
+                                "amount": updated_line.discount_amount,
+                                "description": f"Sales Discount Amount of - Order Line for {updated_line.product_id.name} (Qty: {updated_line.quantity})",
+                            }
+                        )
+
+                return res
+        except Exception as e:
+            _logger.error(f"Create transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     @staticmethod
     def update_product_stock(product, quantity_diff):
