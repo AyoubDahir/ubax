@@ -188,7 +188,7 @@ class CustomerSaleOrder(models.Model):
                             "product_id": line.product_id.id,
                             "movement_type": "out",
                             "quantity": line.quantity * -1,
-                            "date": fields.Datetime.now(),
+                            "date": new_order.order_date,
                             "source_document": new_order.name,
                             "customer_id": new_order.customer_id.id,
                         }
@@ -528,7 +528,7 @@ class CustomerSaleOrder(models.Model):
                             movement.write(
                                 {
                                     "quantity": matching_line[0].quantity * -1,
-                                    "date": fields.Datetime.now(),
+                                    "date": order.order_date,
                                     "customer_id": order.customer_id.id,
                                 }
                             )

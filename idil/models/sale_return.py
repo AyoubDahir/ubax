@@ -143,11 +143,13 @@ class SaleReturn(models.Model):
             # Confirm valid return
             self.book_sales_return_entry()
 
-            self.message_post(
-                body=f"✅ Sales Return confirmed with {len(self.return_lines.filtered(lambda l: l.returned_quantity > 0))} returned items. Total: {self.currency_id.symbol or ''}{sum(self.return_lines.filtered(lambda l: l.returned_quantity > 0).mapped('subtotal')):,.2f}"
+            return_order.message_post(
+                body=f"✅ Sales Return confirmed with {len(return_order.return_lines.filtered(lambda l: l.returned_quantity > 0))} returned items. Total: {return_order.currency_id.symbol or ''}{sum(return_order.return_lines.filtered(lambda l: l.returned_quantity > 0).mapped('subtotal')):,.2f}"
             )
 
-        return_order.state = "confirmed"
+            return_order.write({"state": "confirmed"})
+
+        return True
 
     def book_sales_return_entry(self):
         for return_order in self:
@@ -346,7 +348,7 @@ class SaleReturn(models.Model):
                         "product_id": product.id,
                         "movement_type": "in",
                         "quantity": return_line.returned_quantity,
-                        "date": fields.Datetime.now(),
+                        "date": return_order.return_date,
                         "source_document": return_order.name,
                         "sales_person_id": return_order.salesperson_id.id,
                     }
@@ -793,7 +795,7 @@ class SaleReturn(models.Model):
     #                     "product_id": product.id,
     #                     "movement_type": "in",
     #                     "quantity": line.returned_quantity,
-    #                     "date": fields.Datetime.now(),
+    #                     "date": return_order.date_order,
     #                     "source_document": record.name,
     #                     "sales_person_id": record.salesperson_id.id,
     #                 }
@@ -803,11 +805,12 @@ class SaleReturn(models.Model):
 
     #     return result
     def write(self, vals):
-        if self.state == "confirmed":
-            # 🔒 Block editing if state is confirmed
-            raise UserError(
-                "🛑 Editing is not allowed for this sales return at the moment."
-            )
+        for rec in self:
+            if rec.state == "confirmed":
+                raise UserError(
+                    "🛑 Editing is not allowed for this sales return at the moment."
+                )
+        return super(SaleReturn, self).write(vals)
 
     def unlink(self):
         for record in self:
