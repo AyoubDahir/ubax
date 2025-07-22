@@ -26,8 +26,12 @@
                                         <tree editable="bottom">
                                             <field name="Item_id"/>
                                             <field name="currency_id"/>
-                                            
                                             <field name="quantity"/>
+                                            <field name="cost_price" sum="total"/>
+                                            <field name="total" sum="total"/>
+                                            
+                                            
+                                            
                                         </tree>
                                     </field>
                                 </page>
@@ -52,6 +56,8 @@
                     <group>
                         <field name="Item_id"/>
                         <field name="quantity"/>
+                        <field name="cost_price"/>
+                        <field name="total"/>
                         <field name="bom_id" invisible="1"/>
                     </group>
                 </form>

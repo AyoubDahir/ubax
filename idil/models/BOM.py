@@ -86,6 +86,15 @@ class BOMLine(models.Model):
         "idil.item", string="Component", required=True, tracking=True
     )
     quantity = fields.Float(string="Quantity", digits=(16, 5), required=True)
+    # 🔹 Directly show the item's cost_price (not computed)
+    cost_price = fields.Float(
+        string="Cost Price",
+        digits=(16, 5),
+        related="Item_id.cost_price",
+        store=True,
+        readonly=True,
+        tracking=True,
+    )
     bom_id = fields.Many2one(
         "idil.bom", string="BOM", ondelete="cascade", tracking=True
     )
@@ -94,6 +103,15 @@ class BOMLine(models.Model):
         string="Currency",
         related="Item_id.asset_account_id.currency_id",
         store=True,
+        readonly=True,
+        tracking=True,
+    )
+    # 🔹 Optional: Show total for this line (cost_price × quantity)
+    total = fields.Float(
+        string="Line Total",
+        compute="_compute_line_total",
+        digits=(16, 5),
+        store=False,
         readonly=True,
         tracking=True,
     )
@@ -106,6 +124,11 @@ class BOMLine(models.Model):
             "Item already exists in BOM lines!",
         ),
     ]
+
+    @api.depends("cost_price", "quantity")
+    def _compute_line_total(self):
+        for line in self:
+            line.total = round(line.cost_price * line.quantity, 5)
 
     @api.model
     def create(self, values):
