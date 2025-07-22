@@ -55,13 +55,10 @@ class BOM(models.Model):
                     break
             bom.currency_id = currency if all_same else False
 
-    @api.depends("bom_line_ids", "bom_line_ids.Item_id", "bom_line_ids.quantity")
+    @api.depends("bom_line_ids.total")
     def _compute_total_cost(self):
         for bom in self:
-            total_cost = 0.0
-            for bom_line in bom.bom_line_ids:
-                total_cost += bom_line.Item_id.cost_price * bom_line.quantity
-            bom.total_cost = total_cost
+            bom.total_cost = round(sum(line.total for line in bom.bom_line_ids), 5)
 
     @api.constrains("bom_line_ids")
     def _check_uniform_currency(self):
