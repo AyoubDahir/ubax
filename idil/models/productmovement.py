@@ -33,7 +33,7 @@ class ProductMovement(models.Model):
         ondelete="cascade",
     )
     purchase_return_id = fields.Many2one(
-        "dil.product.purchase_return.line",
+        "idil.product.purchase_return.line",
         string="Product Purchase Return",
         ondelete="cascade",
     )
