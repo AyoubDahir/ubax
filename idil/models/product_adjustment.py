@@ -171,7 +171,7 @@ class ProductAdjustment(models.Model):
                     "transaction_date": rec.adjustment_date,
                     "adjustment_id": rec.id,
                     "transaction_booking_id": transaction_booking.id,
-                    "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason or ''})",
+                    "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
                     "transaction_type": "dr",
                     "dr_amount": 0.0,
                     "cr_amount": rec.adjustment_amount,
@@ -184,7 +184,7 @@ class ProductAdjustment(models.Model):
                     "transaction_date": rec.adjustment_date,
                     "adjustment_id": rec.id,
                     "transaction_booking_id": transaction_booking.id,
-                    "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason or ''})",
+                    "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
                     "transaction_type": "cr",
                     "dr_amount": rec.adjustment_amount,
                     "cr_amount": 0.0,
@@ -200,7 +200,7 @@ class ProductAdjustment(models.Model):
                     "movement_type": "out",
                     "quantity": difference * -1,
                     "date": rec.adjustment_date,
-                    "source_document": f"Product Manual Adjustment - Reason : {rec.reason} Adjusmrent Date :- {rec.adjustment_date}",
+                    "source_document": f"Product Manual Adjustment - Reason : {rec.reason_id} Adjusmrent Date :- {rec.adjustment_date}",
                 }
             )
 
@@ -285,7 +285,7 @@ class ProductAdjustment(models.Model):
                     }
                 )
 
-            desc = f"Stock Adjustment: {product.name} ({rec.reason or ''})"
+            desc = f"Stock Adjustment: {product.name} ({rec.reason_id or ''})"
 
             # Update or create transaction booking lines
             lines = self.env["idil.transaction_bookingline"].search(
@@ -345,7 +345,7 @@ class ProductAdjustment(models.Model):
                 "movement_type": "out",
                 "quantity": -1 * new_qty,
                 "date": rec.adjustment_date,
-                "source_document": f"Product Manual Adjustment - Reason : {rec.reason} Adjustment Date :- {rec.adjustment_date}",
+                "source_document": f"Product Manual Adjustment - Reason : {rec.reason_id} Adjustment Date :- {rec.adjustment_date}",
                 "adjustment_id": rec.id,
             }
             if movement:
