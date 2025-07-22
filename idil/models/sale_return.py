@@ -803,9 +803,11 @@ class SaleReturn(models.Model):
 
     #     return result
     def write(self, vals):
-        raise UserError(
-            "🛑 Editing is not allowed for this sales return at the moment."
-        )
+        if self.state == "confirmed":
+            # 🔒 Block editing if state is confirmed
+            raise UserError(
+                "🛑 Editing is not allowed for this sales return at the moment."
+            )
 
     def unlink(self):
         for record in self:
