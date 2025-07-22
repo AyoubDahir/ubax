@@ -517,6 +517,7 @@ class ProductOpeningBalance(models.Model):
                     )
                     if movement:
                         movement.quantity = line.stock_quantity
+                        movement.date = opening_balance.date
 
                     trx = TransactionBooking.search(
                         [
@@ -529,16 +530,21 @@ class ProductOpeningBalance(models.Model):
                         trx.amount = amount_in_bom_currency
                         trx.amount_paid = amount_in_bom_currency
                         trx.remaining_amount = 0
+                        trx.trx_date = opening_balance.date
 
                         for bl in trx.booking_lines:
                             if "Opening Balance for" in bl.description:
                                 bl.dr_amount = amount_for_product_account
+                                bl.transaction_date = opening_balance.date
                             elif "Source Clearing" in bl.description:
                                 bl.cr_amount = amount_for_product_account
+                                bl.transaction_date = opening_balance.date
                             elif "Target Clearing" in bl.description:
                                 bl.dr_amount = amount_for_equity_account
+                                bl.transaction_date = opening_balance.date
                             elif "Equity Account" in bl.description:
                                 bl.cr_amount = amount_for_equity_account
+                                bl.transaction_date = opening_balance.date
 
         return res
 
