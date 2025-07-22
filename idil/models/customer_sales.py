@@ -692,7 +692,7 @@ class CustomerSaleOrder(models.Model):
                     res = super(CustomerSaleOrder, self).unlink()
 
                     # 4. Delete sales receipt
-                    self.env["idil.salses.receipt"].search(
+                    self.env["idil.sales.receipt"].search(
                         [("cusotmer_sale_order_id", "=", order.id)]
                     ).unlink()
 
