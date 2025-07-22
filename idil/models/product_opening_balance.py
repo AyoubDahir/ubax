@@ -15,7 +15,7 @@ class ProductOpeningBalance(models.Model):
     _order = "id desc"
 
     name = fields.Char(string="Reference", readonly=True, default="New")
-    date = fields.Date(string="Date", default=fields.Date.today, required=True)
+    date = fields.Date(string="Date", required=True)
     state = fields.Selection(
         [("draft", "Draft"), ("confirmed", "Confirmed")],
         default="draft",

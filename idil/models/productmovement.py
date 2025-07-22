@@ -13,7 +13,7 @@ class ProductMovement(models.Model):
         [("in", "In"), ("out", "Out")], string="Movement Type", required=True
     )
     quantity = fields.Float(string="Quantity", required=True)
-    date = fields.Datetime(string="Date", default=fields.Datetime.now, required=True)
+    date = fields.Datetime(string="Date", required=True)
     source_document = fields.Char(string="Source Document")
     destination = fields.Char(string="Destination", tracking=True)
 
