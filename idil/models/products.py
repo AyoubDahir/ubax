@@ -167,6 +167,7 @@ class Product(models.Model):
     total_value_usd = fields.Monetary(
         string="Total Value (USD)",
         currency_field="usd_currency_id",
+        digits=(16, 5),
         compute="_compute_total_value_usd",
         store=False,  # ← now it will auto-refresh in UI
     )
