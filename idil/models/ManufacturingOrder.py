@@ -140,7 +140,12 @@ class ManufacturingOrder(models.Model):
                         "No exchange rate found for today. Please insert today's rate before saving."
                     )
 
-    @api.depends("product_id", "product_qty", "commission_employee_id")
+    @api.depends(
+        "product_id",
+        "product_qty",
+        "commission_employee_id",
+        "manufacturing_order_line_ids.quantity",
+    )
     def _compute_commission_amount(self):
         for order in self:
             _logger.info(f"Computing commission for order {order.name}")
