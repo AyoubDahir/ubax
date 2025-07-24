@@ -138,90 +138,105 @@ class VendorTransaction(models.Model):
     def _update_booking_payment(self, new_paid_amount, payment_id):
         # ✅ Validate currency match
         # Use vendor's account payable for the debit transaction
-        account_payable = self.vendor_id.account_payable_id
+        try:
+            with self.env.cr.savepoint():
+                account_payable = self.vendor_id.account_payable_id
 
-        if account_payable.currency_id != self.cash_account_id.currency_id:
-            raise ValidationError(
-                (
-                    "Currency mismatch between Cash Account (%s) and Account Payable (%s). Please use accounts with the same currency."
-                )
-                % (
-                    self.cash_account_id.currency_id.name or "Undefined",
-                    account_payable.currency_id.name or "Undefined",
-                )
-            )
+                if account_payable.currency_id != self.cash_account_id.currency_id:
+                    raise ValidationError(
+                        (
+                            "Currency mismatch between Cash Account (%s) and Account Payable (%s). Please use accounts with the same currency."
+                        )
+                        % (
+                            self.cash_account_id.currency_id.name or "Undefined",
+                            account_payable.currency_id.name or "Undefined",
+                        )
+                    )
 
-        if self.transaction_booking_id:
-            previous_paid_amount = self.transaction_booking_id.amount_paid
-            updated_paid_amount = previous_paid_amount + new_paid_amount
-            # self.transaction_booking_id.amount_paid = updated_paid_amount
+                if self.transaction_booking_id:
+                    previous_paid_amount = self.transaction_booking_id.amount_paid
+                    updated_paid_amount = previous_paid_amount + new_paid_amount
+                    # self.transaction_booking_id.amount_paid = updated_paid_amount
 
-            remaining_amount = self.transaction_booking_id.amount - updated_paid_amount
-            # self.transaction_booking_id.remaining_amount = remaining_amount
-            self.transaction_booking_id.write(
-                {
-                    "amount_paid": updated_paid_amount,
-                    "remaining_amount": self.transaction_booking_id.amount
-                    - updated_paid_amount,
-                }
-            )
+                    remaining_amount = (
+                        self.transaction_booking_id.amount - updated_paid_amount
+                    )
+                    # self.transaction_booking_id.remaining_amount = remaining_amount
+                    self.transaction_booking_id.write(
+                        {
+                            "amount_paid": updated_paid_amount,
+                            "remaining_amount": self.transaction_booking_id.amount
+                            - updated_paid_amount,
+                        }
+                    )
 
-            # Create the debit line
-            self.env["idil.transaction_bookingline"].create(
-                {
-                    "transaction_booking_id": self.transaction_booking_id.id,
-                    "account_number": account_payable.id,
-                    "transaction_type": "dr",
-                    "dr_amount": new_paid_amount,
-                    "cr_amount": 0,
-                    "transaction_date": fields.Date.today(),
-                    "vendor_payment_id": payment_id,
-                }
-            )
+                    # Create the debit line
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_booking_id": self.transaction_booking_id.id,
+                            "account_number": account_payable.id,
+                            "transaction_type": "dr",
+                            "dr_amount": new_paid_amount,
+                            "cr_amount": 0,
+                            "transaction_date": fields.Date.today(),
+                            "vendor_payment_id": payment_id,
+                        }
+                    )
 
-            # Create the credit line
-            self.env["idil.transaction_bookingline"].create(
-                {
-                    "transaction_booking_id": self.transaction_booking_id.id,
-                    "account_number": self.cash_account_id.id,
-                    "transaction_type": "cr",
-                    "cr_amount": new_paid_amount,
-                    "dr_amount": 0,
-                    "transaction_date": fields.Date.today(),
-                    "vendor_payment_id": payment_id,
-                }
-            )
+                    # Create the credit line
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_booking_id": self.transaction_booking_id.id,
+                            "account_number": self.cash_account_id.id,
+                            "transaction_type": "cr",
+                            "cr_amount": new_paid_amount,
+                            "dr_amount": 0,
+                            "transaction_date": fields.Date.today(),
+                            "vendor_payment_id": payment_id,
+                        }
+                    )
 
-            # Recompute remaining amount after booking lines are created
-            existing_payments = sum(
-                self.env["idil.transaction_bookingline"]
-                .search(
-                    [
-                        ("transaction_booking_id", "=", self.transaction_booking_id.id),
-                        ("order_line", "=", None),  # Check if order_line is null
-                    ]
-                )
-                .mapped("dr_amount")
-            )
-            _logger.debug(
-                f"Existing payments: {existing_payments}, Paid amount: {self.paid_amount}, Amount: {self.amount_paying}"
-            )
-            # self.remaining_amount = self.amount - (existing_payments)
-            self.remaining_amount = (
-                self.transaction_booking_id.amount - updated_paid_amount
-            )
+                    # Recompute remaining amount after booking lines are created
+                    existing_payments = sum(
+                        self.env["idil.transaction_bookingline"]
+                        .search(
+                            [
+                                (
+                                    "transaction_booking_id",
+                                    "=",
+                                    self.transaction_booking_id.id,
+                                ),
+                                (
+                                    "order_line",
+                                    "=",
+                                    None,
+                                ),  # Check if order_line is null
+                            ]
+                        )
+                        .mapped("dr_amount")
+                    )
+                    _logger.debug(
+                        f"Existing payments: {existing_payments}, Paid amount: {self.paid_amount}, Amount: {self.amount_paying}"
+                    )
+                    # self.remaining_amount = self.amount - (existing_payments)
+                    self.remaining_amount = (
+                        self.transaction_booking_id.amount - updated_paid_amount
+                    )
 
-            self.paid_amount = updated_paid_amount
+                    self.paid_amount = updated_paid_amount
 
-            if remaining_amount == 0:
-                self.transaction_booking_id.payment_status = "paid"
-                self.payment_status = "paid"
-            elif updated_paid_amount == 0:
-                self.transaction_booking_id.payment_status = "pending"
-                self.payment_status = "pending"
-            else:
-                self.transaction_booking_id.payment_status = "partial_paid"
-                self.payment_status = "partial_paid"
+                    if remaining_amount == 0:
+                        self.transaction_booking_id.payment_status = "paid"
+                        self.payment_status = "paid"
+                    elif updated_paid_amount == 0:
+                        self.transaction_booking_id.payment_status = "pending"
+                        self.payment_status = "pending"
+                    else:
+                        self.transaction_booking_id.payment_status = "partial_paid"
+                        self.payment_status = "partial_paid"
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def _create_vendor_payment(self, amount_paid):
         vendor_payment = self.env["idil.vendor_payment"].create(

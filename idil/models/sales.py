@@ -300,203 +300,219 @@ class SaleOrder(models.Model):
         5. Debiting the Sales Commission account for each order line's commission amount (if applicable)
         6. Debiting the Sales Discount account for each order line's discount amount (if applicable)
         """
-        for order in self:
-            if not order.sales_person_id.account_receivable_id:
-                raise ValidationError(
-                    "The salesperson does not have a receivable account set."
-                )
-
-            # Define the expected currency from the salesperson's account receivable
-            expected_currency = order.sales_person_id.account_receivable_id.currency_id
-
-            trx_source_id = self.env["idil.transaction.source"].search(
-                [("name", "=", "Sales Order")], limit=1
-            )
-            if not trx_source_id:
-                raise ValidationError(
-                    _('Transaction source "Purchase Order" not found.')
-                )
-            # Create a transaction booking
-            transaction_booking = self.env["idil.transaction_booking"].create(
-                {
-                    "sales_person_id": order.sales_person_id.id,
-                    "sale_order_id": order.id,  # Set the sale_order_id to the current SaleOrder's ID
-                    "trx_source_id": trx_source_id.id,
-                    "Sales_order_number": order.id,
-                    "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
-                    "payment_status": "pending",  # Assuming initial payment status; adjust as needed
-                    "trx_date": order.order_date,
-                    "amount": order.order_total,
-                    # Include other necessary fields
-                }
-            )
-
-            total_debit = 0
-            # For each order line, create a booking line entry for debit
-            for line in order.order_lines:
-                product = line.product_id
-
-                bom_currency = (
-                    product.bom_id.currency_id
-                    if product.bom_id
-                    else product.currency_id
-                )
-
-                amount_in_bom_currency = product.cost * line.quantity
-
-                if bom_currency.name == "USD":
-                    product_cost_amount = amount_in_bom_currency * self.rate
-                else:
-                    product_cost_amount = amount_in_bom_currency
-
-                # product_cost_amount = product.cost * line.quantity * self.rate
-
-                _logger.info(
-                    f"Product Cost Amount: {product_cost_amount} for product {product.name}"
-                )
-
-                # Validate required accounts and currency consistency
-                if line.commission_amount > 0:
-                    if not product.sales_account_id:
+        try:
+            with self.env.cr.savepoint():
+                for order in self:
+                    if not order.sales_person_id.account_receivable_id:
                         raise ValidationError(
-                            f"Product '{product.name}' has a commission amount but no Sales Commission Account set."
-                        )
-                    if product.sales_account_id.currency_id != expected_currency:
-                        raise ValidationError(
-                            f"Sales Commission Account for product '{product.name}' has a different currency.\n"
-                            f"Expected currency: {expected_currency.name}, "
-                            f"Actual currency: {product.sales_account_id.currency_id.name}."
+                            "The salesperson does not have a receivable account set."
                         )
 
-                if line.discount_amount > 0:
-                    if not product.sales_discount_id:
+                    # Define the expected currency from the salesperson's account receivable
+                    expected_currency = (
+                        order.sales_person_id.account_receivable_id.currency_id
+                    )
+
+                    trx_source_id = self.env["idil.transaction.source"].search(
+                        [("name", "=", "Sales Order")], limit=1
+                    )
+                    if not trx_source_id:
                         raise ValidationError(
-                            f"Product '{product.name}' has a discount amount but no Sales Discount Account set."
+                            _('Transaction source "Purchase Order" not found.')
                         )
-                    if product.sales_discount_id.currency_id != expected_currency:
-                        raise ValidationError(
-                            f"Sales Discount Account for product '{product.name}' has a different currency.\n"
-                            f"Expected currency: {expected_currency.name}, "
-                            f"Actual currency: {product.sales_discount_id.currency_id.name}."
-                        )
-
-                if not product.asset_account_id:
-                    raise ValidationError(
-                        f"Product '{product.name}' does not have an Asset Account set."
-                    )
-                if product.asset_account_id.currency_id != expected_currency:
-                    raise ValidationError(
-                        f"Asset Account for product '{product.name}' has a different currency.\n"
-                        f"Expected currency: {expected_currency.name}, "
-                        f"Actual currency: {product.asset_account_id.currency_id.name}."
-                    )
-
-                if not product.income_account_id:
-                    raise ValidationError(
-                        f"Product '{product.name}' does not have an Income Account set."
-                    )
-                if product.income_account_id.currency_id != expected_currency:
-                    raise ValidationError(
-                        f"Income Account for product '{product.name}' has a different currency.\n"
-                        f"Expected currency: {expected_currency.name}, "
-                        f"Actual currency: {product.income_account_id.currency_id.name}."
-                    )
-                # ------------------------------------------------------------------------------------------------------
-                # Credit entry Expanses inventory of COGS account for the product
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sales Order -- Expanses COGS account for - {product.name}",
-                        "product_id": product.id,
-                        "account_number": product.account_cogs_id.id,
-                        "transaction_type": "dr",
-                        "dr_amount": product_cost_amount,
-                        "cr_amount": 0,
-                        "transaction_date": order.order_date,
-                        # Include other necessary fields
-                    }
-                )
-                # Credit entry asset inventory account of the product
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sales Inventory account for - {product.name}",
-                        "product_id": product.id,
-                        "account_number": product.asset_account_id.id,
-                        "transaction_type": "cr",
-                        "dr_amount": 0,
-                        "cr_amount": product_cost_amount,
-                        "transaction_date": order.order_date,
-                        # Include other necessary fields
-                    }
-                )
-                # ------------------------------------------------------------------------------------------------------
-                # Debit entry for the order line amount Sales Account Receivable
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sale of {product.name}",
-                        "product_id": product.id,
-                        "account_number": order.sales_person_id.account_receivable_id.id,
-                        "transaction_type": "dr",  # Debit transaction
-                        "dr_amount": line.subtotal,
-                        "cr_amount": 0,
-                        "transaction_date": order.order_date,
-                        # Include other necessary fields
-                    }
-                )
-                total_debit += line.subtotal
-
-                # Credit entry using the product's income account
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sales Revenue - {product.name}",
-                        "product_id": product.id,
-                        "account_number": product.income_account_id.id,
-                        "transaction_type": "cr",
-                        "dr_amount": 0,
-                        "cr_amount": (
-                            line.subtotal
-                            + line.commission_amount
-                            + line.discount_amount
-                        ),
-                        "transaction_date": order.order_date,
-                        # Include other necessary fields
-                    }
-                )
-
-                # Debit entry for commission expenses
-                if product.is_sales_commissionable and line.commission_amount > 0:
-                    self.env["idil.transaction_bookingline"].create(
+                    # Create a transaction booking
+                    transaction_booking = self.env["idil.transaction_booking"].create(
                         {
-                            "transaction_booking_id": transaction_booking.id,
-                            "description": f"Commission Expense - {product.name}",
-                            "product_id": product.id,
-                            "account_number": product.sales_account_id.id,
-                            "transaction_type": "dr",  # Debit transaction for commission expense
-                            "dr_amount": line.commission_amount,
-                            "cr_amount": 0,
-                            "transaction_date": order.order_date,
+                            "sales_person_id": order.sales_person_id.id,
+                            "sale_order_id": order.id,  # Set the sale_order_id to the current SaleOrder's ID
+                            "trx_source_id": trx_source_id.id,
+                            "Sales_order_number": order.id,
+                            "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
+                            "payment_status": "pending",  # Assuming initial payment status; adjust as needed
+                            "trx_date": order.order_date,
+                            "amount": order.order_total,
                             # Include other necessary fields
                         }
                     )
 
-                # Debit entry for discount expenses
-                if line.discount_amount > 0:
-                    self.env["idil.transaction_bookingline"].create(
-                        {
-                            "transaction_booking_id": transaction_booking.id,
-                            "description": f"Discount Expense - {product.name}",
-                            "product_id": product.id,
-                            "account_number": product.sales_discount_id.id,
-                            "transaction_type": "dr",  # Debit transaction for discount expense
-                            "dr_amount": line.discount_amount,
-                            "cr_amount": 0,
-                            "transaction_date": order.order_date,
-                            # Include other necessary fields
-                        }
-                    )
+                    total_debit = 0
+                    # For each order line, create a booking line entry for debit
+                    for line in order.order_lines:
+                        product = line.product_id
+
+                        bom_currency = (
+                            product.bom_id.currency_id
+                            if product.bom_id
+                            else product.currency_id
+                        )
+
+                        amount_in_bom_currency = product.cost * line.quantity
+
+                        if bom_currency.name == "USD":
+                            product_cost_amount = amount_in_bom_currency * self.rate
+                        else:
+                            product_cost_amount = amount_in_bom_currency
+
+                        # product_cost_amount = product.cost * line.quantity * self.rate
+
+                        _logger.info(
+                            f"Product Cost Amount: {product_cost_amount} for product {product.name}"
+                        )
+
+                        # Validate required accounts and currency consistency
+                        if line.commission_amount > 0:
+                            if not product.sales_account_id:
+                                raise ValidationError(
+                                    f"Product '{product.name}' has a commission amount but no Sales Commission Account set."
+                                )
+                            if (
+                                product.sales_account_id.currency_id
+                                != expected_currency
+                            ):
+                                raise ValidationError(
+                                    f"Sales Commission Account for product '{product.name}' has a different currency.\n"
+                                    f"Expected currency: {expected_currency.name}, "
+                                    f"Actual currency: {product.sales_account_id.currency_id.name}."
+                                )
+
+                        if line.discount_amount > 0:
+                            if not product.sales_discount_id:
+                                raise ValidationError(
+                                    f"Product '{product.name}' has a discount amount but no Sales Discount Account set."
+                                )
+                            if (
+                                product.sales_discount_id.currency_id
+                                != expected_currency
+                            ):
+                                raise ValidationError(
+                                    f"Sales Discount Account for product '{product.name}' has a different currency.\n"
+                                    f"Expected currency: {expected_currency.name}, "
+                                    f"Actual currency: {product.sales_discount_id.currency_id.name}."
+                                )
+
+                        if not product.asset_account_id:
+                            raise ValidationError(
+                                f"Product '{product.name}' does not have an Asset Account set."
+                            )
+                        if product.asset_account_id.currency_id != expected_currency:
+                            raise ValidationError(
+                                f"Asset Account for product '{product.name}' has a different currency.\n"
+                                f"Expected currency: {expected_currency.name}, "
+                                f"Actual currency: {product.asset_account_id.currency_id.name}."
+                            )
+
+                        if not product.income_account_id:
+                            raise ValidationError(
+                                f"Product '{product.name}' does not have an Income Account set."
+                            )
+                        if product.income_account_id.currency_id != expected_currency:
+                            raise ValidationError(
+                                f"Income Account for product '{product.name}' has a different currency.\n"
+                                f"Expected currency: {expected_currency.name}, "
+                                f"Actual currency: {product.income_account_id.currency_id.name}."
+                            )
+                        # ------------------------------------------------------------------------------------------------------
+                        # Credit entry Expanses inventory of COGS account for the product
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sales Order -- Expanses COGS account for - {product.name}",
+                                "product_id": product.id,
+                                "account_number": product.account_cogs_id.id,
+                                "transaction_type": "dr",
+                                "dr_amount": product_cost_amount,
+                                "cr_amount": 0,
+                                "transaction_date": order.order_date,
+                                # Include other necessary fields
+                            }
+                        )
+                        # Credit entry asset inventory account of the product
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sales Inventory account for - {product.name}",
+                                "product_id": product.id,
+                                "account_number": product.asset_account_id.id,
+                                "transaction_type": "cr",
+                                "dr_amount": 0,
+                                "cr_amount": product_cost_amount,
+                                "transaction_date": order.order_date,
+                                # Include other necessary fields
+                            }
+                        )
+                        # ------------------------------------------------------------------------------------------------------
+                        # Debit entry for the order line amount Sales Account Receivable
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sale of {product.name}",
+                                "product_id": product.id,
+                                "account_number": order.sales_person_id.account_receivable_id.id,
+                                "transaction_type": "dr",  # Debit transaction
+                                "dr_amount": line.subtotal,
+                                "cr_amount": 0,
+                                "transaction_date": order.order_date,
+                                # Include other necessary fields
+                            }
+                        )
+                        total_debit += line.subtotal
+
+                        # Credit entry using the product's income account
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sales Revenue - {product.name}",
+                                "product_id": product.id,
+                                "account_number": product.income_account_id.id,
+                                "transaction_type": "cr",
+                                "dr_amount": 0,
+                                "cr_amount": (
+                                    line.subtotal
+                                    + line.commission_amount
+                                    + line.discount_amount
+                                ),
+                                "transaction_date": order.order_date,
+                                # Include other necessary fields
+                            }
+                        )
+
+                        # Debit entry for commission expenses
+                        if (
+                            product.is_sales_commissionable
+                            and line.commission_amount > 0
+                        ):
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": transaction_booking.id,
+                                    "description": f"Commission Expense - {product.name}",
+                                    "product_id": product.id,
+                                    "account_number": product.sales_account_id.id,
+                                    "transaction_type": "dr",  # Debit transaction for commission expense
+                                    "dr_amount": line.commission_amount,
+                                    "cr_amount": 0,
+                                    "transaction_date": order.order_date,
+                                    # Include other necessary fields
+                                }
+                            )
+
+                        # Debit entry for discount expenses
+                        if line.discount_amount > 0:
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": transaction_booking.id,
+                                    "description": f"Discount Expense - {product.name}",
+                                    "product_id": product.id,
+                                    "account_number": product.sales_discount_id.id,
+                                    "transaction_type": "dr",  # Debit transaction for discount expense
+                                    "dr_amount": line.discount_amount,
+                                    "cr_amount": 0,
+                                    "transaction_date": order.order_date,
+                                    # Include other necessary fields
+                                }
+                            )
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def write(self, vals):
         try:

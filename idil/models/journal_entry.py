@@ -1,3 +1,4 @@
+from venv import logger
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 
@@ -173,104 +174,118 @@ class JournalEntry(models.Model):
         return trx_source.id
 
     def create_transaction_booking(self):
-        trx_source_id = self.get_manual_transaction_source_id()
-        for entry in self:
-            # Remove existing transaction bookings
-            self.env["idil.transaction_booking"].search(
-                [("journal_entry_id", "=", entry.id)]
-            ).unlink()
+        try:
+            with self.env.cr.savepoint():
+                trx_source_id = self.get_manual_transaction_source_id()
+                for entry in self:
+                    # Remove existing transaction bookings
+                    self.env["idil.transaction_booking"].search(
+                        [("journal_entry_id", "=", entry.id)]
+                    ).unlink()
 
-            booking_vals = {
-                "transaction_number": self.env["ir.sequence"].next_by_code(
-                    "idil.transaction_booking.sequence"
-                )
-                or _("New"),
-                "reffno": entry.name,
-                "trx_date": entry.date,
-                "amount": entry.total_debit,  # Assuming total_debit equals the total amount of the transaction
-                "debit_total": entry.total_debit,
-                "credit_total": entry.total_credit,
-                "payment_method": "other",
-                "payment_status": "paid",
-                "trx_source_id": trx_source_id,
-                "journal_entry_id": entry.id,  # Link to the journal entry
-            }
-            main_booking = self.env["idil.transaction_booking"].create(booking_vals)
-            for line in entry.line_ids:
-                if not line.account_id:
-                    continue  # Skip lines without an account_id
-                if line.debit:
-                    self.env["idil.transaction_bookingline"].create(
-                        {
-                            "transaction_booking_id": main_booking.id,
-                            "description": line.description,
-                            "account_number": line.account_id.id,
-                            "transaction_type": "dr",
-                            "dr_amount": line.debit,
-                            "cr_amount": 0,
-                            "transaction_date": entry.date,
-                        }
+                    booking_vals = {
+                        "transaction_number": self.env["ir.sequence"].next_by_code(
+                            "idil.transaction_booking.sequence"
+                        )
+                        or _("New"),
+                        "reffno": entry.name,
+                        "trx_date": entry.date,
+                        "amount": entry.total_debit,  # Assuming total_debit equals the total amount of the transaction
+                        "debit_total": entry.total_debit,
+                        "credit_total": entry.total_credit,
+                        "payment_method": "other",
+                        "payment_status": "paid",
+                        "trx_source_id": trx_source_id,
+                        "journal_entry_id": entry.id,  # Link to the journal entry
+                    }
+                    main_booking = self.env["idil.transaction_booking"].create(
+                        booking_vals
                     )
-                if line.credit:
-                    self.env["idil.transaction_bookingline"].create(
-                        {
-                            "transaction_booking_id": main_booking.id,
-                            "description": line.description,
-                            "account_number": line.account_id.id,
-                            "transaction_type": "cr",
-                            "cr_amount": line.credit,
-                            "dr_amount": 0,
-                            "transaction_date": entry.date,
-                        }
-                    )
+                    for line in entry.line_ids:
+                        if not line.account_id:
+                            continue  # Skip lines without an account_id
+                        if line.debit:
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": main_booking.id,
+                                    "description": line.description,
+                                    "account_number": line.account_id.id,
+                                    "transaction_type": "dr",
+                                    "dr_amount": line.debit,
+                                    "cr_amount": 0,
+                                    "transaction_date": entry.date,
+                                }
+                            )
+                        if line.credit:
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": main_booking.id,
+                                    "description": line.description,
+                                    "account_number": line.account_id.id,
+                                    "transaction_type": "cr",
+                                    "cr_amount": line.credit,
+                                    "dr_amount": 0,
+                                    "transaction_date": entry.date,
+                                }
+                            )
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def update_transaction_booking(self):
-        for entry in self:
-            # Remove existing transaction bookings
-            self.env["idil.transaction_booking"].search(
-                [("journal_entry_id", "=", entry.id)]
-            ).unlink()
+        try:
+            with self.env.cr.savepoint():
+                for entry in self:
+                    # Remove existing transaction bookings
+                    self.env["idil.transaction_booking"].search(
+                        [("journal_entry_id", "=", entry.id)]
+                    ).unlink()
 
-            booking_vals = {
-                "transaction_number": self.env["ir.sequence"].next_by_code(
-                    "idil.transaction_booking.sequence"
-                )
-                or _("New"),
-                "reffno": entry.name,
-                "trx_date": entry.date,
-                "amount": entry.total_debit,  # Assuming total_debit equals the total amount of the transaction
-                "debit_total": entry.total_debit,
-                "credit_total": entry.total_credit,
-                "journal_entry_id": entry.id,  # Link to the journal entry
-            }
-            main_booking = self.env["idil.transaction_booking"].create(booking_vals)
-            for line in entry.line_ids:
-                if not line.account_id:
-                    continue  # Skip lines without an account_id
-                if line.debit:
-                    self.env["idil.transaction_bookingline"].create(
-                        {
-                            "transaction_booking_id": main_booking.id,
-                            "description": line.description,
-                            "account_number": line.account_id.id,
-                            "transaction_type": "dr",
-                            "dr_amount": line.debit,
-                            "cr_amount": 0,
-                            "transaction_date": entry.date,
-                        }
+                    booking_vals = {
+                        "transaction_number": self.env["ir.sequence"].next_by_code(
+                            "idil.transaction_booking.sequence"
+                        )
+                        or _("New"),
+                        "reffno": entry.name,
+                        "trx_date": entry.date,
+                        "amount": entry.total_debit,  # Assuming total_debit equals the total amount of the transaction
+                        "debit_total": entry.total_debit,
+                        "credit_total": entry.total_credit,
+                        "journal_entry_id": entry.id,  # Link to the journal entry
+                    }
+                    main_booking = self.env["idil.transaction_booking"].create(
+                        booking_vals
                     )
-                if line.credit:
-                    self.env["idil.transaction_bookingline"].create(
-                        {
-                            "transaction_booking_id": main_booking.id,
-                            "description": line.description,
-                            "account_number": line.account_id.id,
-                            "transaction_type": "cr",
-                            "cr_amount": line.credit,
-                            "dr_amount": 0,
-                            "transaction_date": entry.date,
-                        }
-                    )
+                    for line in entry.line_ids:
+                        if not line.account_id:
+                            continue  # Skip lines without an account_id
+                        if line.debit:
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": main_booking.id,
+                                    "description": line.description,
+                                    "account_number": line.account_id.id,
+                                    "transaction_type": "dr",
+                                    "dr_amount": line.debit,
+                                    "cr_amount": 0,
+                                    "transaction_date": entry.date,
+                                }
+                            )
+                        if line.credit:
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": main_booking.id,
+                                    "description": line.description,
+                                    "account_number": line.account_id.id,
+                                    "transaction_type": "cr",
+                                    "cr_amount": line.credit,
+                                    "dr_amount": 0,
+                                    "transaction_date": entry.date,
+                                }
+                            )
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
 
 class JournalEntryLine(models.Model):

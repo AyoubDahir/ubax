@@ -1,3 +1,4 @@
+from venv import logger
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
@@ -68,96 +69,101 @@ class IdilItemOpeningBalance(models.Model):
     # Above: add new, retain any already present (to avoid removing manually entered)
 
     def confirm_opening_balance(self):
-        TransactionBooking = self.env["idil.transaction_booking"]
-        TransactionSource = self.env["idil.transaction.source"]
-        ItemMovement = self.env["idil.item.movement"]
+        try:
+            with self.env.cr.savepoint():
+                TransactionBooking = self.env["idil.transaction_booking"]
+                TransactionSource = self.env["idil.transaction.source"]
+                ItemMovement = self.env["idil.item.movement"]
 
-        EquityAccount = self.env["idil.chart.account"].search(
-            [("name", "=", "Opening Balance Account")], limit=1
-        )
-
-        source = TransactionSource.search(
-            [("name", "=", "Inventory Opening Balance")], limit=1
-        )
-        if not source:
-            raise ValidationError(
-                "Transaction Source 'Inventory Opening Balance' not found."
-            )
-
-        for line in self.line_ids:
-            item = line.item_id
-
-            # Validate stock is not already positive
-            if item.quantity != 0:
-                raise ValidationError(
-                    f"Cannot create opening balance. Item '{item.name}' already has stock: {item.quantity}"
+                EquityAccount = self.env["idil.chart.account"].search(
+                    [("name", "=", "Opening Balance Account")], limit=1
                 )
 
-            # Update stock
-            item.quantity = line.quantity
+                source = TransactionSource.search(
+                    [("name", "=", "Inventory Opening Balance")], limit=1
+                )
+                if not source:
+                    raise ValidationError(
+                        "Transaction Source 'Inventory Opening Balance' not found."
+                    )
 
-            # Create transaction booking
-            amount = line.quantity * line.cost_price
-            trx = TransactionBooking.create(
-                {
-                    "transaction_number": self.env["ir.sequence"].next_by_code(
-                        "idil.transaction_booking"
-                    ),
-                    "reffno": item.name,
-                    "item_opening_balance_id": self.id,
-                    "trx_date": self.date,
-                    "amount": amount,
-                    "amount_paid": amount,
-                    "remaining_amount": 0,
-                    "payment_status": "paid",
-                    "payment_method": "other",
-                    "trx_source_id": source.id,
-                }
-            )
+                for line in self.line_ids:
+                    item = line.item_id
 
-            # Booking lines
-            trx.booking_lines.create(
-                [
-                    {
-                        "transaction_booking_id": trx.id,
-                        "item_opening_balance_id": self.id,
-                        "description": f"Opening Balance for {item.name}",
-                        "item_id": item.id,
-                        "account_number": item.asset_account_id.id,
-                        "transaction_type": "dr",
-                        "dr_amount": amount,
-                        "cr_amount": 0,
-                        "transaction_date": self.date,
-                    },
-                    {
-                        "transaction_booking_id": trx.id,
-                        "item_opening_balance_id": self.id,
-                        "description": f"Opening Balance for {item.name}",
-                        "item_id": item.id,
-                        "account_number": EquityAccount.id,
-                        "transaction_type": "cr",
-                        "cr_amount": amount,
-                        "dr_amount": 0,
-                        "transaction_date": self.date,
-                    },
-                ]
-            )
+                    # Validate stock is not already positive
+                    if item.quantity != 0:
+                        raise ValidationError(
+                            f"Cannot create opening balance. Item '{item.name}' already has stock: {item.quantity}"
+                        )
 
-            # Create movement log
-            ItemMovement.create(
-                {
-                    "item_id": item.id,
-                    "item_opening_balance_id": self.id,
-                    "date": self.date,
-                    "quantity": line.quantity,
-                    "source": f"Opening Balance Inventory for Item {item.name}",
-                    "destination": "Inventory",
-                    "movement_type": "in",
-                }
-            )
+                    # Update stock
+                    item.quantity = line.quantity
 
-        # Update state to confirmed
-        self.state = "confirmed"
+                    # Create transaction booking
+                    amount = line.quantity * line.cost_price
+                    trx = TransactionBooking.create(
+                        {
+                            "transaction_number": self.env["ir.sequence"].next_by_code(
+                                "idil.transaction_booking"
+                            ),
+                            "reffno": item.name,
+                            "item_opening_balance_id": self.id,
+                            "trx_date": self.date,
+                            "amount": amount,
+                            "amount_paid": amount,
+                            "remaining_amount": 0,
+                            "payment_status": "paid",
+                            "payment_method": "other",
+                            "trx_source_id": source.id,
+                        }
+                    )
+
+                    # Booking lines
+                    trx.booking_lines.create(
+                        [
+                            {
+                                "transaction_booking_id": trx.id,
+                                "item_opening_balance_id": self.id,
+                                "description": f"Opening Balance for {item.name}",
+                                "item_id": item.id,
+                                "account_number": item.asset_account_id.id,
+                                "transaction_type": "dr",
+                                "dr_amount": amount,
+                                "cr_amount": 0,
+                                "transaction_date": self.date,
+                            },
+                            {
+                                "transaction_booking_id": trx.id,
+                                "item_opening_balance_id": self.id,
+                                "description": f"Opening Balance for {item.name}",
+                                "item_id": item.id,
+                                "account_number": EquityAccount.id,
+                                "transaction_type": "cr",
+                                "cr_amount": amount,
+                                "dr_amount": 0,
+                                "transaction_date": self.date,
+                            },
+                        ]
+                    )
+
+                    # Create movement log
+                    ItemMovement.create(
+                        {
+                            "item_id": item.id,
+                            "item_opening_balance_id": self.id,
+                            "date": self.date,
+                            "quantity": line.quantity,
+                            "source": f"Opening Balance Inventory for Item {item.name}",
+                            "destination": "Inventory",
+                            "movement_type": "in",
+                        }
+                    )
+
+                # Update state to confirmed
+                self.state = "confirmed"
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -173,155 +179,170 @@ class IdilItemOpeningBalance(models.Model):
         return records
 
     def write(self, vals):
-        TransactionBooking = self.env["idil.transaction_booking"]
-        ItemMovement = self.env["idil.item.movement"]
+        try:
+            with self.env.cr.savepoint():
+                TransactionBooking = self.env["idil.transaction_booking"]
+                ItemMovement = self.env["idil.item.movement"]
 
-        for record in self:
-            # Revert stock
-            for line in record.line_ids:
-                line.item_id.quantity -= line.quantity
+                for record in self:
+                    # Revert stock
+                    for line in record.line_ids:
+                        line.item_id.quantity -= line.quantity
 
-            # Delete related bookings
-            trx_to_delete = TransactionBooking.search(
-                [("item_opening_balance_id", "=", record.id)]
-            )
-            trx_to_delete.booking_lines.unlink()
-            trx_to_delete.unlink()
+                    # Delete related bookings
+                    trx_to_delete = TransactionBooking.search(
+                        [("item_opening_balance_id", "=", record.id)]
+                    )
+                    trx_to_delete.booking_lines.unlink()
+                    trx_to_delete.unlink()
 
-            # Delete related item movements
-            movement_to_delete = ItemMovement.search(
-                [("item_opening_balance_id", "=", record.id)]
-            )
-            movement_to_delete.unlink()
+                    # Delete related item movements
+                    movement_to_delete = ItemMovement.search(
+                        [("item_opening_balance_id", "=", record.id)]
+                    )
+                    movement_to_delete.unlink()
 
-        # Write new values (lines, date, etc.)
-        result = super(IdilItemOpeningBalance, self).write(vals)
+                # Write new values (lines, date, etc.)
+                result = super(IdilItemOpeningBalance, self).write(vals)
 
-        # Rebuild all booking/stock/movement logic freshly
-        for record in self:
-            record._rebuild_confirmed_balance()
+                # Rebuild all booking/stock/movement logic freshly
+                for record in self:
+                    record._rebuild_confirmed_balance()
 
-        return result
+                return result
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def _rebuild_confirmed_balance(self):
-        TransactionBooking = self.env["idil.transaction_booking"]
-        TransactionSource = self.env["idil.transaction.source"]
-        ItemMovement = self.env["idil.item.movement"]
+        try:
+            with self.env.cr.savepoint():
+                TransactionBooking = self.env["idil.transaction_booking"]
+                TransactionSource = self.env["idil.transaction.source"]
+                ItemMovement = self.env["idil.item.movement"]
 
-        EquityAccount = self.env["idil.chart.account"].search(
-            [
-                ("name", "=", "Opening Balance Account"),
-                ("currency_id.name", "=", "USD"),
-            ],
-            limit=1,
-        )
+                EquityAccount = self.env["idil.chart.account"].search(
+                    [
+                        ("name", "=", "Opening Balance Account"),
+                        ("currency_id.name", "=", "USD"),
+                    ],
+                    limit=1,
+                )
 
-        source = TransactionSource.search(
-            [("name", "=", "Inventory Opening Balance")], limit=1
-        )
+                source = TransactionSource.search(
+                    [("name", "=", "Inventory Opening Balance")], limit=1
+                )
 
-        if not source:
-            raise ValidationError(
-                "Transaction Source 'Inventory Opening Balance' not found."
-            )
-
-        for line in self.line_ids:
-            item = line.item_id
-
-            # Update stock
-            item.quantity += line.quantity
-
-            # Create booking
-            amount = line.quantity * line.cost_price
-            trx = TransactionBooking.create(
-                {
-                    "transaction_number": self.env["ir.sequence"].next_by_code(
-                        "idil.transaction_booking"
-                    ),
-                    "reffno": item.name,
-                    "item_opening_balance_id": self.id,
-                    "trx_date": self.date,
-                    "amount": amount,
-                    "amount_paid": amount,
-                    "remaining_amount": 0,
-                    "payment_status": "paid",
-                    "payment_method": "other",
-                    "trx_source_id": source.id,
-                }
-            )
-
-            trx.booking_lines.create(
-                [
-                    {
-                        "transaction_booking_id": trx.id,
-                        "item_opening_balance_id": self.id,
-                        "description": f"Opening Balance for {item.name}",
-                        "item_id": item.id,
-                        "account_number": item.asset_account_id.id,
-                        "transaction_type": "dr",
-                        "dr_amount": amount,
-                        "cr_amount": 0,
-                        "transaction_date": self.date,
-                    },
-                    {
-                        "transaction_booking_id": trx.id,
-                        "item_opening_balance_id": self.id,
-                        "description": f"Opening Balance for {item.name}",
-                        "item_id": item.id,
-                        "account_number": EquityAccount.id,
-                        "transaction_type": "cr",
-                        "cr_amount": amount,
-                        "dr_amount": 0,
-                        "transaction_date": self.date,
-                    },
-                ]
-            )
-
-            ItemMovement.create(
-                {
-                    "item_id": item.id,
-                    "item_opening_balance_id": self.id,
-                    "date": self.date,
-                    "quantity": line.quantity,
-                    "source": f"Opening Balance Inventory for Item {item.name}",
-                    "destination": "Inventory",
-                    "movement_type": "in",
-                }
-            )
-
-    def unlink(self):
-        TransactionBooking = self.env["idil.transaction_booking"]
-        ItemMovement = self.env["idil.item.movement"]
-
-        for record in self:
-            # Revert item stock
-
-            for line in record.line_ids:
-                item = line.item_id
-                if item.quantity < line.quantity:
+                if not source:
                     raise ValidationError(
-                        f"Cannot delete opening balance for item '{item.name}' because its current stock ({item.quantity}) is less than the opening balance quantity ({line.quantity}). "
-                        "This means the item has already been used in manufacturing or other transactions. "
-                        "To proceed, you must first delete the related manufacturing or stock usage records that consumed this item."
+                        "Transaction Source 'Inventory Opening Balance' not found."
                     )
 
-            for line in record.line_ids:
-                line.item_id.quantity -= line.quantity
+                for line in self.line_ids:
+                    item = line.item_id
 
-            # Delete related booking lines and bookings
-            trx_to_delete = TransactionBooking.search(
-                [("item_opening_balance_id", "=", record.id)]
-            )
-            trx_to_delete.booking_lines.unlink()
-            trx_to_delete.unlink()
+                    # Update stock
+                    item.quantity += line.quantity
 
-            # Delete related item movements
-            movement_to_delete = ItemMovement.search(
-                [("item_opening_balance_id", "=", record.id)]
-            )
-            movement_to_delete.unlink()
+                    # Create booking
+                    amount = line.quantity * line.cost_price
+                    trx = TransactionBooking.create(
+                        {
+                            "transaction_number": self.env["ir.sequence"].next_by_code(
+                                "idil.transaction_booking"
+                            ),
+                            "reffno": item.name,
+                            "item_opening_balance_id": self.id,
+                            "trx_date": self.date,
+                            "amount": amount,
+                            "amount_paid": amount,
+                            "remaining_amount": 0,
+                            "payment_status": "paid",
+                            "payment_method": "other",
+                            "trx_source_id": source.id,
+                        }
+                    )
 
-        return super(IdilItemOpeningBalance, self).unlink()
+                    trx.booking_lines.create(
+                        [
+                            {
+                                "transaction_booking_id": trx.id,
+                                "item_opening_balance_id": self.id,
+                                "description": f"Opening Balance for {item.name}",
+                                "item_id": item.id,
+                                "account_number": item.asset_account_id.id,
+                                "transaction_type": "dr",
+                                "dr_amount": amount,
+                                "cr_amount": 0,
+                                "transaction_date": self.date,
+                            },
+                            {
+                                "transaction_booking_id": trx.id,
+                                "item_opening_balance_id": self.id,
+                                "description": f"Opening Balance for {item.name}",
+                                "item_id": item.id,
+                                "account_number": EquityAccount.id,
+                                "transaction_type": "cr",
+                                "cr_amount": amount,
+                                "dr_amount": 0,
+                                "transaction_date": self.date,
+                            },
+                        ]
+                    )
+
+                    ItemMovement.create(
+                        {
+                            "item_id": item.id,
+                            "item_opening_balance_id": self.id,
+                            "date": self.date,
+                            "quantity": line.quantity,
+                            "source": f"Opening Balance Inventory for Item {item.name}",
+                            "destination": "Inventory",
+                            "movement_type": "in",
+                        }
+                    )
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
+
+    def unlink(self):
+        try:
+            with self.env.cr.savepoint():
+                TransactionBooking = self.env["idil.transaction_booking"]
+                ItemMovement = self.env["idil.item.movement"]
+
+                for record in self:
+                    # Revert item stock
+
+                    for line in record.line_ids:
+                        item = line.item_id
+                        if item.quantity < line.quantity:
+                            raise ValidationError(
+                                f"Cannot delete opening balance for item '{item.name}' because its current stock ({item.quantity}) is less than the opening balance quantity ({line.quantity}). "
+                                "This means the item has already been used in manufacturing or other transactions. "
+                                "To proceed, you must first delete the related manufacturing or stock usage records that consumed this item."
+                            )
+
+                    for line in record.line_ids:
+                        line.item_id.quantity -= line.quantity
+
+                    # Delete related booking lines and bookings
+                    trx_to_delete = TransactionBooking.search(
+                        [("item_opening_balance_id", "=", record.id)]
+                    )
+                    trx_to_delete.booking_lines.unlink()
+                    trx_to_delete.unlink()
+
+                    # Delete related item movements
+                    movement_to_delete = ItemMovement.search(
+                        [("item_opening_balance_id", "=", record.id)]
+                    )
+                    movement_to_delete.unlink()
+
+                return super(IdilItemOpeningBalance, self).unlink()
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
 
 class IdilItemOpeningBalanceLine(models.Model):

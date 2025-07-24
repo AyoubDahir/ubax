@@ -98,58 +98,75 @@ class SaleReturn(models.Model):
         self.return_lines = return_lines
 
     def action_confirm(self):
-        for return_order in self:
-            if return_order.state != "draft":
-                raise UserError("Only draft return orders can be confirmed.")
+        try:
+            with self.env.cr.savepoint():
+                for return_order in self:
+                    if return_order.state != "draft":
+                        raise UserError("Only draft return orders can be confirmed.")
 
-            for return_line in return_order.return_lines:
-                corresponding_sale_line = self.env["idil.sale.order.line"].search(
-                    [
-                        ("order_id", "=", return_order.sale_order_id.id),
-                        ("product_id", "=", return_line.product_id.id),
-                    ],
-                    limit=1,
-                )
+                    for return_line in return_order.return_lines:
+                        corresponding_sale_line = self.env[
+                            "idil.sale.order.line"
+                        ].search(
+                            [
+                                ("order_id", "=", return_order.sale_order_id.id),
+                                ("product_id", "=", return_line.product_id.id),
+                            ],
+                            limit=1,
+                        )
 
-                if not corresponding_sale_line:
-                    raise ValidationError(
-                        f"Sale line not found for product {return_line.product_id.name}."
+                        if not corresponding_sale_line:
+                            raise ValidationError(
+                                f"Sale line not found for product {return_line.product_id.name}."
+                            )
+
+                        # ✅ Calculate total previously returned qty for this product in this order
+                        previous_returns = self.env["idil.sale.return.line"].search(
+                            [
+                                (
+                                    "return_id.sale_order_id",
+                                    "=",
+                                    return_order.sale_order_id.id,
+                                ),
+                                ("product_id", "=", return_line.product_id.id),
+                                (
+                                    "return_id",
+                                    "!=",
+                                    return_order.id,
+                                ),  # Exclude current draft
+                                ("return_id.state", "=", "confirmed"),
+                            ]
+                        )
+
+                        total_prev_returned = sum(
+                            r.returned_quantity for r in previous_returns
+                        )
+                        new_total = total_prev_returned + return_line.returned_quantity
+
+                        if new_total > corresponding_sale_line.quantity:
+                            available_to_return = (
+                                corresponding_sale_line.quantity - total_prev_returned
+                            )
+                            raise ValidationError(
+                                f"Cannot return {return_line.returned_quantity:.2f} of {return_line.product_id.name}.\n\n"
+                                f"✅ Already Returned: {total_prev_returned:.2f}\n"
+                                f"✅ Available for Return: {available_to_return:.2f}\n"
+                                f"🧾 Original Sold Quantity: {corresponding_sale_line.quantity:.2f}"
+                            )
+
+                    # Confirm valid return
+                    self.book_sales_return_entry()
+
+                    return_order.message_post(
+                        body=f"✅ Sales Return confirmed with {len(return_order.return_lines.filtered(lambda l: l.returned_quantity > 0))} returned items. Total: {return_order.currency_id.symbol or ''}{sum(return_order.return_lines.filtered(lambda l: l.returned_quantity > 0).mapped('subtotal')):,.2f}"
                     )
 
-                # ✅ Calculate total previously returned qty for this product in this order
-                previous_returns = self.env["idil.sale.return.line"].search(
-                    [
-                        ("return_id.sale_order_id", "=", return_order.sale_order_id.id),
-                        ("product_id", "=", return_line.product_id.id),
-                        ("return_id", "!=", return_order.id),  # Exclude current draft
-                        ("return_id.state", "=", "confirmed"),
-                    ]
-                )
+                    return_order.write({"state": "confirmed"})
 
-                total_prev_returned = sum(r.returned_quantity for r in previous_returns)
-                new_total = total_prev_returned + return_line.returned_quantity
-
-                if new_total > corresponding_sale_line.quantity:
-                    available_to_return = (
-                        corresponding_sale_line.quantity - total_prev_returned
-                    )
-                    raise ValidationError(
-                        f"Cannot return {return_line.returned_quantity:.2f} of {return_line.product_id.name}.\n\n"
-                        f"✅ Already Returned: {total_prev_returned:.2f}\n"
-                        f"✅ Available for Return: {available_to_return:.2f}\n"
-                        f"🧾 Original Sold Quantity: {corresponding_sale_line.quantity:.2f}"
-                    )
-
-            # Confirm valid return
-            self.book_sales_return_entry()
-
-            return_order.message_post(
-                body=f"✅ Sales Return confirmed with {len(return_order.return_lines.filtered(lambda l: l.returned_quantity > 0))} returned items. Total: {return_order.currency_id.symbol or ''}{sum(return_order.return_lines.filtered(lambda l: l.returned_quantity > 0).mapped('subtotal')):,.2f}"
-            )
-
-            return_order.write({"state": "confirmed"})
-
-        return True
+                return True
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def book_sales_return_entry(self):
         for return_order in self:
@@ -813,80 +830,96 @@ class SaleReturn(models.Model):
         return super(SaleReturn, self).write(vals)
 
     def unlink(self):
-        for record in self:
-            if record.state != "confirmed":
-                return super(SaleReturn, record).unlink()
+        try:
+            with self.env.cr.savepoint():
+                for record in self:
+                    if record.state != "confirmed":
+                        return super(SaleReturn, record).unlink()
 
-            # 🔒 Block deletion if receipt has amount_paid > 0
-            receipt = self.env["idil.sales.receipt"].search(
-                [
-                    ("sales_order_id", "=", record.sale_order_id.id),
-                    ("paid_amount", ">", 0),
-                ],
-                limit=1,
-            )
-            if receipt:
-                raise ValidationError(
-                    f"⚠️ You cannot delete this sales return '{record.name}' because a payment of "
-                    f"{receipt.paid_amount:.2f} has already been received on the related sales order."
-                )
-
-            # === 1. Reverse stock quantity ===
-            for line in record.return_lines:
-                if line.product_id and line.returned_quantity:
-                    new_qty = line.product_id.stock_quantity - line.returned_quantity
-                    line.product_id.sudo().write({"stock_quantity": new_qty})
-
-            # === 2. Adjust sales receipt ===
-            receipt = self.env["idil.sales.receipt"].search(
-                [("sales_order_id", "=", record.sale_order_id.id)], limit=1
-            )
-            if receipt:
-                total_subtotal = sum(line.subtotal for line in record.return_lines)
-                total_discount = 0.0
-                total_commission = 0.0
-
-                for line in record.return_lines:
-                    product = line.product_id
-                    discount_qty = (
-                        product.discount / 100 * line.returned_quantity
-                        if product.is_quantity_discount
-                        else 0.0
+                    # 🔒 Block deletion if receipt has amount_paid > 0
+                    receipt = self.env["idil.sales.receipt"].search(
+                        [
+                            ("sales_order_id", "=", record.sale_order_id.id),
+                            ("paid_amount", ">", 0),
+                        ],
+                        limit=1,
                     )
-                    discount_amt = discount_qty * line.price_unit
-                    commission_amt = (
-                        (line.returned_quantity - discount_qty)
-                        * product.commission
-                        * line.price_unit
+                    if receipt:
+                        raise ValidationError(
+                            f"⚠️ You cannot delete this sales return '{record.name}' because a payment of "
+                            f"{receipt.paid_amount:.2f} has already been received on the related sales order."
+                        )
+
+                    # === 1. Reverse stock quantity ===
+                    for line in record.return_lines:
+                        if line.product_id and line.returned_quantity:
+                            new_qty = (
+                                line.product_id.stock_quantity - line.returned_quantity
+                            )
+                            line.product_id.sudo().write({"stock_quantity": new_qty})
+
+                    # === 2. Adjust sales receipt ===
+                    receipt = self.env["idil.sales.receipt"].search(
+                        [("sales_order_id", "=", record.sale_order_id.id)], limit=1
                     )
-                    total_discount += discount_amt
-                    total_commission += commission_amt
+                    if receipt:
+                        total_subtotal = sum(
+                            line.subtotal for line in record.return_lines
+                        )
+                        total_discount = 0.0
+                        total_commission = 0.0
 
-                return_amount = total_subtotal - total_discount - total_commission
-                receipt.due_amount += return_amount
-                receipt.remaining_amount = receipt.due_amount - receipt.paid_amount
-                receipt.payment_status = (
-                    "paid" if receipt.due_amount <= 0 else "pending"
-                )
+                        for line in record.return_lines:
+                            product = line.product_id
+                            discount_qty = (
+                                product.discount / 100 * line.returned_quantity
+                                if product.is_quantity_discount
+                                else 0.0
+                            )
+                            discount_amt = discount_qty * line.price_unit
+                            commission_amt = (
+                                (line.returned_quantity - discount_qty)
+                                * product.commission
+                                * line.price_unit
+                            )
+                            total_discount += discount_amt
+                            total_commission += commission_amt
 
-            # === 3. Delete related records ===
-            self.env["idil.transaction_bookingline"].search(
-                [("sale_return_id", "=", record.id)]
-            ).unlink()
+                        return_amount = (
+                            total_subtotal - total_discount - total_commission
+                        )
+                        receipt.due_amount += return_amount
+                        receipt.remaining_amount = (
+                            receipt.due_amount - receipt.paid_amount
+                        )
+                        receipt.payment_status = (
+                            "paid" if receipt.due_amount <= 0 else "pending"
+                        )
 
-            self.env["idil.salesperson.transaction"].search(
-                [("sale_return_id", "=", record.id)]
-            ).unlink()
+                    # === 3. Delete related records ===
+                    self.env["idil.transaction_bookingline"].search(
+                        [("sale_return_id", "=", record.id)]
+                    ).unlink()
 
-            self.env["idil.product.movement"].search(
-                [("source_document", "=", record.name), ("movement_type", "=", "in")]
-            ).unlink()
+                    self.env["idil.salesperson.transaction"].search(
+                        [("sale_return_id", "=", record.id)]
+                    ).unlink()
 
-            self.env["idil.transaction_booking"].search(
-                [("sale_return_id", "=", record.id)]
-            ).unlink()
+                    self.env["idil.product.movement"].search(
+                        [
+                            ("source_document", "=", record.name),
+                            ("movement_type", "=", "in"),
+                        ]
+                    ).unlink()
 
-        return super(SaleReturn, self).unlink()
+                    self.env["idil.transaction_booking"].search(
+                        [("sale_return_id", "=", record.id)]
+                    ).unlink()
+
+                return super(SaleReturn, self).unlink()
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     @api.model
     def create(self, vals):

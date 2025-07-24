@@ -44,14 +44,23 @@ class VendorPayment(models.Model):
     )
 
     def write(self, vals):
-        for record in self:
-            if "amount_paid" in vals:
-                old_amount_paid = record.amount_paid
-                new_amount_paid = vals["amount_paid"]
-                amount_difference = new_amount_paid - old_amount_paid
-                record._update_related_transaction_booking_lines(new_amount_paid)
-                record._update_related_booking_and_transaction(amount_difference)
-        return super(VendorPayment, self).write(vals)
+        try:
+            with self.env.cr.savepoint():
+                for record in self:
+                    if "amount_paid" in vals:
+                        old_amount_paid = record.amount_paid
+                        new_amount_paid = vals["amount_paid"]
+                        amount_difference = new_amount_paid - old_amount_paid
+                        record._update_related_transaction_booking_lines(
+                            new_amount_paid
+                        )
+                        record._update_related_booking_and_transaction(
+                            amount_difference
+                        )
+                return super(VendorPayment, self).write(vals)
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise exceptions.ValidationError(f"Transaction failed: {str(e)}")
 
     def _update_related_transaction_booking_lines(self, new_amount_paid):
         for line in self.bookingline_ids:

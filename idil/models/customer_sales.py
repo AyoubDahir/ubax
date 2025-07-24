@@ -234,215 +234,224 @@ class CustomerSaleOrder(models.Model):
         3. Debiting the Sales Account Receivable for each order line's amount
         4. Crediting the product's income account for each order line's amount
         """
-        for order in self:
-            if not order.customer_id.account_receivable_id:
-                raise ValidationError(
-                    "The Customer does not have a receivable account."
-                )
-            if order.rate <= 0:
-                raise ValidationError(
-                    "Please insert a valid exchange rate greater than 0."
-                )
-            # Only check order lines if not from opening balance
-            if not order.customer_opening_balance_id and not order.order_lines:
-                raise ValidationError(
-                    "You must insert at least one product to proceed with the sale."
-                )
-            # If this order is for opening balance, skip accounting booking: opening balance does its own accounting
-            if order.customer_opening_balance_id:
-                return
+        try:
+            with self.env.cr.savepoint():
+                for order in self:
+                    if not order.customer_id.account_receivable_id:
+                        raise ValidationError(
+                            "The Customer does not have a receivable account."
+                        )
+                    if order.rate <= 0:
+                        raise ValidationError(
+                            "Please insert a valid exchange rate greater than 0."
+                        )
+                    # Only check order lines if not from opening balance
+                    if not order.customer_opening_balance_id and not order.order_lines:
+                        raise ValidationError(
+                            "You must insert at least one product to proceed with the sale."
+                        )
+                    # If this order is for opening balance, skip accounting booking: opening balance does its own accounting
+                    if order.customer_opening_balance_id:
+                        return
 
-            if order.payment_method in ["cash", "bank_transfer"]:
-                account_to_use = self.account_number
-            else:
-                account_to_use = order.customer_id.account_receivable_id
+                    if order.payment_method in ["cash", "bank_transfer"]:
+                        account_to_use = self.account_number
+                    else:
+                        account_to_use = order.customer_id.account_receivable_id
 
-            # Define the expected currency from the salesperson's account receivable
-            expected_currency = order.customer_id.account_receivable_id.currency_id
-
-            # Search for transaction source ID using "Receipt"
-            trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Customer Sales Order")], limit=1
-            )
-            if not trx_source:
-                raise UserError("Transaction source 'Customer Sales Order' not found.")
-
-            # Create a transaction booking
-            transaction_booking = self.env["idil.transaction_booking"].create(
-                {
-                    "customer_id": order.customer_id.id,
-                    "cusotmer_sale_order_id": order.id,  # Set the sale_order_id to the current SaleOrder's ID
-                    "trx_source_id": trx_source.id,
-                    "reffno": order.name,  # Use the Sale Order name as reference
-                    "Sales_order_number": order.id,
-                    "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
-                    "payment_status": "pending",  # Assuming initial payment status; adjust as needed
-                    "trx_date": fields.Date.context_today(self),
-                    "amount": order.order_total,
-                    # Include other necessary fields
-                }
-            )
-            # ✅ Only create receipt if payment method is NOT cash
-            if order.payment_method not in ["cash", "bank_transfer"]:
-                self.env["idil.sales.receipt"].create(
-                    {
-                        "cusotmer_sale_order_id": order.id,
-                        "due_amount": order.order_total,
-                        "paid_amount": 0,
-                        "remaining_amount": order.order_total,
-                        "customer_id": order.customer_id.id,
-                    }
-                )
-
-            if order.payment_method in ["cash", "bank_transfer"]:
-                self.env["idil.customer.sale.payment"].create(
-                    {
-                        "order_id": order.id,
-                        "customer_id": order.customer_id.id,
-                        "payment_method": "cash",  # or use dynamic logic to determine the method
-                        "account_id": order.account_number.id,
-                        "amount": order.order_total,
-                    }
-                )
-
-            total_debit = 0
-            # For each order line, create a booking line entry for debit
-            for line in order.order_lines:
-                product = line.product_id
-
-                bom_currency = (
-                    product.bom_id.currency_id
-                    if product.bom_id
-                    else product.currency_id
-                )
-
-                amount_in_bom_currency = product.cost * line.quantity
-
-                if bom_currency.name == "USD":
-                    product_cost_amount = amount_in_bom_currency * self.rate
-                else:
-                    product_cost_amount = amount_in_bom_currency
-
-                # product_cost_amount = product.cost * line.quantity
-                _logger.info(
-                    f"Product Cost Amount: {product_cost_amount} for product {product.name}"
-                )
-
-                if not product.asset_account_id:
-                    raise ValidationError(
-                        f"Product '{product.name}' does not have an Asset Account set."
-                    )
-                if product.asset_account_id.currency_id != expected_currency:
-                    raise ValidationError(
-                        f"Asset Account for product '{product.name}' has a different currency.\n"
-                        f"Expected currency: {expected_currency.name}, "
-                        f"Actual currency: {product.asset_account_id.currency_id.name}."
+                    # Define the expected currency from the salesperson's account receivable
+                    expected_currency = (
+                        order.customer_id.account_receivable_id.currency_id
                     )
 
-                if not product.income_account_id:
-                    raise ValidationError(
-                        f"Product '{product.name}' does not have an Income Account set."
+                    # Search for transaction source ID using "Receipt"
+                    trx_source = self.env["idil.transaction.source"].search(
+                        [("name", "=", "Customer Sales Order")], limit=1
                     )
-                if product.income_account_id.currency_id != expected_currency:
-                    raise ValidationError(
-                        f"Income Account for product '{product.name}' has a different currency.\n"
-                        f"Expected currency: {expected_currency.name}, "
-                        f"Actual currency: {product.income_account_id.currency_id.name}."
-                    )
-                # ------------------------------------------------------------------------------------------------------
-                # Validate that the product has a COGS account
-                if not product.account_cogs_id:
-                    raise ValidationError(
-                        f"No COGS (Cost of Goods Sold) account assigned for the product '{product.name}'.\n"
-                        f"Please configure 'COGS Account' in the product settings before continuing."
-                    )
-                # === Validate all required accounts ===
-                if not product.asset_account_id:
-                    raise ValidationError(
-                        f"Product '{product.name}' has no Asset account."
-                    )
-                if not product.income_account_id:
-                    raise ValidationError(
-                        f"Product '{product.name}' has no Income account."
-                    )
+                    if not trx_source:
+                        raise UserError(
+                            "Transaction source 'Customer Sales Order' not found."
+                        )
 
-                # ✅ Validate currencies if payment is cash
-                if order.payment_method in ["cash", "bank_transfer"]:
-                    cash_currency = order.account_number.currency_id
-                    involved_accounts = {
-                        "COGS": product.account_cogs_id,
-                        "Asset": product.asset_account_id,
-                        "Income": product.income_account_id,
-                    }
+                    # Create a transaction booking
+                    transaction_booking = self.env["idil.transaction_booking"].create(
+                        {
+                            "customer_id": order.customer_id.id,
+                            "cusotmer_sale_order_id": order.id,  # Set the sale_order_id to the current SaleOrder's ID
+                            "trx_source_id": trx_source.id,
+                            "reffno": order.name,  # Use the Sale Order name as reference
+                            "Sales_order_number": order.id,
+                            "payment_method": "bank_transfer",  # Assuming default payment method; adjust as needed
+                            "payment_status": "pending",  # Assuming initial payment status; adjust as needed
+                            "trx_date": fields.Date.context_today(self),
+                            "amount": order.order_total,
+                            # Include other necessary fields
+                        }
+                    )
+                    # ✅ Only create receipt if payment method is NOT cash
+                    if order.payment_method not in ["cash", "bank_transfer"]:
+                        self.env["idil.sales.receipt"].create(
+                            {
+                                "cusotmer_sale_order_id": order.id,
+                                "due_amount": order.order_total,
+                                "paid_amount": 0,
+                                "remaining_amount": order.order_total,
+                                "customer_id": order.customer_id.id,
+                            }
+                        )
 
-                    for acc_name, acc in involved_accounts.items():
-                        if acc.currency_id and acc.currency_id != cash_currency:
+                    if order.payment_method in ["cash", "bank_transfer"]:
+                        self.env["idil.customer.sale.payment"].create(
+                            {
+                                "order_id": order.id,
+                                "customer_id": order.customer_id.id,
+                                "payment_method": "cash",  # or use dynamic logic to determine the method
+                                "account_id": order.account_number.id,
+                                "amount": order.order_total,
+                            }
+                        )
+
+                    total_debit = 0
+                    # For each order line, create a booking line entry for debit
+                    for line in order.order_lines:
+                        product = line.product_id
+
+                        bom_currency = (
+                            product.bom_id.currency_id
+                            if product.bom_id
+                            else product.currency_id
+                        )
+
+                        amount_in_bom_currency = product.cost * line.quantity
+
+                        if bom_currency.name == "USD":
+                            product_cost_amount = amount_in_bom_currency * self.rate
+                        else:
+                            product_cost_amount = amount_in_bom_currency
+
+                        # product_cost_amount = product.cost * line.quantity
+                        _logger.info(
+                            f"Product Cost Amount: {product_cost_amount} for product {product.name}"
+                        )
+
+                        if not product.asset_account_id:
                             raise ValidationError(
-                                f"Currency mismatch for product '{product.name}'.\n"
-                                f"{acc_name} account currency is '{acc.currency_id.name}', but Cash account currency is '{cash_currency.name}'.\n"
-                                f"All accounts must match Cash account currency when payment method is Cash."
+                                f"Product '{product.name}' does not have an Asset Account set."
+                            )
+                        if product.asset_account_id.currency_id != expected_currency:
+                            raise ValidationError(
+                                f"Asset Account for product '{product.name}' has a different currency.\n"
+                                f"Expected currency: {expected_currency.name}, "
+                                f"Actual currency: {product.asset_account_id.currency_id.name}."
                             )
 
-                # Credit entry Expanses inventory of COGS account for the product
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sales Order -- Expanses COGS account for - {product.name}",
-                        "product_id": product.id,
-                        "account_number": product.account_cogs_id.id,
-                        # Use the COGS Account_number
-                        "transaction_type": "dr",
-                        "dr_amount": product_cost_amount,
-                        "cr_amount": 0,
-                        "transaction_date": fields.Date.context_today(self),
-                        # Include other necessary fields
-                    }
-                )
-                # Credit entry asset inventory account of the product
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sales Inventory account for - {product.name}",
-                        "product_id": product.id,
-                        "account_number": product.asset_account_id.id,
-                        "transaction_type": "cr",
-                        "dr_amount": 0,
-                        "cr_amount": product_cost_amount,
-                        "transaction_date": fields.Date.context_today(self),
-                        # Include other necessary fields
-                    }
-                )
-                # ------------------------------------------------------------------------------------------------------
-                # Debit entry for the order line amount Sales Account Receivable
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sale of {product.name}",
-                        "product_id": product.id,
-                        "account_number": account_to_use.id,
-                        "transaction_type": "dr",  # Debit transaction
-                        "dr_amount": line.subtotal,
-                        "cr_amount": 0,
-                        "transaction_date": fields.Date.context_today(self),
-                        # Include other necessary fields
-                    }
-                )
-                total_debit += line.subtotal
+                        if not product.income_account_id:
+                            raise ValidationError(
+                                f"Product '{product.name}' does not have an Income Account set."
+                            )
+                        if product.income_account_id.currency_id != expected_currency:
+                            raise ValidationError(
+                                f"Income Account for product '{product.name}' has a different currency.\n"
+                                f"Expected currency: {expected_currency.name}, "
+                                f"Actual currency: {product.income_account_id.currency_id.name}."
+                            )
+                        # ------------------------------------------------------------------------------------------------------
+                        # Validate that the product has a COGS account
+                        if not product.account_cogs_id:
+                            raise ValidationError(
+                                f"No COGS (Cost of Goods Sold) account assigned for the product '{product.name}'.\n"
+                                f"Please configure 'COGS Account' in the product settings before continuing."
+                            )
+                        # === Validate all required accounts ===
+                        if not product.asset_account_id:
+                            raise ValidationError(
+                                f"Product '{product.name}' has no Asset account."
+                            )
+                        if not product.income_account_id:
+                            raise ValidationError(
+                                f"Product '{product.name}' has no Income account."
+                            )
 
-                # Credit entry using the product's income account
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_booking_id": transaction_booking.id,
-                        "description": f"Sales Revenue - {product.name}",
-                        "product_id": product.id,
-                        "account_number": product.income_account_id.id,
-                        "transaction_type": "cr",
-                        "dr_amount": 0,
-                        "cr_amount": (line.subtotal),
-                        "transaction_date": fields.Date.context_today(self),
-                        # Include other necessary fields
-                    }
-                )
+                        # ✅ Validate currencies if payment is cash
+                        if order.payment_method in ["cash", "bank_transfer"]:
+                            cash_currency = order.account_number.currency_id
+                            involved_accounts = {
+                                "COGS": product.account_cogs_id,
+                                "Asset": product.asset_account_id,
+                                "Income": product.income_account_id,
+                            }
+
+                            for acc_name, acc in involved_accounts.items():
+                                if acc.currency_id and acc.currency_id != cash_currency:
+                                    raise ValidationError(
+                                        f"Currency mismatch for product '{product.name}'.\n"
+                                        f"{acc_name} account currency is '{acc.currency_id.name}', but Cash account currency is '{cash_currency.name}'.\n"
+                                        f"All accounts must match Cash account currency when payment method is Cash."
+                                    )
+
+                        # Credit entry Expanses inventory of COGS account for the product
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sales Order -- Expanses COGS account for - {product.name}",
+                                "product_id": product.id,
+                                "account_number": product.account_cogs_id.id,
+                                # Use the COGS Account_number
+                                "transaction_type": "dr",
+                                "dr_amount": product_cost_amount,
+                                "cr_amount": 0,
+                                "transaction_date": fields.Date.context_today(self),
+                                # Include other necessary fields
+                            }
+                        )
+                        # Credit entry asset inventory account of the product
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sales Inventory account for - {product.name}",
+                                "product_id": product.id,
+                                "account_number": product.asset_account_id.id,
+                                "transaction_type": "cr",
+                                "dr_amount": 0,
+                                "cr_amount": product_cost_amount,
+                                "transaction_date": fields.Date.context_today(self),
+                                # Include other necessary fields
+                            }
+                        )
+                        # ------------------------------------------------------------------------------------------------------
+                        # Debit entry for the order line amount Sales Account Receivable
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sale of {product.name}",
+                                "product_id": product.id,
+                                "account_number": account_to_use.id,
+                                "transaction_type": "dr",  # Debit transaction
+                                "dr_amount": line.subtotal,
+                                "cr_amount": 0,
+                                "transaction_date": fields.Date.context_today(self),
+                                # Include other necessary fields
+                            }
+                        )
+                        total_debit += line.subtotal
+
+                        # Credit entry using the product's income account
+                        self.env["idil.transaction_bookingline"].create(
+                            {
+                                "transaction_booking_id": transaction_booking.id,
+                                "description": f"Sales Revenue - {product.name}",
+                                "product_id": product.id,
+                                "account_number": product.income_account_id.id,
+                                "transaction_type": "cr",
+                                "dr_amount": 0,
+                                "cr_amount": (line.subtotal),
+                                "transaction_date": fields.Date.context_today(self),
+                                # Include other necessary fields
+                            }
+                        )
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def write(self, vals):
         try:

@@ -234,78 +234,89 @@ class TransactionBooking(models.Model):
             )
 
     def action_pay(self):
-        for record in self:
-            if not record.cash_account_id:
-                raise ValidationError("Select Cash account")
-            if record.amount_paid > record.amount:
-                raise ValidationError(
-                    "The payment amount cannot exceed the current balance."
-                )
+        try:
+            with self.env.cr.savepoint():
+                for record in self:
+                    if not record.cash_account_id:
+                        raise ValidationError("Select Cash account")
+                    if record.amount_paid > record.amount:
+                        raise ValidationError(
+                            "The payment amount cannot exceed the current balance."
+                        )
 
-            # Create two transaction booking lines or update
-            cr_account = record.sales_person_id.account_receivable_id.id
-            dr_account = record.cash_account_id.id
-            if cr_account and dr_account:
-                # Find existing transaction booking lines
+                    # Create two transaction booking lines or update
+                    cr_account = record.sales_person_id.account_receivable_id.id
+                    dr_account = record.cash_account_id.id
+                    if cr_account and dr_account:
+                        # Find existing transaction booking lines
 
-                existing_lines = self.env["idil.transaction_bookingline"].search(
-                    [
-                        ("transaction_booking_id", "=", record.id),
-                        ("transaction_booking_id.payment_status", "!=", "pending"),
-                    ]
-                )
-                # Update existing lines or create them if they don't exist
-                for line in existing_lines:
-                    if line.description == "Receipt":
-                        if line.transaction_type == "cr":
-                            line.cr_amount = record.amount_paid
-                        elif line.transaction_type == "dr":
-                            line.dr_amount = record.amount_paid
+                        existing_lines = self.env[
+                            "idil.transaction_bookingline"
+                        ].search(
+                            [
+                                ("transaction_booking_id", "=", record.id),
+                                (
+                                    "transaction_booking_id.payment_status",
+                                    "!=",
+                                    "pending",
+                                ),
+                            ]
+                        )
+                        # Update existing lines or create them if they don't exist
+                        for line in existing_lines:
+                            if line.description == "Receipt":
+                                if line.transaction_type == "cr":
+                                    line.cr_amount = record.amount_paid
+                                elif line.transaction_type == "dr":
+                                    line.dr_amount = record.amount_paid
 
-                if not existing_lines:
-                    # Create credit transaction booking line
-                    self.env["idil.transaction_bookingline"].create(
-                        {
-                            "transaction_booking_id": record.id,
-                            "description": "Receipt",
-                            "transaction_type": "cr",
-                            "cr_amount": record.amount_paid,
-                            "dr_amount": 0,
-                            "account_number": cr_account,
+                        if not existing_lines:
+                            # Create credit transaction booking line
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": record.id,
+                                    "description": "Receipt",
+                                    "transaction_type": "cr",
+                                    "cr_amount": record.amount_paid,
+                                    "dr_amount": 0,
+                                    "account_number": cr_account,
+                                }
+                            )
+
+                            # Create debit transaction booking line
+                            self.env["idil.transaction_bookingline"].create(
+                                {
+                                    "transaction_booking_id": record.id,
+                                    "description": "Receipt",
+                                    "transaction_type": "dr",
+                                    "cr_amount": 0,
+                                    "dr_amount": record.amount_paid,
+                                    "account_number": dr_account,
+                                }
+                            )
+
+                        update_vals = {
+                            "trx_source_id": 3,  # New trx_source_id value
                         }
-                    )
 
-                    # Create debit transaction booking line
-                    self.env["idil.transaction_bookingline"].create(
-                        {
-                            "transaction_booking_id": record.id,
-                            "description": "Receipt",
-                            "transaction_type": "dr",
-                            "cr_amount": 0,
-                            "dr_amount": record.amount_paid,
-                            "account_number": dr_account,
-                        }
-                    )
+                        # Update payment status based on remaining amount
+                        if record.remaining_amount == 0:
+                            record.payment_status = "paid"
+                        else:
+                            record.payment_status = "partial_paid"
 
-                update_vals = {
-                    "trx_source_id": 3,  # New trx_source_id value
-                }
-
-                # Update payment status based on remaining amount
-                if record.remaining_amount == 0:
-                    record.payment_status = "paid"
-                else:
-                    record.payment_status = "partial_paid"
-
-                record.amount_paid = record.amount_paid
-                record.remaining_amount = record.remaining_amount
-                # Write the changes to the database
-                record.write(update_vals)
-            else:
-                # Log an error or handle the case where accounts are not properly set
-                _logger.error(
-                    f"Accounts not properly set for transaction booking {record.id}."
-                )
+                        record.amount_paid = record.amount_paid
+                        record.remaining_amount = record.remaining_amount
+                        # Write the changes to the database
+                        record.write(update_vals)
+                    else:
+                        # Log an error or handle the case where accounts are not properly set
+                        _logger.error(
+                            f"Accounts not properly set for transaction booking {record.id}."
+                        )
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     @api.depends("booking_lines.dr_amount", "booking_lines.cr_amount")
     def _compute_debit_credit_total(self):

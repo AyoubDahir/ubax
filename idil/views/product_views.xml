@@ -22,6 +22,8 @@
                     <field name="sale_price" optional="show"/>
                     <field name="usd_currency_id" optional="show"/>
                     <field name="total_value_usd" sum="total" optional="show"/>
+                    <field name="actual_cost" sum="total" optional="show" />
+
                     <field name="is_commissionable" optional="show"/>
 
                     <field name="account_id" optional="show"/>

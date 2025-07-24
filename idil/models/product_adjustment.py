@@ -1,3 +1,4 @@
+from asyncio.log import logger
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 from odoo.exceptions import UserError
@@ -109,280 +110,312 @@ class ProductAdjustment(models.Model):
         return res
 
     def _apply_adjustment(self):
-        for rec in self:
-            # Enforce: new_quantity must be LESS than previous_quantity
-            if rec.new_quantity > rec.previous_quantity:
-                raise UserError(
-                    _(
-                        "Invalid adjustment: Disposal Quantity (%s) must be less than Previous Quantity (%s). Stock increase is not allowed."
+        try:
+            with self.env.cr.savepoint():
+                for rec in self:
+                    # Enforce: new_quantity must be LESS than previous_quantity
+                    if rec.new_quantity > rec.previous_quantity:
+                        raise UserError(
+                            _(
+                                "Invalid adjustment: Disposal Quantity (%s) must be less than Previous Quantity (%s). Stock increase is not allowed."
+                            )
+                            % (rec.new_quantity, rec.previous_quantity)
+                        )
+
+                    difference = rec.new_quantity
+                    if difference == 0:
+                        return
+
+                    # SL exchange rate
+                    amount = abs(difference) * rec.cost_price * rec.rate
+
+                    # Search for transaction source ID using "Receipt"
+                    trx_source = self.env["idil.transaction.source"].search(
+                        [("name", "=", "Product Adjustment")], limit=1
                     )
-                    % (rec.new_quantity, rec.previous_quantity)
-                )
+                    if not trx_source:
+                        raise UserError(
+                            "Transaction source 'Product Adjustment' not found."
+                        )
 
-            difference = rec.new_quantity
-            if difference == 0:
-                return
-
-            # SL exchange rate
-            amount = abs(difference) * rec.cost_price * rec.rate
-
-            # Search for transaction source ID using "Receipt"
-            trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Product Adjustment")], limit=1
-            )
-            if not trx_source:
-                raise UserError("Transaction source 'Product Adjustment' not found.")
-
-            # Update product stock quantity
-            rec.product_id.stock_quantity = rec.product_id.stock_quantity - difference
-            # Update stock
-
-            # Validate currency match between asset and adjustment accounts
-            asset_currency = rec.product_id.asset_account_id.currency_id
-            adjustment_currency = rec.product_id.account_adjustment_id.currency_id
-
-            if asset_currency.id != adjustment_currency.id:
-                raise ValidationError(
-                    _(
-                        "Mismatch in account currencies:\n- Asset Account: %s\n- Adjustment Account: %s\nCurrencies must be the same to proceed."
+                    # Update product stock quantity
+                    rec.product_id.stock_quantity = (
+                        rec.product_id.stock_quantity - difference
                     )
-                    % (
-                        asset_currency.name or "Undefined",
-                        adjustment_currency.name or "Undefined",
+                    # Update stock
+
+                    # Validate currency match between asset and adjustment accounts
+                    asset_currency = rec.product_id.asset_account_id.currency_id
+                    adjustment_currency = (
+                        rec.product_id.account_adjustment_id.currency_id
                     )
-                )
 
-            # Create a transaction booking
-            # Create a transaction booking for the adjustment
-            transaction_booking = self.env["idil.transaction_booking"].create(
-                {
-                    "trx_source_id": trx_source.id,  # assuming you're linking to this adjustment as source
-                    "payment_method": "other",
-                    "adjustment_id": rec.id,
-                    "payment_status": "paid",
-                    "trx_date": rec.adjustment_date,
-                    "amount": rec.adjustment_amount,
-                }
-            )
+                    if asset_currency.id != adjustment_currency.id:
+                        raise ValidationError(
+                            _(
+                                "Mismatch in account currencies:\n- Asset Account: %s\n- Adjustment Account: %s\nCurrencies must be the same to proceed."
+                            )
+                            % (
+                                asset_currency.name or "Undefined",
+                                adjustment_currency.name or "Undefined",
+                            )
+                        )
 
-            # Accounting entries
-            self.env["idil.transaction_bookingline"].create(
-                {
-                    "transaction_date": rec.adjustment_date,
-                    "adjustment_id": rec.id,
-                    "transaction_booking_id": transaction_booking.id,
-                    "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
-                    "transaction_type": "dr",
-                    "dr_amount": 0.0,
-                    "cr_amount": rec.adjustment_amount,
-                    "account_number": rec.product_id.asset_account_id.id,
-                }
-            )
+                    # Create a transaction booking
+                    # Create a transaction booking for the adjustment
+                    transaction_booking = self.env["idil.transaction_booking"].create(
+                        {
+                            "trx_source_id": trx_source.id,  # assuming you're linking to this adjustment as source
+                            "payment_method": "other",
+                            "adjustment_id": rec.id,
+                            "payment_status": "paid",
+                            "trx_date": rec.adjustment_date,
+                            "amount": rec.adjustment_amount,
+                        }
+                    )
 
-            self.env["idil.transaction_bookingline"].create(
-                {
-                    "transaction_date": rec.adjustment_date,
-                    "adjustment_id": rec.id,
-                    "transaction_booking_id": transaction_booking.id,
-                    "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
-                    "transaction_type": "cr",
-                    "dr_amount": rec.adjustment_amount,
-                    "cr_amount": 0.0,
-                    "account_number": rec.product_id.account_adjustment_id.id,
-                }
-            )
+                    # Accounting entries
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_date": rec.adjustment_date,
+                            "adjustment_id": rec.id,
+                            "transaction_booking_id": transaction_booking.id,
+                            "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
+                            "transaction_type": "dr",
+                            "dr_amount": 0.0,
+                            "cr_amount": rec.adjustment_amount,
+                            "account_number": rec.product_id.asset_account_id.id,
+                        }
+                    )
 
-            # Product movement log
-            self.env["idil.product.movement"].create(
-                {
-                    "product_id": rec.product_id.id,
-                    "adjustment_id": rec.id,
-                    "movement_type": "out",
-                    "quantity": difference * -1,
-                    "date": rec.adjustment_date,
-                    "source_document": f"Product Manual Adjustment - Reason : {rec.reason_id} Adjusmrent Date :- {rec.adjustment_date}",
-                }
-            )
+                    self.env["idil.transaction_bookingline"].create(
+                        {
+                            "transaction_date": rec.adjustment_date,
+                            "adjustment_id": rec.id,
+                            "transaction_booking_id": transaction_booking.id,
+                            "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
+                            "transaction_type": "cr",
+                            "dr_amount": rec.adjustment_amount,
+                            "cr_amount": 0.0,
+                            "account_number": rec.product_id.account_adjustment_id.id,
+                        }
+                    )
+
+                    # Product movement log
+                    self.env["idil.product.movement"].create(
+                        {
+                            "product_id": rec.product_id.id,
+                            "adjustment_id": rec.id,
+                            "movement_type": "out",
+                            "quantity": difference * -1,
+                            "date": rec.adjustment_date,
+                            "source_document": f"Product Manual Adjustment - Reason : {rec.reason_id} Adjusmrent Date :- {rec.adjustment_date}",
+                        }
+                    )
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def write(self, vals):
-        for rec in self:
-            product = rec.product_id
+        try:
+            with self.env.cr.savepoint():
+                for rec in self:
+                    product = rec.product_id
 
-            # Allow product_id change
-            if "product_id" in vals:
-                product = self.env["my_product.product"].browse(vals["product_id"])
-            if product:
-                vals["previous_quantity"] = product.stock_quantity
-                vals["cost_price"] = product.cost
-                vals["old_cost_price"] = product.stock_quantity * product.cost
+                    # Allow product_id change
+                    if "product_id" in vals:
+                        product = self.env["my_product.product"].browse(
+                            vals["product_id"]
+                        )
+                    if product:
+                        vals["previous_quantity"] = product.stock_quantity
+                        vals["cost_price"] = product.cost
+                        vals["old_cost_price"] = product.stock_quantity * product.cost
 
-        # Perform the write
-        res = super().write(vals)
+                # Perform the write
+                res = super().write(vals)
 
-        for rec in self:
-            product = rec.product_id
+                for rec in self:
+                    product = rec.product_id
 
-            # Get previous movement for this adjustment
-            movement = self.env["idil.product.movement"].search(
-                [("adjustment_id", "=", rec.id)], limit=1
-            )
-            old_qty = abs(movement.quantity) if movement else 0.0
-
-            new_qty = rec.new_quantity
-            qty_diff = old_qty - new_qty  # +ve = return to stock, -ve = reduce more
-
-            # Calculate new product stock
-            new_stock_qty = product.stock_quantity + qty_diff
-            if new_stock_qty < 0:
-                raise UserError("Stock adjustment would result in negative stock.")
-
-            # Update product stock
-            product.stock_quantity = new_stock_qty
-
-            # Recalculate amount
-            amount = abs(new_qty) * rec.cost_price * rec.rate
-
-            trx_source = self.env["idil.transaction.source"].search(
-                [("name", "=", "Product Adjustment")], limit=1
-            )
-            if not trx_source:
-                raise UserError("Transaction source 'Product Adjustment' not found.")
-
-            asset_currency = product.asset_account_id.currency_id
-            adjustment_currency = product.account_adjustment_id.currency_id
-
-            if asset_currency.id != adjustment_currency.id:
-                raise ValidationError(
-                    _(
-                        "Mismatch in account currencies:\n- Asset Account: %s\n- Adjustment Account: %s\nCurrencies must be the same to proceed."
+                    # Get previous movement for this adjustment
+                    movement = self.env["idil.product.movement"].search(
+                        [("adjustment_id", "=", rec.id)], limit=1
                     )
-                    % (
-                        asset_currency.name or "Undefined",
-                        adjustment_currency.name or "Undefined",
+                    old_qty = abs(movement.quantity) if movement else 0.0
+
+                    new_qty = rec.new_quantity
+                    qty_diff = (
+                        old_qty - new_qty
+                    )  # +ve = return to stock, -ve = reduce more
+
+                    # Calculate new product stock
+                    new_stock_qty = product.stock_quantity + qty_diff
+                    if new_stock_qty < 0:
+                        raise UserError(
+                            "Stock adjustment would result in negative stock."
+                        )
+
+                    # Update product stock
+                    product.stock_quantity = new_stock_qty
+
+                    # Recalculate amount
+                    amount = abs(new_qty) * rec.cost_price * rec.rate
+
+                    trx_source = self.env["idil.transaction.source"].search(
+                        [("name", "=", "Product Adjustment")], limit=1
                     )
-                )
+                    if not trx_source:
+                        raise UserError(
+                            "Transaction source 'Product Adjustment' not found."
+                        )
 
-            # Update or create transaction booking
-            booking = self.env["idil.transaction_booking"].search(
-                [("adjustment_id", "=", rec.id)], limit=1
-            )
-            if booking:
-                booking.write(
-                    {
-                        "trx_date": rec.adjustment_date,
-                        "amount": rec.adjustment_amount,
-                    }
-                )
-            else:
-                booking = self.env["idil.transaction_booking"].create(
-                    {
-                        "trx_source_id": trx_source.id,
-                        "payment_method": "other",
-                        "payment_status": "paid",
-                        "trx_date": rec.adjustment_date,
-                        "amount": rec.adjustment_amount,
-                        "adjustment_id": rec.id,
-                    }
-                )
+                    asset_currency = product.asset_account_id.currency_id
+                    adjustment_currency = product.account_adjustment_id.currency_id
 
-            desc = f"Stock Adjustment: {product.name} ({rec.reason_id or ''})"
+                    if asset_currency.id != adjustment_currency.id:
+                        raise ValidationError(
+                            _(
+                                "Mismatch in account currencies:\n- Asset Account: %s\n- Adjustment Account: %s\nCurrencies must be the same to proceed."
+                            )
+                            % (
+                                asset_currency.name or "Undefined",
+                                adjustment_currency.name or "Undefined",
+                            )
+                        )
 
-            # Update or create transaction booking lines
-            lines = self.env["idil.transaction_bookingline"].search(
-                [("adjustment_id", "=", rec.id)]
-            )
-            if lines:
-                for line in lines:
-                    if line.transaction_type == "dr":
-                        line.write(
+                    # Update or create transaction booking
+                    booking = self.env["idil.transaction_booking"].search(
+                        [("adjustment_id", "=", rec.id)], limit=1
+                    )
+                    if booking:
+                        booking.write(
+                            {
+                                "trx_date": rec.adjustment_date,
+                                "amount": rec.adjustment_amount,
+                            }
+                        )
+                    else:
+                        booking = self.env["idil.transaction_booking"].create(
+                            {
+                                "trx_source_id": trx_source.id,
+                                "payment_method": "other",
+                                "payment_status": "paid",
+                                "trx_date": rec.adjustment_date,
+                                "amount": rec.adjustment_amount,
+                                "adjustment_id": rec.id,
+                            }
+                        )
+
+                    desc = f"Stock Adjustment: {product.name} ({rec.reason_id or ''})"
+
+                    # Update or create transaction booking lines
+                    lines = self.env["idil.transaction_bookingline"].search(
+                        [("adjustment_id", "=", rec.id)]
+                    )
+                    if lines:
+                        for line in lines:
+                            if line.transaction_type == "dr":
+                                line.write(
+                                    {
+                                        "transaction_date": self.adjustment_date,
+                                        "dr_amount": 0.0,
+                                        "cr_amount": rec.adjustment_amount,
+                                        "description": desc,
+                                        "account_number": product.asset_account_id.id,
+                                    }
+                                )
+                            elif line.transaction_type == "cr":
+                                line.write(
+                                    {
+                                        "transaction_date": self.adjustment_date,
+                                        "dr_amount": rec.adjustment_amount,
+                                        "cr_amount": 0.0,
+                                        "description": desc,
+                                        "account_number": product.account_adjustment_id.id,
+                                    }
+                                )
+                    else:
+                        self.env["idil.transaction_bookingline"].create(
                             {
                                 "transaction_date": rec.adjustment_date,
+                                "transaction_booking_id": booking.id,
+                                "description": desc,
+                                "transaction_type": "dr",
                                 "dr_amount": 0.0,
                                 "cr_amount": rec.adjustment_amount,
-                                "description": desc,
                                 "account_number": product.asset_account_id.id,
+                                "adjustment_id": rec.id,
                             }
                         )
-                    elif line.transaction_type == "cr":
-                        line.write(
+                        self.env["idil.transaction_bookingline"].create(
                             {
                                 "transaction_date": rec.adjustment_date,
+                                "transaction_booking_id": booking.id,
+                                "description": desc,
+                                "transaction_type": "cr",
                                 "dr_amount": rec.adjustment_amount,
                                 "cr_amount": 0.0,
-                                "description": desc,
                                 "account_number": product.account_adjustment_id.id,
+                                "adjustment_id": rec.id,
                             }
                         )
-            else:
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_date": rec.adjustment_date,
-                        "transaction_booking_id": booking.id,
-                        "description": desc,
-                        "transaction_type": "dr",
-                        "dr_amount": 0.0,
-                        "cr_amount": rec.adjustment_amount,
-                        "account_number": product.asset_account_id.id,
+
+                    # Update or create product movement
+                    move_vals = {
+                        "product_id": product.id,
+                        "movement_type": "out",
+                        "quantity": -1 * new_qty,
+                        "date": rec.adjustment_date,
+                        "source_document": f"Product Manual Adjustment - Reason : {rec.reason_id} Adjustment Date :- {rec.adjustment_date}",
                         "adjustment_id": rec.id,
                     }
-                )
-                self.env["idil.transaction_bookingline"].create(
-                    {
-                        "transaction_date": rec.adjustment_date,
-                        "transaction_booking_id": booking.id,
-                        "description": desc,
-                        "transaction_type": "cr",
-                        "dr_amount": rec.adjustment_amount,
-                        "cr_amount": 0.0,
-                        "account_number": product.account_adjustment_id.id,
-                        "adjustment_id": rec.id,
-                    }
-                )
+                    if movement:
+                        movement.write(move_vals)
+                    else:
+                        self.env["idil.product.movement"].create(move_vals)
 
-            # Update or create product movement
-            move_vals = {
-                "product_id": product.id,
-                "movement_type": "out",
-                "quantity": -1 * new_qty,
-                "date": rec.adjustment_date,
-                "source_document": f"Product Manual Adjustment - Reason : {rec.reason_id} Adjustment Date :- {rec.adjustment_date}",
-                "adjustment_id": rec.id,
-            }
-            if movement:
-                movement.write(move_vals)
-            else:
-                self.env["idil.product.movement"].create(move_vals)
-
-        return res
+                return res
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def unlink(self):
-        for rec in self:
-            # Step 1: Restore the stock by reversing the disposal quantity
-            movement = self.env["idil.product.movement"].search(
-                [("adjustment_id", "=", rec.id)], limit=1
-            )
-            if movement:
-                restored_qty = abs(movement.quantity)  # movement.quantity is negative
-                rec.product_id.stock_quantity += restored_qty
+        try:
+            with self.env.cr.savepoint():
+                for rec in self:
+                    # Step 1: Restore the stock by reversing the disposal quantity
+                    movement = self.env["idil.product.movement"].search(
+                        [("adjustment_id", "=", rec.id)], limit=1
+                    )
+                    if movement:
+                        restored_qty = abs(
+                            movement.quantity
+                        )  # movement.quantity is negative
+                        rec.product_id.stock_quantity += restored_qty
 
-            # Step 2: Delete movement record(s)
-            if movement:
-                movement.unlink()
+                    # Step 2: Delete movement record(s)
+                    if movement:
+                        movement.unlink()
 
-            # Step 3: Delete booking lines
-            booking_lines = self.env["idil.transaction_bookingline"].search(
-                [("adjustment_id", "=", rec.id)]
-            )
-            booking_lines.unlink()
+                    # Step 3: Delete booking lines
+                    booking_lines = self.env["idil.transaction_bookingline"].search(
+                        [("adjustment_id", "=", rec.id)]
+                    )
+                    booking_lines.unlink()
 
-            # Step 4: Delete booking
-            booking = self.env["idil.transaction_booking"].search(
-                [("adjustment_id", "=", rec.id)], limit=1
-            )
-            if booking:
-                booking.unlink()
+                    # Step 4: Delete booking
+                    booking = self.env["idil.transaction_booking"].search(
+                        [("adjustment_id", "=", rec.id)], limit=1
+                    )
+                    if booking:
+                        booking.unlink()
 
-        return super(ProductAdjustment, self).unlink()
+                return super(ProductAdjustment, self).unlink()
+
+        except Exception as e:
+            logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
 
 class ProductAdjustmentReason(models.Model):

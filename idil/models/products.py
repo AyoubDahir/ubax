@@ -194,6 +194,13 @@ class Product(models.Model):
         store=True,
         readonly=True,
     )
+    # Actual cost from production
+    # This is the weighted cost from production, not the BOM cost
+    actual_cost = fields.Float(
+        string="Actual Cost",
+        digits=(16, 5),
+        help="Actual weighted cost from production.",
+    )
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
@@ -234,7 +241,7 @@ class Product(models.Model):
                 cost_in_usd = rec.cost
             # Fallback if no exchange rate
             else:
-                cost_in_usd = 0.0
+                cost_in_usd = 0.00
 
             rec.total_value_usd = rec.stock_quantity * cost_in_usd
 

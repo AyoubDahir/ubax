@@ -130,165 +130,185 @@ class VendorBulkPayment(models.Model):
 
     def action_process_bulk_payment(self):
         """Processes the bulk payment and updates the status."""
-        for record in self:
-            if record.process_status == "processed":
-                raise exceptions.UserError(
-                    "This bulk payment has already been processed."
-                )
+        try:
+            with self.env.cr.savepoint():
+                for record in self:
+                    if record.process_status == "processed":
+                        raise exceptions.UserError(
+                            "This bulk payment has already been processed."
+                        )
 
-            # Ensure the cash account balance is sufficient
-            vendor_transaction = self.env["idil.vendor_transaction"].search(
-                [("vendor_id", "=", record.vendor_id.id)], limit=1
-            )
-            if not vendor_transaction:
-                raise exceptions.UserError(
-                    "No vendor transaction found for this vendor."
-                )
+                    # Ensure the cash account balance is sufficient
+                    vendor_transaction = self.env["idil.vendor_transaction"].search(
+                        [("vendor_id", "=", record.vendor_id.id)], limit=1
+                    )
+                    if not vendor_transaction:
+                        raise exceptions.UserError(
+                            "No vendor transaction found for this vendor."
+                        )
 
-            has_balance = vendor_transaction._check_cash_account_balance(
-                record.cash_account_id.id, record.amount_paying
-            )
+                    has_balance = vendor_transaction._check_cash_account_balance(
+                        record.cash_account_id.id, record.amount_paying
+                    )
 
-            if not has_balance:
-                raise exceptions.ValidationError(
-                    "The cash account balance is not enough to cover the paid amount."
-                )
+                    if not has_balance:
+                        raise exceptions.ValidationError(
+                            "The cash account balance is not enough to cover the paid amount."
+                        )
 
-            # Call the existing processing function
-            record.process_bulk_payment()
+                    # Call the existing processing function
+                    record.process_bulk_payment()
 
-            # ✅ Update the status to 'processed' using `sudo()` to bypass restrictions
-            record.sudo().write({"process_status": "processed"})
+                    # ✅ Update the status to 'processed' using `sudo()` to bypass restrictions
+                    record.sudo().write({"process_status": "processed"})
 
-            _logger.info(f"Bulk Payment {record.id} has been successfully processed.")
+                    _logger.info(
+                        f"Bulk Payment {record.id} has been successfully processed."
+                    )
 
-        return True
+                return True
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def process_bulk_payment(self):
         """Process payments for the selected vendor transactions based on order number, ensuring correct
         distribution."""
 
-        remaining_amount = self.amount_paying  # The total amount available for payment
+        try:
+            with self.env.cr.savepoint():
+                remaining_amount = (
+                    self.amount_paying
+                )  # The total amount available for payment
 
-        for line in self.order_ids:
-            # Find the related vendor transaction using the order number
-            order = self.env["idil.vendor_transaction"].search(
-                [("order_number", "=", line.order_number)], limit=1
-            )
-
-            if order and remaining_amount > 0:
-                amount_to_pay = min(
-                    remaining_amount, order.remaining_amount
-                )  # Ensure we only pay what's needed
-
-                if amount_to_pay == order.remaining_amount:
-                    # Fully pay the order
-                    order.write(
-                        {
-                            "paid_amount": order.amount,  # Mark full amount as paid
-                            "remaining_amount": 0,  # No due amount
-                            "payment_status": "paid",
-                            # 'transaction_number': self.reffno,  # Store payment transaction number
-                        }
+                for line in self.order_ids:
+                    # Find the related vendor transaction using the order number
+                    order = self.env["idil.vendor_transaction"].search(
+                        [("order_number", "=", line.order_number)], limit=1
                     )
-                    line.write(
-                        {
-                            # 'transaction_number': self.reffno,
-                            "payment_status": "paid",
-                            "remaining_amount": 0,  # Update bulk payment line remaining amount
-                            "bulk_paid_amount": amount_to_pay,  # ✅ Save paid portion
-                        }
+
+                    if order and remaining_amount > 0:
+                        amount_to_pay = min(
+                            remaining_amount, order.remaining_amount
+                        )  # Ensure we only pay what's needed
+
+                        if amount_to_pay == order.remaining_amount:
+                            # Fully pay the order
+                            order.write(
+                                {
+                                    "paid_amount": order.amount,  # Mark full amount as paid
+                                    "remaining_amount": 0,  # No due amount
+                                    "payment_status": "paid",
+                                    # 'transaction_number': self.reffno,  # Store payment transaction number
+                                }
+                            )
+                            line.write(
+                                {
+                                    # 'transaction_number': self.reffno,
+                                    "payment_status": "paid",
+                                    "remaining_amount": 0,  # Update bulk payment line remaining amount
+                                    "bulk_paid_amount": amount_to_pay,  # ✅ Save paid portion
+                                }
+                            )
+                        else:
+                            # Partially pay the order
+                            order.write(
+                                {
+                                    "paid_amount": order.paid_amount
+                                    + amount_to_pay,  # Add the paid amount
+                                    "remaining_amount": order.remaining_amount
+                                    - amount_to_pay,  # Reduce due amount
+                                    "payment_status": "partial_paid",
+                                    # 'transaction_number': self.reffno,  # Store payment transaction number
+                                }
+                            )
+                            line.write(
+                                {
+                                    # 'transaction_number': self.reffno,
+                                    "payment_status": "partial_paid",
+                                    "remaining_amount": order.remaining_amount,
+                                    "bulk_paid_amount": amount_to_pay,  # ✅ Save paid portion
+                                    # Update bulk payment line remaining amount
+                                }
+                            )
+
+                        # ---- Update existing transaction_booking if linked ----
+                        if order.transaction_booking_id:
+                            booking = order.transaction_booking_id
+                            updated_paid = booking.amount_paid + amount_to_pay
+                            updated_remaining = booking.amount - updated_paid
+
+                            booking.write(
+                                {
+                                    "amount_paid": updated_paid,
+                                    "remaining_amount": updated_remaining,
+                                    "payment_status": (
+                                        "paid"
+                                        if updated_remaining == 0
+                                        else "partial_paid"
+                                    ),
+                                }
+                            )
+
+                        remaining_amount -= amount_to_pay  # Reduce the remaining amount by the actual amount paid
+                        # ✅ **Create a Vendor Payment Record**
+                        self.env["idil.vendor_payment"].create(
+                            {
+                                "vendor_id": self.vendor_id.id,
+                                "vendor_bulk_payment_id": self.id,
+                                "vendor_transaction_id": order.id,
+                                "amount_paid": amount_to_pay,
+                                "cheque_no": self.reffno,
+                                "payment_date": self.payment_date,
+                            }
+                        )
+
+                    if remaining_amount == 0:
+                        break  # Stop processing if no more money is left
+
+                # Log any unused remaining amount
+                if remaining_amount > 0:
+                    _logger.info(
+                        f"Remaining amount of {remaining_amount} was not used."
                     )
                 else:
-                    # Partially pay the order
-                    order.write(
-                        {
-                            "paid_amount": order.paid_amount
-                            + amount_to_pay,  # Add the paid amount
-                            "remaining_amount": order.remaining_amount
-                            - amount_to_pay,  # Reduce due amount
-                            "payment_status": "partial_paid",
-                            # 'transaction_number': self.reffno,  # Store payment transaction number
-                        }
-                    )
-                    line.write(
-                        {
-                            # 'transaction_number': self.reffno,
-                            "payment_status": "partial_paid",
-                            "remaining_amount": order.remaining_amount,
-                            "bulk_paid_amount": amount_to_pay,  # ✅ Save paid portion
-                            # Update bulk payment line remaining amount
-                        }
-                    )
+                    _logger.info("All funds have been allocated.")
 
-                # ---- Update existing transaction_booking if linked ----
-                if order.transaction_booking_id:
-                    booking = order.transaction_booking_id
-                    updated_paid = booking.amount_paid + amount_to_pay
-                    updated_remaining = booking.amount - updated_paid
-
-                    booking.write(
-                        {
-                            "amount_paid": updated_paid,
-                            "remaining_amount": updated_remaining,
-                            "payment_status": (
-                                "paid" if updated_remaining == 0 else "partial_paid"
-                            ),
-                        }
-                    )
-
-                remaining_amount -= amount_to_pay  # Reduce the remaining amount by the actual amount paid
-                # ✅ **Create a Vendor Payment Record**
-                self.env["idil.vendor_payment"].create(
+                self.env["idil.transaction_bookingline"].create(
                     {
-                        "vendor_id": self.vendor_id.id,
+                        "transaction_booking_id": order.transaction_booking_id.id,
                         "vendor_bulk_payment_id": self.id,
-                        "vendor_transaction_id": order.id,
-                        "amount_paid": amount_to_pay,
-                        "cheque_no": self.reffno,
-                        "payment_date": self.payment_date,
+                        "description": f"Bulk payment for Vendor {self.vendor_id.name}",
+                        "account_number": self.cash_account_id.id,
+                        "transaction_type": "cr",  # Credit transaction
+                        "cr_amount": self.amount_paying,  # Use the total amount paying
+                        "dr_amount": 0,
+                        "transaction_date": self.payment_date,
+                    }
+                )
+                self.env["idil.transaction_bookingline"].create(
+                    {
+                        "transaction_booking_id": order.transaction_booking_id.id,
+                        "vendor_bulk_payment_id": self.id,
+                        "description": f"Bulk payment for Vendor {self.vendor_id.name}",
+                        "account_number": self.vendor_id.account_payable_id.id,
+                        "transaction_type": "dr",  # Credit transaction
+                        "dr_amount": self.amount_paying,
+                        "cr_amount": 0,  # Use the total amount paying
+                        "transaction_date": self.payment_date,
                     }
                 )
 
-            if remaining_amount == 0:
-                break  # Stop processing if no more money is left
-
-        # Log any unused remaining amount
-        if remaining_amount > 0:
-            _logger.info(f"Remaining amount of {remaining_amount} was not used.")
-        else:
-            _logger.info("All funds have been allocated.")
-
-        self.env["idil.transaction_bookingline"].create(
-            {
-                "transaction_booking_id": order.transaction_booking_id.id,
-                "vendor_bulk_payment_id": self.id,
-                "description": f"Bulk payment for Vendor {self.vendor_id.name}",
-                "account_number": self.cash_account_id.id,
-                "transaction_type": "cr",  # Credit transaction
-                "cr_amount": self.amount_paying,  # Use the total amount paying
-                "dr_amount": 0,
-                "transaction_date": self.payment_date,
-            }
-        )
-        self.env["idil.transaction_bookingline"].create(
-            {
-                "transaction_booking_id": order.transaction_booking_id.id,
-                "vendor_bulk_payment_id": self.id,
-                "description": f"Bulk payment for Vendor {self.vendor_id.name}",
-                "account_number": self.vendor_id.account_payable_id.id,
-                "transaction_type": "dr",  # Credit transaction
-                "dr_amount": self.amount_paying,
-                "cr_amount": 0,  # Use the total amount paying
-                "transaction_date": self.payment_date,
-            }
-        )
-
-        # Log any unused remaining amount
-        if remaining_amount > 0:
-            _logger.info(f"Remaining amount of {remaining_amount} was not used.")
-        else:
-            _logger.info("All funds have been allocated.")
+                # Log any unused remaining amount
+                if remaining_amount > 0:
+                    _logger.info(
+                        f"Remaining amount of {remaining_amount} was not used."
+                    )
+                else:
+                    _logger.info("All funds have been allocated.")
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
     def write(self, vals):
         """Prevent modification after saving, except updating status."""
@@ -300,27 +320,32 @@ class VendorBulkPayment(models.Model):
 
     def unlink(self):
         """Revert the effect of payments before deleting the bulk payment record."""
-        for record in self:
-            for line in record.order_ids:
-                order = self.env["idil.vendor_transaction"].search(
-                    [("order_number", "=", line.order_number)], limit=1
-                )
+        try:
+            with self.env.cr.savepoint():
+                for record in self:
+                    for line in record.order_ids:
+                        order = self.env["idil.vendor_transaction"].search(
+                            [("order_number", "=", line.order_number)], limit=1
+                        )
 
-            # Delete related transaction bookings
-            # Delete related vendor payment records
-            self.env["idil.vendor_payment"].search(
-                [("vendor_bulk_payment_id", "=", record.id)]
-            ).unlink()
-            # Delete related transaction bookings before removing bulk payment
-            self.env["idil.transaction_bookingline"].search(
-                [("vendor_bulk_payment_id", "=", record.id)]
-            ).unlink()
+                    # Delete related transaction bookings
+                    # Delete related vendor payment records
+                    self.env["idil.vendor_payment"].search(
+                        [("vendor_bulk_payment_id", "=", record.id)]
+                    ).unlink()
+                    # Delete related transaction bookings before removing bulk payment
+                    self.env["idil.transaction_bookingline"].search(
+                        [("vendor_bulk_payment_id", "=", record.id)]
+                    ).unlink()
 
-            # Delete related payment lines
-            if record.order_ids:
-                record.order_ids.unlink()
+                    # Delete related payment lines
+                    if record.order_ids:
+                        record.order_ids.unlink()
 
-        return super(VendorBulkPayment, self).unlink()
+                return super(VendorBulkPayment, self).unlink()
+        except Exception as e:
+            _logger.error(f"transaction failed: {str(e)}")
+            raise ValidationError(f"Transaction failed: {str(e)}")
 
 
 class VendorBulkPaymentLine(models.Model):
