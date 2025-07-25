@@ -27,7 +27,7 @@
                 <field name="adjustment_qty"/>
                 <field name="cost_price" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                 <field name="total_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
-                <field name="reason"/>
+                <field name="reason_id"/>
             </tree>
         </field>
     </record>
@@ -53,7 +53,7 @@
                         <group string="Adjustment Info" colspan="2">
                             <field name="adjustment_date"/>
                             <field name="total_amount" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"/>
-                            <field name="reason"/>
+                            <field name="reason_id"/>
                         </group>
                     </group>
                 </sheet>

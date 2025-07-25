@@ -287,17 +287,51 @@ class ManufacturingOrder(models.Model):
                 line.row_total for line in order.manufacturing_order_line_ids
             )
 
+    # @api.onchange("bom_id")
+    # def _onchange_bom_id(self):
+    #     self.check_items_expiration()
+    #     if not self.bom_id:
+    #         self.manufacturing_order_line_ids = [(5, 0, 0)]  # Just clear if no BOM
+    #         self.product_qty = False
+    #         self.product_id = False
+    #         return
+
+    #     commands = [(5, 0, 0)]  # Always start by clearing all lines
+
+    #     for bom_line in self.bom_id.bom_line_ids:
+    #         commands.append(
+    #             (
+    #                 0,
+    #                 0,
+    #                 {
+    #                     "item_id": bom_line.Item_id.id,
+    #                     "quantity": bom_line.quantity,
+    #                     "quantity_bom": bom_line.quantity,
+    #                     "cost_price": bom_line.Item_id.cost_price,
+    #                 },
+    #             )
+    #         )
+
+    #     self.manufacturing_order_line_ids = (
+    #         commands  # Clear + refill only with BOM lines
+    #     )
     @api.onchange("bom_id")
-    def _onchange_bom_id(self):
+    def onchange_bom_id(self):
         self.check_items_expiration()
+
+        # Clear previous lines, product, and quantity if no BOM selected
         if not self.bom_id:
-            self.manufacturing_order_line_ids = [(5, 0, 0)]  # Just clear if no BOM
-            self.product_qty = False
+            self.manufacturing_order_line_ids = [(5, 0, 0)]
             self.product_id = False
+            self.product_qty = 0.0  # 🔁 Reset to zero
             return
 
-        commands = [(5, 0, 0)]  # Always start by clearing all lines
+        # Set product based on BOM
+        self.product_id = self.bom_id.product_id
+        self.product_qty = 0.0  # 🔁 Reset to zero when BOM is changed
 
+        # Load BOM lines into manufacturing order lines
+        commands = [(5, 0, 0)]  # Clear old lines
         for bom_line in self.bom_id.bom_line_ids:
             commands.append(
                 (
@@ -311,10 +345,7 @@ class ManufacturingOrder(models.Model):
                     },
                 )
             )
-
-        self.manufacturing_order_line_ids = (
-            commands  # Clear + refill only with BOM lines
-        )
+        self.manufacturing_order_line_ids = commands
 
     @api.model
     def create(self, vals):

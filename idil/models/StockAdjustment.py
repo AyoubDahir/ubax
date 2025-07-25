@@ -44,8 +44,12 @@ class StockAdjustment(models.Model):
         required=True,
         tracking=True,
     )
-    reason = fields.Text(
-        string="Reason for Adjustment", help="Reason for the adjustment", tracking=True
+
+    reason_id = fields.Many2one(
+        "idil.product.adjustment.reason",
+        string="Reason for Adjustment",
+        help="Reason for the adjustment",
+        required=True,
     )
     cost_price = fields.Float(
         string="Cost Price",
@@ -373,3 +377,11 @@ class StockAdjustment(models.Model):
         except Exception as e:
             logger.error(f"transaction failed: {str(e)}")
             raise ValidationError(f"Transaction failed: {str(e)}")
+
+
+class SrockAdjustmentReason(models.Model):
+    _name = "idil.item.adjustment.reason"
+    _description = "Stock Adjustment Reason"
+    _order = "name"
+
+    name = fields.Char(string="Reason", required=True, translate=True)

@@ -132,7 +132,7 @@ class item(models.Model):
     @api.depends("quantity", "cost_price")
     def _compute_total_price(self):
         for item in self:
-            item.total_price = round(item.quantity * item.cost_price, 5)
+            item.total_price = round(item.quantity * item.cost_price, 2)
 
     @api.constrains("name")
     def _check_unique_name(self):
