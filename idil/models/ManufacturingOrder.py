@@ -292,6 +292,8 @@ class ManufacturingOrder(models.Model):
         self.check_items_expiration()
         if not self.bom_id:
             self.manufacturing_order_line_ids = [(5, 0, 0)]  # Just clear if no BOM
+            self.product_qty = False
+            self.product_id = False
             return
 
         commands = [(5, 0, 0)]  # Always start by clearing all lines
