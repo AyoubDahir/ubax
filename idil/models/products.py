@@ -206,26 +206,42 @@ class Product(models.Model):
 
     @api.depends_context("uid")
     def _compute_actual_cost_from_transaction(self):
-        """Compute actual cost from financial transactions per product using asset account."""
+        """Compute actual cost in USD from financial transactions using asset account."""
         for product in self:
-            product.actual_cost = 0.0  # Default if no data
+            product.actual_cost = 0.0  # Default
 
             if not product.asset_account_id or product.stock_quantity <= 0:
                 continue
 
+            # Step 1: Fetch total value from accounting
             self.env.cr.execute(
                 """
                 SELECT 
                     COALESCE(SUM(dr_amount), 0) - COALESCE(SUM(cr_amount), 0) AS total_value
                 FROM idil_transaction_bookingline
                 WHERE product_id = %s AND account_number = %s
-            """,
+                """,
                 (product.id, product.asset_account_id.id),
             )
-
             result = self.env.cr.fetchone()
-            if result and result[0] and product.stock_quantity > 0:
-                product.actual_cost = round(result[0] / product.stock_quantity, 5)
+            total_value = result[0] if result else 0.0
+
+            # Step 2: Convert to USD if needed
+            bom_currency = (
+                product.bom_id.currency_id if product.bom_id else product.currency_id
+            )
+            converted_value = total_value
+
+            if bom_currency and bom_currency.name == "SL" and product.rate:
+                converted_value = total_value / product.rate  # SL → USD
+            elif bom_currency and bom_currency.name == "USD":
+                converted_value = total_value  # Already in USD
+            else:
+                converted_value = 0.0  # Unknown currency
+
+            # Step 3: Compute actual cost per unit
+            if product.stock_quantity > 0:
+                product.actual_cost = round(converted_value / product.stock_quantity, 5)
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
