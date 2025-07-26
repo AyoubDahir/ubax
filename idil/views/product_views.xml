@@ -19,6 +19,8 @@
                     <field name="stock_quantity" readonly="1" optional="show"/>
                     <field name="category_id" optional="show"/>
                     <field name="detailed_type" optional="show"/>
+                    <field name="asset_account_id" optional="show"/>
+                    
                     <field name="sale_price" optional="show"/>
                     <field name="usd_currency_id" optional="show"/>
                     <field name="total_value_usd" sum="total" optional="show"/>
