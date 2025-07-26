@@ -226,22 +226,11 @@ class Product(models.Model):
             result = self.env.cr.fetchone()
             total_value = result[0] if result else 0.0
 
-            # Step 2: Convert to USD if needed
-            bom_currency = (
-                product.bom_id.currency_id if product.bom_id else product.currency_id
-            )
-            converted_value = total_value
-
-            if bom_currency and bom_currency.name == "SL" and product.rate:
+            if product.asset_account_id.currency_id.name == "SL" and product.rate:
                 converted_value = total_value / product.rate  # SL → USD
-            elif bom_currency and bom_currency.name == "USD":
-                converted_value = total_value  # Already in USD
-            else:
-                converted_value = 0.0  # Unknown currency
-
             # Step 3: Compute actual cost per unit
             if product.stock_quantity > 0:
-                product.actual_cost = round(converted_value / product.stock_quantity, 5)
+                product.actual_cost = round(converted_value, 5)
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
