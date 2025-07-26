@@ -191,7 +191,7 @@ class Product(models.Model):
     rate = fields.Float(
         string="Exchange Rate",
         compute="_compute_exchange_rate",
-        store=True,
+        store=False,
         readonly=True,
     )
     # Actual cost from production
@@ -236,12 +236,14 @@ class Product(models.Model):
     def _compute_exchange_rate(self):
         for rec in self:
             if rec.rate_currency_id:
+                # Find the latest available rate up to today
                 rate = self.env["res.currency.rate"].search(
                     [
                         ("currency_id", "=", rec.rate_currency_id.id),
-                        ("name", "=", fields.Date.today()),
+                        ("name", "<=", fields.Date.today()),
                         ("company_id", "=", self.env.company.id),
                     ],
+                    order="name desc",
                     limit=1,
                 )
                 rec.rate = rate.rate if rate else 0.0
