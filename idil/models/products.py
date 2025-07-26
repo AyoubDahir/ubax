@@ -199,8 +199,33 @@ class Product(models.Model):
     actual_cost = fields.Float(
         string="Actual Cost",
         digits=(16, 5),
-        help="Actual weighted cost from production.",
+        compute="_compute_actual_cost_from_transaction",
+        store=False,
+        help="Actual cost calculated from accounting transactions (DR - CR) / stock_quantity",
     )
+
+    @api.depends_context("uid")
+    def _compute_actual_cost_from_transaction(self):
+        """Compute actual cost from financial transactions per product using asset account."""
+        for product in self:
+            product.actual_cost = 0.0  # Default if no data
+
+            if not product.asset_account_id or product.stock_quantity <= 0:
+                continue
+
+            self.env.cr.execute(
+                """
+                SELECT 
+                    COALESCE(SUM(dr_amount), 0) - COALESCE(SUM(cr_amount), 0) AS total_value
+                FROM idil_transaction_bookingline
+                WHERE product_id = %s AND account_number = %s
+            """,
+                (product.id, product.asset_account_id.id),
+            )
+
+            result = self.env.cr.fetchone()
+            if result and result[0] and product.stock_quantity > 0:
+                product.actual_cost = round(result[0] / product.stock_quantity, 5)
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
