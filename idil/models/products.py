@@ -206,14 +206,18 @@ class Product(models.Model):
 
     @api.depends_context("uid")
     def _compute_actual_cost_from_transaction(self):
-        """Compute actual cost in USD from financial transactions using asset account."""
+        """Compute actual cost in USD from financial transactions using asset account and today's exchange rate."""
+        CurrencyRate = self.env["res.currency.rate"]
+        usd_currency = self.env.ref("base.USD", raise_if_not_found=False)
+        sl_currency = self.env["res.currency"].search([("name", "=", "SL")], limit=1)
+
         for product in self:
             product.actual_cost = 0.0  # Default
 
             if not product.asset_account_id or product.stock_quantity <= 0:
                 continue
 
-            # Step 1: Fetch total value from accounting
+            # Step 1: Get total value from transactions
             self.env.cr.execute(
                 """
                 SELECT 
@@ -226,16 +230,32 @@ class Product(models.Model):
             result = self.env.cr.fetchone()
             total_value = result[0] if result else 0.0
 
-            # Step 2: Convert to USD
-            converted_value = 0.0
-            if product.asset_account_id.currency_id.name == "SL" and product.rate:
-                converted_value = total_value / product.rate
-            elif product.asset_account_id.currency_id.name == "USD":
-                converted_value = total_value
+            # Step 2: Convert to USD using today's official rate if needed
+            converted_value = total_value
+
+            account_currency = product.asset_account_id.currency_id
+            if account_currency and account_currency.name == "SL":
+                today_rate = CurrencyRate.search(
+                    [
+                        ("currency_id", "=", account_currency.id),
+                        ("name", "<=", fields.Date.today()),
+                        ("company_id", "=", self.env.company.id),
+                    ],
+                    order="name desc",
+                    limit=1,
+                )
+
+                if today_rate and today_rate.rate:
+                    converted_value = total_value / today_rate.rate
+                else:
+                    converted_value = 0.0  # fallback if no rate
 
             # Step 3: Compute actual cost per unit
-
-            product.actual_cost = round(converted_value, 5)
+            if product.stock_quantity > 0:
+                product.actual_cost = (
+                    round(converted_value / product.stock_quantity, 5)
+                    * product.stock_quantity
+                )
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
