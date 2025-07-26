@@ -198,7 +198,7 @@ class Product(models.Model):
     # This is the weighted cost from production, not the BOM cost
     actual_cost = fields.Float(
         string="Actual Cost",
-        digits=(16, 5),
+        digits=(16, 2),
         compute="_compute_actual_cost_from_transaction",
         store=False,
         help="Actual cost calculated from accounting transactions (DR - CR) / stock_quantity",
@@ -234,8 +234,8 @@ class Product(models.Model):
                 converted_value = total_value
 
             # Step 3: Compute actual cost per unit
-            if product.stock_quantity > 0:
-                product.actual_cost = round(converted_value, 5)
+
+            product.actual_cost = round(converted_value, 5)
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
