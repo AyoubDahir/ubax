@@ -179,6 +179,7 @@ class ProductAdjustment(models.Model):
                         {
                             "transaction_date": rec.adjustment_date,
                             "adjustment_id": rec.id,
+                            "product_id": rec.product_id.id,
                             "transaction_booking_id": transaction_booking.id,
                             "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
                             "transaction_type": "dr",
@@ -192,6 +193,7 @@ class ProductAdjustment(models.Model):
                         {
                             "transaction_date": rec.adjustment_date,
                             "adjustment_id": rec.id,
+                            "product_id": rec.product_id.id,
                             "transaction_booking_id": transaction_booking.id,
                             "description": f"Stock Adjustment: {rec.product_id.name} ({rec.reason_id or ''})",
                             "transaction_type": "cr",
@@ -311,7 +313,10 @@ class ProductAdjustment(models.Model):
 
                     # Update or create transaction booking lines
                     lines = self.env["idil.transaction_bookingline"].search(
-                        [("adjustment_id", "=", rec.id)]
+                        [
+                            ("adjustment_id", "=", rec.id),
+                            ("product_id", "=", product.id),
+                        ]
                     )
                     if lines:
                         for line in lines:
@@ -341,6 +346,7 @@ class ProductAdjustment(models.Model):
                                 "transaction_date": rec.adjustment_date,
                                 "transaction_booking_id": booking.id,
                                 "description": desc,
+                                "product_id": rec.product_id.id,
                                 "transaction_type": "dr",
                                 "dr_amount": 0.0,
                                 "cr_amount": rec.adjustment_amount,
@@ -353,6 +359,7 @@ class ProductAdjustment(models.Model):
                                 "transaction_date": rec.adjustment_date,
                                 "transaction_booking_id": booking.id,
                                 "description": desc,
+                                "product_id": rec.product_id.id,
                                 "transaction_type": "cr",
                                 "dr_amount": rec.adjustment_amount,
                                 "cr_amount": 0.0,
