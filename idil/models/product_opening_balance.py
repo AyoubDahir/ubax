@@ -697,9 +697,7 @@ class ProductOpeningBalanceLine(models.Model):
     total = fields.Float(
         string="Total", compute="_compute_total", store=True, digits=(16, 5)
     )
-    stock_quantity = fields.Float(
-        string="Stock Quantity", required=True, digits=(16, 5)
-    )
+    stock_quantity = fields.Float(string="Stock Quantity", required=True)
 
     @api.onchange("product_id")
     def _onchange_product_id(self):

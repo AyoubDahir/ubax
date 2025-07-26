@@ -198,7 +198,7 @@ class Product(models.Model):
     # This is the weighted cost from production, not the BOM cost
     actual_cost = fields.Float(
         string="Actual Cost",
-        digits=(16, 2),
+        digits=(16, 5),
         compute="_compute_actual_cost_from_transaction",
         store=False,
         help="Actual cost calculated from accounting transactions (DR - CR) / stock_quantity",
