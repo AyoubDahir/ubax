@@ -44,9 +44,14 @@ class ProductOpeningBalance(models.Model):
         compute="_compute_exchange_rate",
         store=True,
         readonly=True,
+        digits=(16, 5),
     )
+
     total_amount = fields.Float(
-        string="Total Amount", compute="_compute_total_amount", store=True
+        string="Total Amount",
+        compute="_compute_total_amount",
+        store=True,
+        digits=(16, 5),
     )
 
     @api.depends("line_ids.total")
@@ -687,9 +692,14 @@ class ProductOpeningBalanceLine(models.Model):
         "my_product.opening.balance", string="Opening Balance", ondelete="cascade"
     )
     product_id = fields.Many2one("my_product.product", string="Product", required=True)
-    stock_quantity = fields.Float(string="stock_quantity", required=True)
-    cost_price = fields.Float(string="Cost Price", store=True)
-    total = fields.Float(string="Total", compute="_compute_total", store=True)
+
+    cost_price = fields.Float(string="Cost Price", store=True, digits=(16, 5))
+    total = fields.Float(
+        string="Total", compute="_compute_total", store=True, digits=(16, 5)
+    )
+    stock_quantity = fields.Float(
+        string="Stock Quantity", required=True, digits=(16, 5)
+    )
 
     @api.onchange("product_id")
     def _onchange_product_id(self):
