@@ -114,7 +114,13 @@ class item(models.Model):
         readonly=True,
     )
     # New computed field
-    total_price = fields.Float(string="Total Price", compute="_compute_total_price")
+    total_price = fields.Float(
+        string="Total Price",
+        compute="compute_item_total_value",
+        store=False,
+        digits=(16, 5),
+        tracking=True,
+    )
 
     is_tfg = fields.Boolean(string="Is TFG", default=False, tracking=True)
     is_commission = fields.Boolean(string="Is Commission", default=False, tracking=True)
@@ -129,10 +135,27 @@ class item(models.Model):
         usd_currency = self.env.ref("base.USD")
         self.search([]).write({"currency_id": usd_currency.id})
 
-    @api.depends("quantity", "cost_price")
-    def _compute_total_price(self):
+    # @api.depends("quantity", "cost_price")
+    # def _compute_total_price(self):
+    #     for item in self:
+    #         item.total_price = round(item.quantity * item.cost_price, 5)
+
+    def compute_item_total_value(self):
+        """Compute total value per item as sum(dr_amount - cr_amount)"""
+        self.env.cr.execute(
+            """
+            SELECT 
+                item_id, 
+                SUM(dr_amount) - SUM(cr_amount) AS total_value
+            FROM idil_transaction_bookingline
+            WHERE item_id IS NOT NULL
+            GROUP BY item_id
+        """
+        )
+        results = dict(self.env.cr.fetchall())
+
         for item in self:
-            item.total_price = round(item.quantity * item.cost_price, 2)
+            item.total_price = round(results.get(item.id, 0.0), 5)
 
     @api.constrains("name")
     def _check_unique_name(self):
