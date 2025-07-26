@@ -140,22 +140,27 @@ class item(models.Model):
     #     for item in self:
     #         item.total_price = round(item.quantity * item.cost_price, 5)
 
+    @api.depends_context("uid")
     def compute_item_total_value(self):
-        """Compute total value per item as sum(dr_amount - cr_amount)"""
-        self.env.cr.execute(
-            """
-            SELECT 
-                item_id, 
-                SUM(dr_amount) - SUM(cr_amount) AS total_value
-            FROM idil_transaction_bookingline
-            WHERE item_id IS NOT NULL
-            GROUP BY item_id
-        """
-        )
-        results = dict(self.env.cr.fetchall())
-
+        """Compute total value per item: sum(dr_amount - cr_amount) where account is asset_account_id."""
         for item in self:
-            item.total_price = round(results.get(item.id, 0.0), 5)
+            item.total_price = 0.0  # Default value
+
+            if not item.asset_account_id:
+                continue
+
+            self.env.cr.execute(
+                """
+                SELECT 
+                    COALESCE(SUM(dr_amount), 0) - COALESCE(SUM(cr_amount), 0) AS balance
+                FROM idil_transaction_bookingline
+                WHERE item_id = %s AND account_number = %s
+            """,
+                (item.id, item.asset_account_id.id),
+            )
+
+            result = self.env.cr.fetchone()
+            item.total_price = round(result[0], 5) if result and result[0] else 0.0
 
     @api.constrains("name")
     def _check_unique_name(self):
