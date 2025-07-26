@@ -206,56 +206,59 @@ class Product(models.Model):
 
     @api.depends_context("uid")
     def _compute_actual_cost_from_transaction(self):
-        """Compute actual cost in USD from financial transactions using asset account and today's exchange rate."""
+        """Compute actual cost in USD using each transaction's date-based exchange rate."""
         CurrencyRate = self.env["res.currency.rate"]
-        usd_currency = self.env.ref("base.USD", raise_if_not_found=False)
-        sl_currency = self.env["res.currency"].search([("name", "=", "SL")], limit=1)
+        USD = self.env.ref("base.USD", raise_if_not_found=False)
+        SL = self.env["res.currency"].search([("name", "=", "SL")], limit=1)
 
         for product in self:
-            product.actual_cost = 0.0  # Default
+            product.actual_cost = 0.0
 
             if not product.asset_account_id or product.stock_quantity <= 0:
                 continue
 
-            # Step 1: Get total value from transactions
+            account_currency = product.asset_account_id.currency_id
+            is_sl_currency = account_currency and account_currency.name == "SL"
+
+            # Step 1: Fetch transaction lines
             self.env.cr.execute(
                 """
-                SELECT 
-                    COALESCE(SUM(dr_amount), 0) - COALESCE(SUM(cr_amount), 0) AS total_value
+                SELECT id, transaction_date, dr_amount, cr_amount
                 FROM idil_transaction_bookingline
                 WHERE product_id = %s AND account_number = %s
-                """,
+            """,
                 (product.id, product.asset_account_id.id),
             )
-            result = self.env.cr.fetchone()
-            total_value = result[0] if result else 0.0
+            transactions = self.env.cr.fetchall()
 
-            # Step 2: Convert to USD using today's official rate if needed
-            converted_value = total_value
+            total_converted = 0.0
 
-            account_currency = product.asset_account_id.currency_id
-            if account_currency and account_currency.name == "SL":
-                today_rate = CurrencyRate.search(
-                    [
-                        ("currency_id", "=", account_currency.id),
-                        ("name", "<=", fields.Date.today()),
-                        ("company_id", "=", self.env.company.id),
-                    ],
-                    order="name desc",
-                    limit=1,
-                )
+            for line_id, line_date, dr, cr in transactions:
+                value = (dr or 0.0) - (cr or 0.0)
 
-                if today_rate and today_rate.rate:
-                    converted_value = total_value / today_rate.rate
+                # If SL → convert using rate at line date
+                if is_sl_currency and line_date:
+                    self.env.cr.execute(
+                        """
+                        SELECT rate
+                        FROM res_currency_rate
+                        WHERE currency_id = %s AND name <= %s AND company_id = %s
+                        ORDER BY name DESC
+                        LIMIT 1
+                    """,
+                        (SL.id, line_date, self.env.company.id),
+                    )
+                    rate_result = self.env.cr.fetchone()
+                    rate = rate_result[0] if rate_result else 0.0
+                    converted = value / rate if rate else 0.0
                 else:
-                    converted_value = 0.0  # fallback if no rate
+                    converted = value  # USD or no rate
 
-            # Step 3: Compute actual cost per unit
+                total_converted += converted
+
+            # Step 2: Final actual cost per unit
             if product.stock_quantity > 0:
-                product.actual_cost = (
-                    round(converted_value / product.stock_quantity, 5)
-                    * product.stock_quantity
-                )
+                product.actual_cost = round(total_converted, 5)
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):

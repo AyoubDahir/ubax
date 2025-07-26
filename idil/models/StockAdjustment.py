@@ -46,7 +46,7 @@ class StockAdjustment(models.Model):
     )
 
     reason_id = fields.Many2one(
-        "idil.product.adjustment.reason",
+        "idil.item.adjustment.reason",
         string="Reason for Adjustment",
         help="Reason for the adjustment",
         required=True,
