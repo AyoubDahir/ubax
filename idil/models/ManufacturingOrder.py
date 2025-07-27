@@ -1122,7 +1122,7 @@ class ManufacturingOrderLine(models.Model):
                     self.env["idil.item.movement"].create(
                         {
                             "item_id": record.item_id.id,
-                            "date": record.scheduled_start_date,
+                            "date": record.manufacturing_order_id.scheduled_start_date,
                             "quantity": record.quantity * -1,
                             "source": "Inventory",
                             "destination": "Manufacturing",
