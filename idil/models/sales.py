@@ -74,6 +74,23 @@ class SaleOrder(models.Model):
         store=False,
         readonly=True,
     )
+    total_cost_price = fields.Float(
+        string="Total Cost Price",
+        compute="_compute_total_cost_price",
+        store=True,
+        digits=(16, 6),
+        readonly=True,
+        tracking=True,
+    )
+
+    @api.depends("order_lines", "order_lines.product_id", "order_lines.quantity")
+    def _compute_total_cost_price(self):
+        for order in self:
+            total = 0.0
+            for line in order.order_lines:
+                if line.product_id and line.quantity:
+                    total += line.product_id.cost * line.quantity
+            order.total_cost_price = total
 
     @api.depends("order_lines", "order_lines.product_id")
     def _compute_total_returned_qty(self):
@@ -346,7 +363,7 @@ class SaleOrder(models.Model):
                             else product.currency_id
                         )
 
-                        amount_in_bom_currency = product.cost * line.quantity
+                        amount_in_bom_currency = float(product.cost) * line.quantity
 
                         if bom_currency.name == "USD":
                             product_cost_amount = amount_in_bom_currency * self.rate
@@ -420,7 +437,7 @@ class SaleOrder(models.Model):
                                 "product_id": product.id,
                                 "account_number": product.account_cogs_id.id,
                                 "transaction_type": "dr",
-                                "dr_amount": product_cost_amount,
+                                "dr_amount": float(product_cost_amount),
                                 "cr_amount": 0,
                                 "transaction_date": order.order_date,
                                 # Include other necessary fields
@@ -435,7 +452,7 @@ class SaleOrder(models.Model):
                                 "account_number": product.asset_account_id.id,
                                 "transaction_type": "cr",
                                 "dr_amount": 0,
-                                "cr_amount": product_cost_amount,
+                                "cr_amount": float(product_cost_amount),
                                 "transaction_date": order.order_date,
                                 # Include other necessary fields
                             }
@@ -449,7 +466,7 @@ class SaleOrder(models.Model):
                                 "product_id": product.id,
                                 "account_number": order.sales_person_id.account_receivable_id.id,
                                 "transaction_type": "dr",  # Debit transaction
-                                "dr_amount": line.subtotal,
+                                "dr_amount": float(line.subtotal),
                                 "cr_amount": 0,
                                 "transaction_date": order.order_date,
                                 # Include other necessary fields
@@ -466,10 +483,12 @@ class SaleOrder(models.Model):
                                 "account_number": product.income_account_id.id,
                                 "transaction_type": "cr",
                                 "dr_amount": 0,
-                                "cr_amount": (
-                                    line.subtotal
-                                    + line.commission_amount
-                                    + line.discount_amount
+                                "cr_amount": float(
+                                    (
+                                        line.subtotal
+                                        + line.commission_amount
+                                        + line.discount_amount
+                                    )
                                 ),
                                 "transaction_date": order.order_date,
                                 # Include other necessary fields
@@ -488,7 +507,7 @@ class SaleOrder(models.Model):
                                     "product_id": product.id,
                                     "account_number": product.sales_account_id.id,
                                     "transaction_type": "dr",  # Debit transaction for commission expense
-                                    "dr_amount": line.commission_amount,
+                                    "dr_amount": float(line.commission_amount),
                                     "cr_amount": 0,
                                     "transaction_date": order.order_date,
                                     # Include other necessary fields
@@ -504,7 +523,7 @@ class SaleOrder(models.Model):
                                     "product_id": product.id,
                                     "account_number": product.sales_discount_id.id,
                                     "transaction_type": "dr",  # Debit transaction for discount expense
-                                    "dr_amount": line.discount_amount,
+                                    "dr_amount": (line.discount_amount),
                                     "cr_amount": 0,
                                     "transaction_date": order.order_date,
                                     # Include other necessary fields

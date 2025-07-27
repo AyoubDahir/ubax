@@ -10,7 +10,7 @@
                 <field name="vendor_id"/>
                 <field name="payment_method" string="Reff No#" readonly="1"/>
                 <field name="account_number"/>
-                <field name="amount"/>
+                <field name="amount" sum="Total"/>
                 <field name="order_lines"/>
 
                 <!-- Add other fields here as needed -->

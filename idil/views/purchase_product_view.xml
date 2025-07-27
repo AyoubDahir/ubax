@@ -38,7 +38,7 @@
             <field name="name"/>
             <field name="vendor_id"/>
             <field name="payment_method"/>
-            <field name="amount"/>
+            <field name="amount" sum="Total"/>
         </tree>
     </field>
 </record>

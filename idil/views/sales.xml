@@ -16,6 +16,8 @@
                 <field name="total_commission_usd" sum="total"/>
                 <field name="total_discount_usd" sum="total"/>
                 <field name="order_total" sum="total"/>
+                <field name="total_cost_price" sum="total"/>
+                
                 <field name="currency_id"/>
                 <field name="rate"/>
                 <field name="state"/>
