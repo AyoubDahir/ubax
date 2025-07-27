@@ -89,7 +89,11 @@ class SaleOrder(models.Model):
             total = 0.0
             for line in order.order_lines:
                 if line.product_id and line.quantity:
-                    total += line.product_id.cost * line.quantity
+                    if line.product_id.asset_account_id.currency_id.name == "SL":
+                        total += line.product_id.cost * line.quantity / self.rate
+                    else:
+                        # If the product's asset account currency is not SL, use its cost directly
+                        total += line.product_id.cost * line.quantity
             order.total_cost_price = total
 
     @api.depends("order_lines", "order_lines.product_id")
