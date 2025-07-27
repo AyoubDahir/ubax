@@ -20,6 +20,7 @@ class SystemClearingWizard(models.TransientModel):
 
         query = """
         update my_product_product set stock_quantity =0;
+        update my_product_product set actual_cost =0;
         update idil_item set quantity =0;
         Update public.idil_vendor_registration set opening_balance =0;
         Delete from idil_transaction_bookingline;

@@ -287,34 +287,6 @@ class ManufacturingOrder(models.Model):
                 line.row_total for line in order.manufacturing_order_line_ids
             )
 
-    # @api.onchange("bom_id")
-    # def _onchange_bom_id(self):
-    #     self.check_items_expiration()
-    #     if not self.bom_id:
-    #         self.manufacturing_order_line_ids = [(5, 0, 0)]  # Just clear if no BOM
-    #         self.product_qty = False
-    #         self.product_id = False
-    #         return
-
-    #     commands = [(5, 0, 0)]  # Always start by clearing all lines
-
-    #     for bom_line in self.bom_id.bom_line_ids:
-    #         commands.append(
-    #             (
-    #                 0,
-    #                 0,
-    #                 {
-    #                     "item_id": bom_line.Item_id.id,
-    #                     "quantity": bom_line.quantity,
-    #                     "quantity_bom": bom_line.quantity,
-    #                     "cost_price": bom_line.Item_id.cost_price,
-    #                 },
-    #             )
-    #         )
-
-    #     self.manufacturing_order_line_ids = (
-    #         commands  # Clear + refill only with BOM lines
-    #     )
     @api.onchange("bom_id")
     def onchange_bom_id(self):
         self.check_items_expiration()
@@ -460,7 +432,7 @@ class ManufacturingOrder(models.Model):
                             "product_id": order.product_id.id,
                             "account_number": order.product_id.asset_account_id.id,
                             "transaction_type": "dr",
-                            "dr_amount": cost_amount_sos,
+                            "dr_amount": float(cost_amount_sos),
                             "cr_amount": 0.0,
                             "transaction_date": fields.Date.today(),
                         }
@@ -476,7 +448,7 @@ class ManufacturingOrder(models.Model):
                             "account_number": target_clearing_account.id,
                             "transaction_type": "cr",
                             "dr_amount": 0.0,
-                            "cr_amount": cost_amount_sos,
+                            "cr_amount": float(cost_amount_sos),
                             "transaction_date": fields.Date.today(),
                         }
                     )
@@ -490,7 +462,7 @@ class ManufacturingOrder(models.Model):
                             "product_id": order.product_id.id,
                             "account_number": source_clearing_account.id,
                             "transaction_type": "dr",
-                            "dr_amount": line.row_total,
+                            "dr_amount": float(line.row_total),
                             "cr_amount": 0.0,
                             "transaction_date": fields.Date.today(),
                         }
@@ -506,7 +478,7 @@ class ManufacturingOrder(models.Model):
                             "account_number": line.item_id.asset_account_id.id,
                             "transaction_type": "cr",
                             "dr_amount": 0.0,
-                            "cr_amount": line.row_total,
+                            "cr_amount": float(line.row_total),
                             "transaction_date": fields.Date.today(),
                         }
                     )
@@ -549,7 +521,7 @@ class ManufacturingOrder(models.Model):
                             "product_id": order.product_id.id,
                             "account_number": order.product_id.account_id.id,
                             "transaction_type": "dr",
-                            "dr_amount": order.commission_amount,
+                            "dr_amount": float(order.commission_amount),
                             "cr_amount": 0.0,
                             "transaction_date": fields.Date.today(),
                         }
@@ -569,7 +541,7 @@ class ManufacturingOrder(models.Model):
                             "account_number": order.commission_employee_id.account_id.id,
                             "transaction_type": "cr",
                             "dr_amount": 0.0,
-                            "cr_amount": order.commission_amount,
+                            "cr_amount": float(order.commission_amount),
                             "transaction_date": fields.Date.today(),
                         }
                     )
@@ -579,32 +551,30 @@ class ManufacturingOrder(models.Model):
                         f"DR=0.0, CR={self.commission_amount}"
                     )
 
-                # Update stock quantity for manufactured product
-                # if order.bom_id and order.bom_id.product_id:
-                #     product = order.bom_id.product_id
-                #     product.stock_quantity += order.product_qty
-                #     product.write({"stock_quantity": product.stock_quantity})
-
-                # Update stock quantity for manufactured product
                 if order.bom_id and order.bom_id.product_id:
                     product = order.bom_id.product_id
-                    previous_qty = product.stock_quantity  # Before adding new qty
+                    previous_qty = product.stock_quantity or 0.0
                     previous_cost = product.actual_cost or 0.0
-                    new_qty = order.product_qty
-                    new_total_cost = order.product_cost
+                    new_qty = order.product_qty or 0.0
+                    new_total_cost = order.product_cost or 0.0
 
-                    # Update stock quantity first
-                    product.stock_quantity += new_qty
-                    product.write({"stock_quantity": product.stock_quantity})
-
-                    # Recalculate weighted average cost
+                    # Update stock first
                     total_qty = previous_qty + new_qty
                     if total_qty > 0:
-                        product.actual_cost = (
-                            previous_qty * previous_cost + new_total_cost
+                        # Weighted average cost calculation
+                        new_average_cost = (
+                            (previous_qty * previous_cost) + new_total_cost
                         ) / total_qty
                     else:
-                        product.actual_cost = 0.0
+                        new_average_cost = 0.0
+
+                    # Write both cost and actual_cost
+                    product.write(
+                        {
+                            "stock_quantity": total_qty,
+                            "actual_cost": new_average_cost,
+                        }
+                    )
 
                 # Adjust stock levels for items used in manufacturing
                 try:
@@ -755,7 +725,7 @@ class ManufacturingOrder(models.Model):
                     )
                     if booking:
                         # Update booking amount
-                        booking.write({"amount": order.product_cost})
+                        booking.write({"amount": float(order.product_cost)})
 
                         # --- Loop each MO line ---
                         for line in order.manufacturing_order_line_ids:
@@ -777,7 +747,9 @@ class ManufacturingOrder(models.Model):
                                 limit=1,
                             )
                             if bl:
-                                bl.write({"dr_amount": cost_sos, "cr_amount": 0.0})
+                                bl.write(
+                                    {"dr_amount": float(cost_sos), "cr_amount": 0.0}
+                                )
                             # (Optionally create if missing)
 
                             # 2. Target clearing account (Credit)
@@ -809,7 +781,9 @@ class ManufacturingOrder(models.Model):
                                     limit=1,
                                 )
                                 if bl:
-                                    bl.write({"dr_amount": 0.0, "cr_amount": cost_sos})
+                                    bl.write(
+                                        {"dr_amount": 0.0, "cr_amount": float(cost_sos)}
+                                    )
 
                             # 3. Source clearing account (Debit)
                             source_clearing_account = self.env[
@@ -841,7 +815,10 @@ class ManufacturingOrder(models.Model):
                                 )
                                 if bl:
                                     bl.write(
-                                        {"dr_amount": line.row_total, "cr_amount": 0.0}
+                                        {
+                                            "dr_amount": float(line.row_total),
+                                            "cr_amount": 0.0,
+                                        }
                                     )
 
                             # 4. Item asset account (Credit)
@@ -860,7 +837,10 @@ class ManufacturingOrder(models.Model):
                             )
                             if bl:
                                 bl.write(
-                                    {"dr_amount": 0.0, "cr_amount": line.row_total}
+                                    {
+                                        "dr_amount": 0.0,
+                                        "cr_amount": float(line.row_total),
+                                    }
                                 )
 
                         # --- Commission (if any) ---
@@ -882,7 +862,7 @@ class ManufacturingOrder(models.Model):
                             if bl:
                                 bl.write(
                                     {
-                                        "dr_amount": order.commission_amount,
+                                        "dr_amount": float(order.commission_amount),
                                         "cr_amount": 0.0,
                                     }
                                 )
@@ -905,7 +885,7 @@ class ManufacturingOrder(models.Model):
                                 bl.write(
                                     {
                                         "dr_amount": 0.0,
-                                        "cr_amount": order.commission_amount,
+                                        "cr_amount": float(order.commission_amount),
                                     }
                                 )
 
