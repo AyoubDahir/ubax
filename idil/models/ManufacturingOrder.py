@@ -381,7 +381,7 @@ class ManufacturingOrder(models.Model):
                         "manufacturing_order_id": order.id,
                         "order_number": order.name,
                         "amount": order.product_cost,
-                        "trx_date": fields.Date.today(),
+                        "trx_date": order.scheduled_start_date,
                         "payment_status": "paid",
                     }
                 )
@@ -434,7 +434,7 @@ class ManufacturingOrder(models.Model):
                             "transaction_type": "dr",
                             "dr_amount": float(cost_amount_sos),
                             "cr_amount": 0.0,
-                            "transaction_date": fields.Date.today(),
+                            "transaction_date": order.scheduled_start_date,
                         }
                     )
 
@@ -449,7 +449,7 @@ class ManufacturingOrder(models.Model):
                             "transaction_type": "cr",
                             "dr_amount": 0.0,
                             "cr_amount": float(cost_amount_sos),
-                            "transaction_date": fields.Date.today(),
+                            "transaction_date": order.scheduled_start_date,
                         }
                     )
 
@@ -464,7 +464,7 @@ class ManufacturingOrder(models.Model):
                             "transaction_type": "dr",
                             "dr_amount": float(line.row_total),
                             "cr_amount": 0.0,
-                            "transaction_date": fields.Date.today(),
+                            "transaction_date": order.scheduled_start_date,
                         }
                     )
 
@@ -479,7 +479,7 @@ class ManufacturingOrder(models.Model):
                             "transaction_type": "cr",
                             "dr_amount": 0.0,
                             "cr_amount": float(line.row_total),
-                            "transaction_date": fields.Date.today(),
+                            "transaction_date": order.scheduled_start_date,
                         }
                     )
                 # Calculate commission amount for this order using the order and its lines
@@ -523,7 +523,7 @@ class ManufacturingOrder(models.Model):
                             "transaction_type": "dr",
                             "dr_amount": float(order.commission_amount),
                             "cr_amount": 0.0,
-                            "transaction_date": fields.Date.today(),
+                            "transaction_date": order.scheduled_start_date,
                         }
                     )
                     _logger.info(
@@ -542,7 +542,7 @@ class ManufacturingOrder(models.Model):
                             "transaction_type": "cr",
                             "dr_amount": 0.0,
                             "cr_amount": float(order.commission_amount),
-                            "transaction_date": fields.Date.today(),
+                            "transaction_date": order.scheduled_start_date,
                         }
                     )
                     _logger.info(
@@ -601,7 +601,7 @@ class ManufacturingOrder(models.Model):
                             "commission_paid": 0,
                             "payment_status": "pending",
                             "commission_remaining": order.commission_amount,
-                            "date": fields.Date.context_today(self),
+                            "date": order.scheduled_start_date,
                         }
                     )
                     order.write({"commission_id": commission.id})
@@ -613,7 +613,7 @@ class ManufacturingOrder(models.Model):
                         "movement_type": "in",
                         "manufacturing_order_id": order.id,
                         "quantity": order.product_qty,
-                        "date": fields.Datetime.now(),
+                        "date": order.scheduled_start_date,
                         "source_document": order.name,
                     }
                 )
@@ -695,7 +695,7 @@ class ManufacturingOrder(models.Model):
                             self.env["idil.item.movement"].create(
                                 {
                                     "item_id": item.id,
-                                    "date": fields.Date.today(),
+                                    "date": order.scheduled_start_date,
                                     "quantity": -new_qty,
                                     "source": "Inventory",
                                     "destination": "Manufacturing",
@@ -725,7 +725,12 @@ class ManufacturingOrder(models.Model):
                     )
                     if booking:
                         # Update booking amount
-                        booking.write({"amount": float(order.product_cost)})
+                        booking.write(
+                            {
+                                "amount": float(order.product_cost),
+                                "trx_date": order.scheduled_start_date,
+                            }
+                        )
 
                         # --- Loop each MO line ---
                         for line in order.manufacturing_order_line_ids:
@@ -748,7 +753,11 @@ class ManufacturingOrder(models.Model):
                             )
                             if bl:
                                 bl.write(
-                                    {"dr_amount": float(cost_sos), "cr_amount": 0.0}
+                                    {
+                                        "dr_amount": float(cost_sos),
+                                        "cr_amount": 0.0,
+                                        "transaction_date": order.scheduled_start_date,
+                                    }
                                 )
                             # (Optionally create if missing)
 
@@ -782,7 +791,11 @@ class ManufacturingOrder(models.Model):
                                 )
                                 if bl:
                                     bl.write(
-                                        {"dr_amount": 0.0, "cr_amount": float(cost_sos)}
+                                        {
+                                            "dr_amount": 0.0,
+                                            "cr_amount": float(cost_sos),
+                                            "transaction_date": order.scheduled_start_date,
+                                        }
                                     )
 
                             # 3. Source clearing account (Debit)
@@ -818,6 +831,7 @@ class ManufacturingOrder(models.Model):
                                         {
                                             "dr_amount": float(line.row_total),
                                             "cr_amount": 0.0,
+                                            "transaction_date": order.scheduled_start_date,
                                         }
                                     )
 
@@ -840,6 +854,7 @@ class ManufacturingOrder(models.Model):
                                     {
                                         "dr_amount": 0.0,
                                         "cr_amount": float(line.row_total),
+                                        "transaction_date": order.scheduled_start_date,
                                     }
                                 )
 
@@ -864,6 +879,7 @@ class ManufacturingOrder(models.Model):
                                     {
                                         "dr_amount": float(order.commission_amount),
                                         "cr_amount": 0.0,
+                                        "transaction_date": order.scheduled_start_date,
                                     }
                                 )
 
@@ -886,6 +902,7 @@ class ManufacturingOrder(models.Model):
                                     {
                                         "dr_amount": 0.0,
                                         "cr_amount": float(order.commission_amount),
+                                        "transaction_date": order.scheduled_start_date,
                                     }
                                 )
 
@@ -901,6 +918,7 @@ class ManufacturingOrder(models.Model):
                             {
                                 "commission_amount": commission_amount,
                                 "commission_remaining": commission_amount,  # reset if business logic says so
+                                "date": order.scheduled_start_date,
                             }
                         )
                     else:
@@ -913,7 +931,7 @@ class ManufacturingOrder(models.Model):
                                     "commission_paid": 0,
                                     "payment_status": "pending",
                                     "commission_remaining": commission_amount,
-                                    "date": fields.Date.context_today(self),
+                                    "date": order.scheduled_start_date,
                                 }
                             )
                             order.write({"commission_id": commission.id})
@@ -1104,7 +1122,7 @@ class ManufacturingOrderLine(models.Model):
                     self.env["idil.item.movement"].create(
                         {
                             "item_id": record.item_id.id,
-                            "date": fields.Date.today(),
+                            "date": record.scheduled_start_date,
                             "quantity": record.quantity * -1,
                             "source": "Inventory",
                             "destination": "Manufacturing",
