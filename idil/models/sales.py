@@ -77,7 +77,7 @@ class SaleOrder(models.Model):
     total_cost_price = fields.Float(
         string="Total Cost Price",
         compute="_compute_total_cost_price",
-        store=True,
+        store=False,
         digits=(16, 6),
         readonly=True,
         tracking=True,
@@ -88,12 +88,19 @@ class SaleOrder(models.Model):
         for order in self:
             total = 0.0
             for line in order.order_lines:
-                if line.product_id and line.quantity:
-                    if line.product_id.asset_account_id.currency_id.name == "SL":
-                        total += line.product_id.cost * line.quantity / self.rate
+                product = line.product_id
+                qty = line.quantity
+                if product and qty:
+                    # 1. If product has a BOM
+                    if product.bom_id:
+                        bom_currency = product.bom_id.currency_id.name
+                        if bom_currency == "SL":
+                            total += (product.cost * qty) / order.rate
+                        else:
+                            total += product.cost * qty
                     else:
-                        # If the product's asset account currency is not SL, use its cost directly
-                        total += line.product_id.cost * line.quantity
+                        # 2. If no BOM, assume cost is SL and convert
+                        total += (product.cost * qty) / order.rate
             order.total_cost_price = total
 
     @api.depends("order_lines", "order_lines.product_id")
