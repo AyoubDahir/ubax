@@ -257,8 +257,8 @@ class Product(models.Model):
                 total_converted += converted
 
             # Step 2: Final actual cost per unit
-            if product.stock_quantity > 0:
-                product.actual_cost = round(total_converted, 5)
+
+            product.actual_cost = round(total_converted, 5)
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
