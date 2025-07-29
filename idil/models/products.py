@@ -17,9 +17,9 @@ class Product(models.Model):
     stock_quantity = fields.Float(
         string="Stock Quantity",
         compute="_compute_stock_quantity",
-        store=False,
         digits=(16, 5),
-        help="Computed from product movement history (In - Out).",
+        store=False,  # do NOT store, so it reflects real-time movement
+        help="Quantity in stock, computed from movement history (IN - OUT)",
     )
 
     category_id = fields.Many2one("product.category", string="Product Category")
@@ -221,7 +221,7 @@ class Product(models.Model):
             qty_out = sum(
                 m.quantity for m in product.movement_ids if m.movement_type == "out"
             )
-            product.stock_quantity = round(qty_in - qty_out, 5)
+            product.stock_quantity = round(qty_in + qty_out, 5)
 
     # @api.depends_context("uid")
     # def _compute_actual_cost_from_transaction(self):
