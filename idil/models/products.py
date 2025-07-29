@@ -13,7 +13,15 @@ class Product(models.Model):
 
     name = fields.Char(string="Product Name", required=True)
     internal_reference = fields.Char(string="Internal Reference", required=True)
-    stock_quantity = fields.Float(string="Stock Quantity", default=0.0)
+    # stock_quantity = fields.Float(string="Stock Quantity", default=0.0)
+    stock_quantity = fields.Float(
+        string="Stock Quantity",
+        compute="_compute_stock_quantity",
+        store=False,
+        digits=(16, 5),
+        help="Computed from product movement history (In - Out).",
+    )
+
     category_id = fields.Many2one("product.category", string="Product Category")
     # New field for POS categories
     available_in_pos = fields.Boolean(string="Available in POS", default=True)
@@ -203,6 +211,17 @@ class Product(models.Model):
         store=False,
         help="Actual cost calculated from accounting transactions (DR - CR) / stock_quantity",
     )
+
+    @api.depends("movement_ids.quantity", "movement_ids.movement_type")
+    def _compute_stock_quantity(self):
+        for product in self:
+            qty_in = sum(
+                m.quantity for m in product.movement_ids if m.movement_type == "in"
+            )
+            qty_out = sum(
+                m.quantity for m in product.movement_ids if m.movement_type == "out"
+            )
+            product.stock_quantity = round(qty_in - qty_out, 5)
 
     # @api.depends_context("uid")
     # def _compute_actual_cost_from_transaction(self):
