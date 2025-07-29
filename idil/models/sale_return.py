@@ -208,22 +208,28 @@ class SaleReturn(models.Model):
                     continue  # ✅ Skip lines with zero returned quantity
 
                 product = return_line.product_id
-                discount_quantity = (
-                    (product.discount / 100) * return_line.returned_quantity
-                    if product.is_quantity_discount
-                    else 0.0
+                discount_quantity = float(
+                    (
+                        (product.discount / 100) * return_line.returned_quantity
+                        if product.is_quantity_discount
+                        else 0.0
+                    )
                 )
-                discount_amount = discount_quantity * return_line.price_unit
-                commission_amount = (
-                    (return_line.returned_quantity - discount_quantity)
-                    * product.commission
-                    * return_line.price_unit
+                discount_amount = float(discount_quantity * return_line.price_unit)
+                commission_amount = float(
+                    (
+                        (return_line.returned_quantity - discount_quantity)
+                        * product.commission
+                        * return_line.price_unit
+                    )
                 )
 
-                subtotal = (
-                    (return_line.returned_quantity * return_line.price_unit)
-                    - discount_amount
-                    - commission_amount
+                subtotal = float(
+                    (
+                        (return_line.returned_quantity * return_line.price_unit)
+                        - discount_amount
+                        - commission_amount
+                    )
                 )
 
                 bom_currency = (
@@ -232,10 +238,12 @@ class SaleReturn(models.Model):
                     else product.currency_id
                 )
                 amount_in_bom_currency = product.cost * return_line.returned_quantity
-                product_cost_amount = (
-                    amount_in_bom_currency * self.rate
-                    if bom_currency.name == "USD"
-                    else amount_in_bom_currency
+                product_cost_amount = float(
+                    (
+                        amount_in_bom_currency * self.rate
+                        if bom_currency.name == "USD"
+                        else amount_in_bom_currency
+                    )
                 )
 
                 self.env["idil.transaction_bookingline"].create(
@@ -247,7 +255,7 @@ class SaleReturn(models.Model):
                         "account_number": product.account_cogs_id.id,
                         "transaction_type": "cr",
                         "dr_amount": 0,
-                        "cr_amount": product_cost_amount,
+                        "cr_amount": float(product_cost_amount),
                         "transaction_date": fields.Date.context_today(self),
                     }
                 )
@@ -260,7 +268,7 @@ class SaleReturn(models.Model):
                         "product_id": product.id,
                         "account_number": product.asset_account_id.id,
                         "transaction_type": "dr",
-                        "dr_amount": product_cost_amount,
+                        "dr_amount": float(product_cost_amount),
                         "cr_amount": 0,
                         "transaction_date": fields.Date.context_today(self),
                     }
@@ -275,7 +283,7 @@ class SaleReturn(models.Model):
                         "account_number": return_order.salesperson_id.account_receivable_id.id,
                         "transaction_type": "cr",
                         "dr_amount": 0,
-                        "cr_amount": subtotal,
+                        "cr_amount": float(subtotal),
                         "transaction_date": fields.Date.context_today(self),
                     }
                 )
@@ -288,7 +296,9 @@ class SaleReturn(models.Model):
                         "product_id": product.id,
                         "account_number": product.income_account_id.id,
                         "transaction_type": "dr",
-                        "dr_amount": subtotal + discount_amount + commission_amount,
+                        "dr_amount": float(
+                            subtotal + discount_amount + commission_amount
+                        ),
                         "cr_amount": 0,
                         "transaction_date": fields.Date.context_today(self),
                     }
@@ -304,7 +314,7 @@ class SaleReturn(models.Model):
                             "account_number": product.sales_account_id.id,
                             "transaction_type": "cr",
                             "dr_amount": 0,
-                            "cr_amount": commission_amount,
+                            "cr_amount": float(commission_amount),
                             "transaction_date": fields.Date.context_today(self),
                         }
                     )
@@ -319,7 +329,7 @@ class SaleReturn(models.Model):
                             "account_number": product.sales_discount_id.id,
                             "transaction_type": "cr",
                             "dr_amount": 0,
-                            "cr_amount": discount_amount,
+                            "cr_amount": float(discount_amount),
                             "transaction_date": fields.Date.context_today(self),
                         }
                     )
