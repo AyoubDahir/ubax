@@ -135,7 +135,8 @@
 
                                 <field name="movement_ids">
 
-                                    <tree create="false" delete="false" editable="false">
+                                     
+                                    <tree create="false" delete="false" editable="false" limit="100">
                                         <field name="date" readonly="1"/>
                                         <field name="movement_type" readonly="1"/>
                                         <field name="vendor_id" readonly="1"/>
