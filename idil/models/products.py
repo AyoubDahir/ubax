@@ -221,63 +221,8 @@ class Product(models.Model):
             qty_out = sum(
                 m.quantity for m in product.movement_ids if m.movement_type == "out"
             )
-            product.stock_quantity = round(qty_in + qty_out, 5)
+            product.stock_quantity = round(qty_in + qty_out, 2)
 
-    # @api.depends_context("uid")
-    # def _compute_actual_cost_from_transaction(self):
-    #     """Compute actual cost in USD using each transaction's date-based exchange rate."""
-    #     CurrencyRate = self.env["res.currency.rate"]
-    #     USD = self.env.ref("base.USD", raise_if_not_found=False)
-    #     SL = self.env["res.currency"].search([("name", "=", "SL")], limit=1)
-
-    #     for product in self:
-    #         product.actual_cost = 0.0
-
-    #         if not product.asset_account_id or product.stock_quantity <= 0:
-    #             continue
-
-    #         account_currency = product.asset_account_id.currency_id
-    #         is_sl_currency = account_currency and account_currency.name == "SL"
-
-    #         # Step 1: Fetch transaction lines
-    #         self.env.cr.execute(
-    #             """
-    #             SELECT id, transaction_date, dr_amount, cr_amount
-    #             FROM idil_transaction_bookingline
-    #             WHERE product_id = %s AND account_number = %s
-    #         """,
-    #             (product.id, product.asset_account_id.id),
-    #         )
-    #         transactions = self.env.cr.fetchall()
-
-    #         total_converted = 0.0
-
-    #         for line_id, line_date, dr, cr in transactions:
-    #             value = (dr or 0.0) - (cr or 0.0)
-
-    #             # If SL → convert using rate at line date
-    #             if is_sl_currency and line_date:
-    #                 self.env.cr.execute(
-    #                     """
-    #                     SELECT rate
-    #                     FROM res_currency_rate
-    #                     WHERE currency_id = %s AND name <= %s AND company_id = %s
-    #                     ORDER BY name DESC
-    #                     LIMIT 1
-    #                 """,
-    #                     (SL.id, line_date, self.env.company.id),
-    #                 )
-    #                 rate_result = self.env.cr.fetchone()
-    #                 rate = rate_result[0] if rate_result else 0.0
-    #                 converted = value / rate if rate else 0.0
-    #             else:
-    #                 converted = value  # USD or no rate
-
-    #             total_converted += converted
-
-    #         # Step 2: Final actual cost per unit
-
-    #         product.actual_cost = round(total_converted, 5)
     @api.depends_context("uid")
     def _compute_actual_cost_from_transaction(self):
         """Compute actual cost in USD using each transaction's date-based exchange rate."""
@@ -288,7 +233,7 @@ class Product(models.Model):
         for product in self:
             product.actual_cost = 0.0
 
-            if not product.asset_account_id:
+            if not product.asset_account_id or product.stock_quantity <= 0:
                 continue
 
             account_currency = product.asset_account_id.currency_id
@@ -300,7 +245,7 @@ class Product(models.Model):
                 SELECT id, transaction_date, dr_amount, cr_amount
                 FROM idil_transaction_bookingline
                 WHERE product_id = %s AND account_number = %s
-                """,
+            """,
                 (product.id, product.asset_account_id.id),
             )
             transactions = self.env.cr.fetchall()
@@ -319,7 +264,7 @@ class Product(models.Model):
                         WHERE currency_id = %s AND name <= %s AND company_id = %s
                         ORDER BY name DESC
                         LIMIT 1
-                        """,
+                    """,
                         (SL.id, line_date, self.env.company.id),
                     )
                     rate_result = self.env.cr.fetchone()
@@ -331,10 +276,8 @@ class Product(models.Model):
                 total_converted += converted
 
             # Step 2: Final actual cost per unit
-            if product.stock_quantity > 0:
-                product.actual_cost = round(total_converted, 5)
-            else:
-                product.actual_cost = round(total_converted, 5)  # Store total cost only
+
+            product.actual_cost = round(total_converted, 5)
 
     @api.depends("rate_currency_id")
     def _compute_exchange_rate(self):
