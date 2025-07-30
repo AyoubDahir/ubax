@@ -17,6 +17,11 @@
                 <field name="name" />
                 <field name="salesperson_id"/>
                 <field name="sale_order_id"/>
+                <field name="total_returned_qty" sum="total" readonly="1"/>
+                <field name="total_subtotal" sum="total" readonly="1"/>
+                <field name="total_commission_amount" sum="total" readonly="1"/>
+                <field name="total_discount_amount" sum="total" readonly="1"/>
+    
                 <field name="return_date"/>
                 <field name="state"/>
             </tree>
