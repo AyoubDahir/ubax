@@ -2,6 +2,9 @@ from odoo import models, fields, api
 from odoo.exceptions import UserError, ValidationError
 import logging
 
+
+import logging
+
 _logger = logging.getLogger(__name__)
 
 
@@ -56,6 +59,89 @@ class SaleReturn(models.Model):
         readonly=True,
         tracking=True,
     )
+    total_returned_qty = fields.Float(
+        string="Total Returned Quantity",
+        compute="_compute_totals",
+        store=False,
+        tracking=True,
+    )
+
+    total_subtotal = fields.Float(
+        string="Total Amount",
+        compute="_compute_totals",
+        store=False,
+        tracking=True,
+    )
+    total_discount_amount = fields.Float(
+        string="Total Discount Amount",
+        compute="_compute_totals",
+        store=False,
+        tracking=True,
+    )
+
+    total_commission_amount = fields.Float(
+        string="Total Commission Amount",
+        compute="_compute_totals",
+        store=False,
+        tracking=True,
+    )
+
+    @api.depends(
+        "return_lines.returned_quantity",
+        "return_lines.price_unit",
+        "return_lines.product_id.discount",
+        "return_lines.product_id.commission",
+        "return_lines.product_id.is_quantity_discount",
+    )
+    def _compute_totals(self):
+        for rec in self:
+            total_qty = 0.0
+            total_subtotal = 0.0
+            total_discount = 0.0
+            total_commission = 0.0
+
+            _logger.debug(
+                "Computing totals for return %s with %s lines",
+                rec.name,
+                len(rec.return_lines),
+            )
+
+            for line in rec.return_lines:
+                qty = line.returned_quantity
+                price = line.price_unit
+                product = line.product_id
+
+                _logger.debug(
+                    "Line product: %s | qty: %s | price: %s",
+                    product.name if product else None,
+                    qty,
+                    price,
+                )
+
+                if not product or qty <= 0:
+                    continue
+
+                discount_qty = (
+                    (product.discount / 100.0) * qty
+                    if product.is_quantity_discount
+                    else 0.0
+                )
+                discount_amount = discount_qty * price
+
+                commission_base_qty = qty - discount_qty
+                commission_amount = commission_base_qty * product.commission * price
+
+                subtotal = qty * price
+
+                total_qty += qty
+                total_subtotal += subtotal
+                total_discount += discount_amount
+                total_commission += commission_amount
+
+            rec.total_returned_qty = total_qty
+            rec.total_subtotal = total_subtotal
+            rec.total_discount_amount = total_discount
+            rec.total_commission_amount = total_commission
 
     @api.depends("currency_id")
     def _compute_exchange_rate(self):
