@@ -596,17 +596,17 @@ class SaleOrder(models.Model):
                         # 🔒 Step 3: Validate return quantity before updating
 
                         # Handle stock adjustment
-                        if qty_diff > 0:
-                            # Increase in quantity, check availability
-                            if product.stock_quantity < qty_diff:
-                                raise ValidationError(
-                                    f"Insufficient stock for product '{product.name}'. "
-                                    f"Available: {product.stock_quantity}, Needed: {qty_diff}"
-                                )
-                            product.stock_quantity -= qty_diff
-                        elif qty_diff < 0:
-                            # Decrease in quantity, return stock
-                            product.stock_quantity += abs(qty_diff)
+                        # if qty_diff > 0:
+                        #     # Increase in quantity, check availability
+                        #     if product.stock_quantity < qty_diff:
+                        #         raise ValidationError(
+                        #             f"Insufficient stock for product '{product.name}'. "
+                        #             f"Available: {product.stock_quantity}, Needed: {qty_diff}"
+                        #         )
+                        #     product.stock_quantity -= qty_diff
+                        # elif qty_diff < 0:
+                        #     # Decrease in quantity, return stock
+                        #     product.stock_quantity += abs(qty_diff)
 
                     res = super(SaleOrder, self).write(vals)
                     # Remove old movements
@@ -705,9 +705,9 @@ class SaleOrder(models.Model):
 
                 for order in self:
                     # Revert stock, delete related product movements, bookings, etc.
-                    for line in order.order_lines:
-                        product = line.product_id
-                        product.stock_quantity += line.quantity
+                    # for line in order.order_lines:
+                    #     product = line.product_id
+                    #     product.stock_quantity += line.quantity
 
                     movements = self.env["idil.product.movement"].search(
                         [("sale_order_id", "=", order.id)]
@@ -1005,4 +1005,4 @@ class SaleOrderLine(models.Model):
                     product.name, product.stock_quantity, abs(quantity_diff)
                 )
             )
-        product.stock_quantity = new_stock_quantity
+        # product.stock_quantity = new_stock_quantity

@@ -160,7 +160,7 @@ class ProductOpeningBalance(models.Model):
                         )
 
                     # 1. Update product stock
-                    product.stock_quantity = line.stock_quantity
+                    # product.stock_quantity = line.stock_quantity
 
                     # 2. Determine amount in BOM currency
                     amount_in_bom_currency = line.stock_quantity * line.cost_price
@@ -472,7 +472,7 @@ class ProductOpeningBalance(models.Model):
 
                         # === NEW LINE ===
                         if is_new_line:
-                            product.stock_quantity += line.stock_quantity
+                            # product.stock_quantity += line.stock_quantity
                             product.actual_cost += amount_for_product_account
 
                             trx = TransactionBooking.create(
@@ -573,7 +573,7 @@ class ProductOpeningBalance(models.Model):
                                 )
 
                             qty_diff = line.stock_quantity - old_info["qty"]
-                            product.stock_quantity += qty_diff
+                            # product.stock_quantity += qty_diff
                             product.actual_cost += amount_for_product_account
 
                             movement = ProductMovement.search(
@@ -655,15 +655,15 @@ class ProductOpeningBalance(models.Model):
                                 "Please remove those movements before deleting this record."
                             )
 
-                    for line in record.line_ids:
-                        # Only adjust stock if the opening balance is confirmed
-                        if record.state != "draft":
-                            line.product_id.write(
-                                {
-                                    "stock_quantity": line.product_id.stock_quantity
-                                    - line.stock_quantity
-                                }
-                            )
+                    # for line in record.line_ids:
+                    #     # Only adjust stock if the opening balance is confirmed
+                    #     if record.state != "draft":
+                    #         line.product_id.write(
+                    #             {
+                    #                 "stock_quantity": line.product_id.stock_quantity
+                    #                 - line.stock_quantity
+                    #             }
+                    #         )
 
                     # 2. Delete related booking lines and bookings
                     trx_to_delete = TransactionBooking.search(
@@ -746,9 +746,9 @@ class ProductOpeningBalanceLine(models.Model):
                         )
 
                     # 2. Reduce product stock
-                    product.write(
-                        {"stock_quantity": product.stock_quantity - qty_to_remove}
-                    )
+                    # product.write(
+                    #     {"stock_quantity": product.stock_quantity - qty_to_remove}
+                    # )
 
                     # 3. Delete related movement
                     movement = self.env["idil.product.movement"].search(

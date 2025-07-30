@@ -467,7 +467,7 @@ class SaleReturn(models.Model):
                     }
                 )
 
-                product.stock_quantity += return_line.returned_quantity
+                # product.stock_quantity += return_line.returned_quantity
 
             sales_receipt = self.env["idil.sales.receipt"].search(
                 [("sales_order_id", "=", return_order.sale_order_id.id)], limit=1
@@ -947,12 +947,12 @@ class SaleReturn(models.Model):
                         )
 
                     # === 1. Reverse stock quantity ===
-                    for line in record.return_lines:
-                        if line.product_id and line.returned_quantity:
-                            new_qty = (
-                                line.product_id.stock_quantity - line.returned_quantity
-                            )
-                            line.product_id.sudo().write({"stock_quantity": new_qty})
+                    # for line in record.return_lines:
+                    #     if line.product_id and line.returned_quantity:
+                    #         new_qty = (
+                    #             line.product_id.stock_quantity - line.returned_quantity
+                    #         )
+                    #         line.product_id.sudo().write({"stock_quantity": new_qty})
 
                     # === 2. Adjust sales receipt ===
                     receipt = self.env["idil.sales.receipt"].search(

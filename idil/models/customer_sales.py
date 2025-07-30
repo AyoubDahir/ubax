@@ -513,12 +513,12 @@ class CustomerSaleOrder(models.Model):
                                     f"Not enough stock for product '{product.name}'.\n"
                                     f"Available: {product.stock_quantity}, Required additional: {diff}"
                                 )
-                            product.stock_quantity -= diff
+                            # product.stock_quantity -= diff
 
                         # If decrease
                         elif new_qty < old_qty:
                             diff = old_qty - new_qty
-                            product.stock_quantity += diff
+                            # product.stock_quantity += diff
 
                 # === Perform the write ===
                 res = super(CustomerSaleOrder, self).write(vals)
@@ -666,7 +666,7 @@ class CustomerSaleOrder(models.Model):
                         product = line.product_id
                         if product:
                             # 1. Restore the stock
-                            product.stock_quantity += line.quantity
+                            # product.stock_quantity += line.quantity
 
                             # 2. Delete related product movement
                             self.env["idil.product.movement"].search(
@@ -801,7 +801,7 @@ class CustomerSaleOrderLine(models.Model):
                     product.name, product.stock_quantity, abs(quantity)
                 )
             )
-        product.stock_quantity = new_stock_quantity
+        # product.stock_quantity = new_stock_quantity
 
     @api.constrains("quantity", "price_unit")
     def _check_quantity_and_price(self):

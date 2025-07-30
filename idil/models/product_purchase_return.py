@@ -62,9 +62,9 @@ class ProductPurchaseReturn(models.Model):
                                 f"Cannot return {line.return_qty} of {product.name}. Only {product.stock_quantity} in stock."
                             )
 
-                        product.write(
-                            {"stock_quantity": product.stock_quantity - line.return_qty}
-                        )
+                        # product.write(
+                        #     {"stock_quantity": product.stock_quantity - line.return_qty}
+                        # )
 
                         self.env["idil.product.movement"].create(
                             {
@@ -256,9 +256,9 @@ class ProductPurchaseReturn(models.Model):
                     for line in return_obj.return_lines:
                         # ✅ 1. Restore stock
                         product = line.product_id
-                        product.write(
-                            {"stock_quantity": product.stock_quantity + line.return_qty}
-                        )
+                        # product.write(
+                        #     {"stock_quantity": product.stock_quantity + line.return_qty}
+                        # )
 
                         # ✅ 2. Remove product movement
                         self.env["idil.product.movement"].search(
@@ -357,16 +357,16 @@ class ProductPurchaseReturn(models.Model):
                         product = line.product_id
 
                         # Adjust stock
-                        if qty_diff < 0:
-                            # Reduced return → Return extra stock back
-                            product.stock_quantity += abs(qty_diff)
-                        else:
-                            # Increased return → Remove extra stock
-                            if product.stock_quantity < qty_diff:
-                                raise ValidationError(
-                                    f"Insufficient stock for {product.name}. Need {qty_diff}, but only {product.stock_quantity} available."
-                                )
-                            product.stock_quantity -= qty_diff
+                        # if qty_diff < 0:
+                        #     # Reduced return → Return extra stock back
+                        #     product.stock_quantity += abs(qty_diff)
+                        # else:
+                        #     # Increased return → Remove extra stock
+                        #     if product.stock_quantity < qty_diff:
+                        #         raise ValidationError(
+                        #             f"Insufficient stock for {product.name}. Need {qty_diff}, but only {product.stock_quantity} available."
+                        #         )
+                        #     product.stock_quantity -= qty_diff
 
                         # Update movement
                         movement = self.env["idil.product.movement"].search(

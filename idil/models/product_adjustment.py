@@ -113,6 +113,17 @@ class ProductAdjustment(models.Model):
         try:
             with self.env.cr.savepoint():
                 for rec in self:
+                    # 🔒 Check if exchange rate is set and valid
+                    if rec.currency_id.name == "SL" and (
+                        not rec.rate or rec.rate == 0.0
+                    ):
+                        raise ValidationError(
+                            _(
+                                "Exchange rate for USD is missing or zero. "
+                                "Please insert the correct rate for today before proceeding."
+                            )
+                        )
+
                     # Enforce: new_quantity must be LESS than previous_quantity
                     if rec.new_quantity > rec.previous_quantity:
                         raise UserError(
@@ -139,9 +150,9 @@ class ProductAdjustment(models.Model):
                         )
 
                     # Update product stock quantity
-                    rec.product_id.stock_quantity = (
-                        rec.product_id.stock_quantity - difference
-                    )
+                    # rec.product_id.stock_quantity = (
+                    #     rec.product_id.stock_quantity - difference
+                    # )
                     # Update stock
 
                     # Validate currency match between asset and adjustment accounts
@@ -259,7 +270,7 @@ class ProductAdjustment(models.Model):
                         )
 
                     # Update product stock
-                    product.stock_quantity = new_stock_qty
+                    # product.stock_quantity = new_stock_qty
 
                     # Recalculate amount
                     amount = abs(new_qty) * rec.cost_price * rec.rate
@@ -399,7 +410,7 @@ class ProductAdjustment(models.Model):
                         restored_qty = abs(
                             movement.quantity
                         )  # movement.quantity is negative
-                        rec.product_id.stock_quantity += restored_qty
+                        # rec.product_id.stock_quantity += restored_qty
 
                     # Step 2: Delete movement record(s)
                     if movement:

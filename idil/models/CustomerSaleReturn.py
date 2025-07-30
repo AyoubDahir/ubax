@@ -156,7 +156,7 @@ class CustomerSaleReturn(models.Model):
 
                         # 1. Stock update
                         product = line.product_id
-                        product.stock_quantity += line.return_quantity
+                        # product.stock_quantity += line.return_quantity
 
                         # 2. Stock movement (in)
                         self.env["idil.product.movement"].create(
@@ -329,8 +329,8 @@ class CustomerSaleReturn(models.Model):
                     # Step 1: Reverse old effects
                     for line in rec.return_lines:
                         # Restore stock
-                        if line.return_quantity > 0:
-                            line.product_id.stock_quantity -= line.return_quantity
+                        # if line.return_quantity > 0:
+                        #     line.product_id.stock_quantity -= line.return_quantity
 
                         # Delete product movements
                         movements = self.env["idil.product.movement"].search(
@@ -431,8 +431,8 @@ class CustomerSaleReturn(models.Model):
 
                         # Step 2: Reverse each return line's stock, movement, and transaction
                         for line in rec.return_lines:
-                            if line.return_quantity > 0:
-                                line.product_id.stock_quantity -= line.return_quantity
+                            # if line.return_quantity > 0:
+                            #     line.product_id.stock_quantity -= line.return_quantity
 
                             self.env["idil.product.movement"].search(
                                 [

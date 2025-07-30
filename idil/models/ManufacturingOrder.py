@@ -571,7 +571,7 @@ class ManufacturingOrder(models.Model):
                     # Write both cost and actual_cost
                     product.write(
                         {
-                            "stock_quantity": total_qty,
+                            # "stock_quantity": total_qty,
                             "actual_cost": new_average_cost,
                         }
                     )
@@ -656,13 +656,13 @@ class ManufacturingOrder(models.Model):
                     res = super(ManufacturingOrder, order).write(vals)
 
                     # --- 2. Adjust Product Stock ---
-                    if "product_qty" in vals or "product_id" in vals:
-                        diff = order.product_qty - old_product_qty
-                        if diff != 0:
-                            order.product_id.stock_quantity += diff
-                            order.product_id.write(
-                                {"stock_quantity": order.product_id.stock_quantity}
-                            )
+                    # if "product_qty" in vals or "product_id" in vals:
+                    #     diff = order.product_qty - old_product_qty
+                    #     if diff != 0:
+                    #         order.product_id.stock_quantity += diff
+                    #         order.product_id.write(
+                    #             {"stock_quantity": order.product_id.stock_quantity}
+                    #         )
 
                     # --- 3. Adjust Item Stock and Movement ---
                     for line in order.manufacturing_order_line_ids:
@@ -1003,10 +1003,10 @@ class ManufacturingOrder(models.Model):
                                 )
 
                     # Step 3: Reduce finished product stock
-                    order.product_id.stock_quantity -= order.product_qty
-                    order.product_id.with_context().write(
-                        {"stock_quantity": order.product_id.stock_quantity}
-                    )
+                    # order.product_id.stock_quantity -= order.product_qty
+                    # order.product_id.with_context().write(
+                    #     {"stock_quantity": order.product_id.stock_quantity}
+                    # )
 
                     # Step 4: Delete item movement records
                     for line in order.manufacturing_order_line_ids:
