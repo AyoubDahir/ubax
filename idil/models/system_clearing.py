@@ -75,7 +75,10 @@ class SystemClearingWizard(models.TransientModel):
         Delete FROM public.idil_product_movement;
         Delete FROM public.idil_item_movement;
         Delete from my_product_opening_balance;
-        Delete from my_product_opening_balance_line;
+        Delete from my_product_opening_balance_line;     
+        Delete from idil_staff_sales;
+        Delete from idil_staff_sales_line;
+
         """
 
         self.env.cr.execute(query)

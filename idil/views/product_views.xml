@@ -140,12 +140,13 @@
                                         <field name="date" readonly="1"/>
                                         <field name="movement_type" readonly="1"/>
                                         <field name="vendor_id" readonly="1"/>
-                                        
                                         <field name="quantity" readonly="1" sum="Total"/>
                                         <field name="source_document" readonly="1"/>
                                         <field name="sales_person_id" readonly="1"/>
                                         <field name="customer_id" readonly="1"/>
-                                         <field name="destination" readonly="1"/>
+                                        <field name="destination" readonly="1"/>
+                                        <field name="employee_id" readonly="1"/>
+                                         
 
 
                                     </tree>

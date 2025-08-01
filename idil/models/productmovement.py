@@ -66,3 +66,8 @@ class ProductMovement(models.Model):
         ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
         index=True,
     )
+
+    employee_id = fields.Many2one("idil.employee", string="Employee", tracking=True)
+    staff_sales_id = fields.Many2one(
+        "idil.staff.sales", string="Staff Sales", help="Linked staff sales transaction"
+    )

@@ -91,6 +91,13 @@
                     <field name="description">Product Adjustmentt</field>
         </record>
 
-        <!-- Add more records as needed -->
+        <record id="trx_source_staff_sales" model="idil.transaction.source">
+            <field name="name">Staff Sales</field>
+            <field name="description">Staff Sales</field>
+        </record>
+
+
+   
+   
     </data>
 </odoo>

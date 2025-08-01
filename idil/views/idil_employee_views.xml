@@ -91,6 +91,8 @@
                                     <field name="currency_id"/>
                                     <field name="account_id"/>
                                     <field name="commission"/>
+                                     <field name="account_receivable_id"/>
+                                    
                                 </group>
                             </page>
 

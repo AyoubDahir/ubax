@@ -46,14 +46,25 @@
                             </group>
                             <group string="Salary Components">
                                 <group>
-                                    <field name="basic_salary" readonly="1"/>
-                                    <field name="bonus" readonly="1"/>
+                                    <group>
+                                    
+                                        <field name="number_of_days"  />
+                                        <field name="basic_salary" readonly="1"/>
+                                        <field name="bonus"/>
+                                        <field name="salary_by_days" readonly="1"/>
+                                    </group>
+                                    <group>
+                                        <field name="total_earnings" readonly="1"/>
+                                    </group>     
                                 </group>
                                 <group>
                                     <field name="deductions"/>
                                     <field name="advance_deduction" readonly="1"/>
+                                    <field name="total_pending_sales" readonly="1" class="oe_highlight"/>
+
                                 </group>
                             </group>
+                            
                             <group string="Net Salary">
                                 <field name="total_salary" readonly="1" class="oe_highlight"/>
                             </group>
@@ -83,6 +94,17 @@
                                     <field name="advance_amount" sum="total"/>
                                     <field name="state"/>
                                     <field name="remarks"/>
+                                </tree>
+                            </field>
+                        </page>
+                         <page string="Pending Staff Sales">
+                            <field name="pending_sales_ids" widget="one2many_list" readonly="1">
+                                <tree>
+                                    <field name="name"/>
+                                    <field name="sales_date"/>
+                                    <field name="total_amount" sum="total"/>
+                                    <field name="payment_status"/>
+                                    <field name="state"/>
                                 </tree>
                             </field>
                         </page>

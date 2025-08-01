@@ -104,6 +104,13 @@
             <field name="number_increment">1</field>
         </record>
 
+        <record id="seq_staff_sales" model="ir.sequence">
+            <field name="name">Staff Sales</field>
+            <field name="code">idil.staff.sales</field>
+            <field name="prefix">SS/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
  
     </data>
 </odoo>

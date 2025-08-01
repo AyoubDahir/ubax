@@ -204,6 +204,19 @@ class TransactionBooking(models.Model):
         index=True,
     )
 
+    employee_id = fields.Many2one("idil.employee", string="Employee", tracking=True)
+    staff_sales_id = fields.Many2one(
+        "idil.staff.sales", string="Staff Sales", help="Linked staff sales transaction"
+    )
+    employee_salary_advance_id = fields.Many2one(
+        "idil.employee.salary.advance", string="Advance Ref"
+    )
+    employee_salary_id = fields.Many2one(
+        "idil.employee.salary",
+        string="Employee Salary Reference",
+        ondelete="set null",
+    )
+
     @api.constrains("amount_paid")
     def _check_amount_paid(self):
         if self.env.context.get("skip_validations"):
@@ -507,6 +520,19 @@ class TransactionBookingline(models.Model):
         string="Product Opening Balance",
         ondelete="cascade",  # ✅ auto-delete booking when opening balance is deleted
         index=True,
+    )
+
+    employee_id = fields.Many2one("idil.employee", string="Employee", tracking=True)
+    staff_sales_id = fields.Many2one(
+        "idil.staff.sales", string="Staff Sales", help="Linked staff sales transaction"
+    )
+    employee_salary_advance_id = fields.Many2one(
+        "idil.employee.salary.advance", string="Advance Ref"
+    )
+    employee_salary_id = fields.Many2one(
+        "idil.employee.salary",
+        string="Employee Salary Reference",
+        ondelete="set null",
     )
 
     @api.depends("account_number")

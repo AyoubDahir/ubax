@@ -1,0 +1,65 @@
+<odoo>
+    <record id="view_tree_idil_staff_sales" model="ir.ui.view">
+        <field name="name">idil.staff.sales.tree</field>
+        <field name="model">idil.staff.sales</field>
+        <field name="arch" type="xml">
+            <tree string="Staff Sales">
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="sales_date"/>
+                <field name="total_amount"/>
+                <field name="payment_status"/>
+                <field name="state"/>
+
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_form_idil_staff_sales" model="ir.ui.view">
+        <field name="name">idil.staff.sales.form</field>
+        <field name="model">idil.staff.sales</field>
+        <field name="arch" type="xml">
+        
+            <form string="Staff Sales">
+                <header>
+                    <button name="action_approve"
+                            type="object"
+                            string="Approve"
+                            class="btn-primary"
+                        />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,done"/>
+                </header>
+                <sheet> 
+                    <group>
+                        <field name="name"/>
+                        <field name="employee_id"/>
+                        <field name="sales_date"/>
+                        <field name="currency_id" readonly="1"/>
+                        <field name="rate" readonly="1"/>
+                        <field name="payment_status" readonly="1"/>
+                        <field name="state" readonly="1"/>
+                    </group>
+                    <field name="line_ids">
+                        <tree editable="bottom">
+                            <field name="product_id"/>
+                            <field name="quantity"/>
+                            <field name="price_unit" readonly="1"/>
+                            <field name="total" readonly="1"/>
+                        </tree>
+                    </field>
+                    <group>
+                        <field name="total_amount" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_idil_staff_sales" model="ir.actions.act_window">
+        <field name="name">Staff Sales</field>
+        <field name="res_model">idil.staff.sales</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{}</field>
+    </record>
+
+</odoo>
