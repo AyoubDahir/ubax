@@ -92,6 +92,34 @@ class CustomerSaleOrder(models.Model):
         compute="_compute_net_balance",
         store=False,
     )
+    total_cost_price = fields.Float(
+        string="Total Cost Price",
+        compute="_compute_total_cost_price",
+        store=False,
+        digits=(16, 6),
+        readonly=True,
+        tracking=True,
+    )
+
+    @api.depends("order_lines", "order_lines.product_id", "order_lines.quantity")
+    def _compute_total_cost_price(self):
+        for order in self:
+            total = 0.0
+            for line in order.order_lines:
+                product = line.product_id
+                qty = line.quantity
+                if product and qty:
+                    # 1. If product has a BOM
+                    if product.bom_id:
+                        bom_currency = product.bom_id.currency_id.name
+                        if bom_currency == "SL":
+                            total += (product.cost * qty) / order.rate
+                        else:
+                            total += product.cost * qty
+                    else:
+                        # 2. If no BOM, assume cost is SL and convert
+                        total += (product.cost * qty) / order.rate
+            order.total_cost_price = total
 
     @api.depends(
         "balance_due",
