@@ -471,11 +471,31 @@ class IdilStaffSalesLine(models.Model):
     quantity = fields.Float(string="Quantity", required=True, default=1.0)
     price_unit = fields.Float(
         string="Unit Price",
-        related="product_id.sale_price",
-        readonly=True,
-        store=True,  # ✅ Add this
+        required=True,
+        digits=(16, 5),
     )
+
     total = fields.Float(string="Total", compute="_compute_total", store=True)
+
+    stock_available = fields.Float(
+        string="Available Stock",
+        compute="_compute_stock_available",
+        store=False,
+        readonly=True,
+    )
+
+    @api.onchange("product_id")
+    def _onchange_product_id_set_price(self):
+        for line in self:
+            if line.product_id:
+                line.price_unit = line.product_id.sale_price
+
+    @api.depends("product_id")
+    def _compute_stock_available(self):
+        for line in self:
+            line.stock_available = (
+                line.product_id.stock_quantity if line.product_id else 0.0
+            )
 
     @api.depends("quantity", "price_unit")
     def _compute_total(self):
