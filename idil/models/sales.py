@@ -364,6 +364,9 @@ class SaleOrder(models.Model):
                     )
 
                     total_debit = 0
+                    self.env[
+                        "idil.salesperson.order.summary"
+                    ].create_summary_from_order(order)
                     # For each order line, create a booking line entry for debit
                     for line in order.order_lines:
                         product = line.product_id

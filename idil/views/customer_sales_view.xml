@@ -12,12 +12,13 @@
                 
                 <field name="order_date"/>
                  <field name="payment_method"/>
-                
+                <field name="total_cost_price" sum="total"/>
                 <field name="order_total" sum="total"/>
                 <field name="total_paid" sum="total"/>
                 <field name="balance_due" sum="total"/>
                 <field name="total_return_amount" sum="total"/>
                 <field name="net_balance" sum="total"/>
+                
                 
                 
                 

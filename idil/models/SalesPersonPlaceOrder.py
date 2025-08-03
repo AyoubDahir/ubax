@@ -45,7 +45,7 @@ class SalespersonOrder(models.Model):
 
         order = super(SalespersonOrder, self).create(vals)
         # Create summary entries after the order is created
-        self.env["idil.salesperson.order.summary"].create_summary_from_order(order)
+
         return order
 
     def write(self, vals):
@@ -107,16 +107,20 @@ class SalespersonOrderSummary(models.Model):
     product_name = fields.Char(string="Product Name", required=True)
     quantity = fields.Float(string="Quantity", required=True)
     order_date = fields.Datetime(string="Order Date", required=True)
+    sale_order_id = fields.Many2one(
+        "idil.sale.order", string="Related Sale Order", ondelete="cascade"
+    )
 
     @api.model
     def create_summary_from_order(self, order):
         for line in order.order_lines:
             self.create(
                 {
-                    "salesperson_name": order.salesperson_id.name,
+                    "salesperson_name": order.sales_person_id.name,
                     "product_name": line.product_id.name,
                     "quantity": line.quantity,
                     "order_date": order.order_date,
+                    "sale_order_id": order.id,  # ✅ Add this
                 }
             )
 
@@ -135,9 +139,7 @@ class SalespersonOrderSummary(models.Model):
     @api.model
     def delete_summary_from_order(self, order):
         # Logic to delete summary entries corresponding to the order
-        self.search(
-            [
-                ("salesperson_name", "=", order.salesperson_id.name),
-                ("order_date", "=", order.order_date),
-            ]
+        # Remove related summary lines
+        self.env["idil.salesperson.order.summary"].search(
+            [("sale_order_id", "=", order.id)]
         ).unlink()
