@@ -110,6 +110,7 @@
         "views/idil_employee_sales_view.xml",
         "views/product_opening_balance_views.xml",
         "views/product_purchase_return.xml",
+        "views/customer_place_order.xml",
         "views/system_clearing_wizard_view.xml",
         "views/customer_sales_report_views.xml",
         "views/menu_hr.xml",

@@ -101,6 +101,50 @@ class CustomerSaleOrder(models.Model):
         tracking=True,
     )
 
+    @api.onchange("customer_id")
+    def _onchange_customer_id(self):
+        """
+        Automatically fill order lines if the customer has a draft place order.
+        """
+        if self.customer_id:
+            # Clear existing order lines first
+            self.order_lines = [(5, 0, 0)]  # Remove all existing lines
+
+            # Search for an existing draft place order for this customer
+            draft_order = self.env["idil.customer.place.order"].search(
+                [("customer_id", "=", self.customer_id.id), ("state", "=", "draft")],
+                limit=1,
+            )
+
+            if draft_order:
+                # If a draft order is found, copy its order lines to the current sales order
+                order_line_vals = []
+                for line in draft_order.order_lines:
+                    order_line_vals.append(
+                        (
+                            0,
+                            0,
+                            {
+                                "product_id": line.product_id.id,
+                                "quantity": line.quantity,
+                                "price_unit": line.product_id.sale_price,  # Get price from product model
+                            },
+                        )
+                    )
+                # Assign the lines to the current order
+                self.order_lines = order_line_vals
+                _logger.info(
+                    f"Draft order lines populated for customer {self.customer_id.name}."
+                )
+            else:
+                # If no draft order is found, prompt user to place a new order
+                _logger.info(
+                    f"No draft order found for customer {self.customer_id.name}. Please place a new order."
+                )
+                raise UserError(
+                    "This customer does not have any draft orders. Please create a new order."
+                )
+
     @api.depends("order_lines", "order_lines.product_id", "order_lines.quantity")
     def _compute_total_cost_price(self):
         for order in self:

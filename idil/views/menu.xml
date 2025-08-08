@@ -239,29 +239,35 @@
                                 parent="menu_sales"
                                 sequence="2"/>
 
+                                  <menuitem id="menu_customer_place_order" 
+                                        name="Customer Place Orders" 
+                                        parent="menu_customer_Operations" 
+                                        action="action_customer_place_order" 
+                                        sequence="1"/>
+
                                 <menuitem id="menu_cusotmer_sales_orders"
                                         name="Customer Orders"
                                         parent="menu_customer_Operations"
-                                        sequence="1"
+                                        sequence="2"
                                         action="action_customer_idsale_order"/>
 
                                 <menuitem id="menu_customer_sale_return"
                                         name="Customer Sale Returns"
                                         parent="menu_customer_Operations"
                                         action="action_customer_sale_return"
-                                        sequence="2"/>   
+                                        sequence="3"/>   
 
                                 <menuitem id="menu_idil_customers_registration"
                                         name="Customer Operations"
                                         parent="menu_customer_Operations"
                                         action="action_idil_customer"   
-                                        sequence="3"/>
+                                        sequence="4"/>
                                         
                                 <menuitem id="menu_action_customer_type"
                                         name="Customer Type"
                                         parent="menu_customer_Operations"
                                         action="action_customer_type"
-                                        sequence="4"/>
+                                        sequence="5"/>
 
 
                         <menuitem id="menu_general_Operations"
@@ -491,7 +497,7 @@
                 parent="OtherReports"
                 sequence="10"
                 action="action_sales_summary_with_saelsperosn_report_wizard"/>
-     
+
 
 
    <menuitem id="menu_customer_sales_report_root"

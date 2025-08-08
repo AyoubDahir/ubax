@@ -58,6 +58,7 @@ from . import customer_opening_balance
 from . import sales_receipt_bulk_payment
 from . import vendor_opening_balance
 from . import idil_employee_sales
+from . import customerplaceorder
 from . import product_opening_balance
 from . import product_purchase_return
 from . import system_clearing
