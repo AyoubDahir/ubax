@@ -111,6 +111,13 @@
             <field name="padding">4</field>
             <field name="company_id" eval="False"/>
         </record>
- 
+        <record id="seq_customer_place_order" model="ir.sequence">
+            <field name="name">Customer Place Order</field>
+            <field name="code">idil.customer.place.order.sequence</field>
+            <field name="prefix">ORD-</field>
+            <field name="padding">5</field>
+            <field name="implementation">standard</field>
+        </record>
+
     </data>
 </odoo>

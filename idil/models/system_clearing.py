@@ -78,6 +78,9 @@ class SystemClearingWizard(models.TransientModel):
         Delete from my_product_opening_balance_line;     
         Delete from idil_staff_sales;
         Delete from idil_staff_sales_line;
+        Delete from idil_customer_place_order_line;
+        Delete from idil_customer_place_order;
+ 
 
         """
 

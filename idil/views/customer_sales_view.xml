@@ -18,11 +18,7 @@
                 <field name="balance_due" sum="total"/>
                 <field name="total_return_amount" sum="total"/>
                 <field name="net_balance" sum="total"/>
-                
-                
-                
-                
-                
+            
 
                 <field name="currency_id"/>
                 <field name="rate"/>
@@ -44,6 +40,8 @@
                             </group>
                             <group>
                                 <field name="customer_id" string="Customer" required="1"/>
+                                <field name="customer_place_order_id" required="1"/>
+                                
                                 <field name="order_date" string="Order Date" required="1"/>
                                 <field name="currency_id" string="Currency" required="1"/>
                                 <field name="payment_method" string="Payment Method" required="1"/>

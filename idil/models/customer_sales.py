@@ -19,6 +19,13 @@ class CustomerSaleOrder(models.Model):
     customer_id = fields.Many2one(
         "idil.customer.registration", string="Customer", required=True
     )
+    # Add the field to link to the Customer Place Order
+
+    customer_place_order_id = fields.Many2one(
+        "idil.customer.place.order",
+        string="Customer Place Order",
+        domain="[('customer_id', '=', customer_id), ('state', '=', 'draft')]",
+    )
 
     order_date = fields.Datetime(string="Order Date", default=fields.Datetime.now)
     order_lines = fields.One2many(
@@ -101,49 +108,33 @@ class CustomerSaleOrder(models.Model):
         tracking=True,
     )
 
-    @api.onchange("customer_id")
-    def _onchange_customer_id(self):
-        """
-        Automatically fill order lines if the customer has a draft place order.
-        """
-        if self.customer_id:
+    # Automatically populate order lines from the place order when customer_place_order_id is selected
+    @api.onchange("customer_place_order_id")
+    def _onchange_customer_place_order(self):
+        """Automatically populate order lines based on the selected Customer Place Order."""
+        if self.customer_place_order_id:
             # Clear existing order lines first
             self.order_lines = [(5, 0, 0)]  # Remove all existing lines
 
-            # Search for an existing draft place order for this customer
-            draft_order = self.env["idil.customer.place.order"].search(
-                [("customer_id", "=", self.customer_id.id), ("state", "=", "draft")],
-                limit=1,
-            )
-
-            if draft_order:
-                # If a draft order is found, copy its order lines to the current sales order
-                order_line_vals = []
-                for line in draft_order.order_lines:
-                    order_line_vals.append(
-                        (
-                            0,
-                            0,
-                            {
-                                "product_id": line.product_id.id,
-                                "quantity": line.quantity,
-                                "price_unit": line.product_id.sale_price,  # Get price from product model
-                            },
-                        )
+            # Copy order lines from the selected CustomerPlaceOrder
+            order_line_vals = []
+            for line in self.customer_place_order_id.order_lines:
+                order_line_vals.append(
+                    (
+                        0,
+                        0,
+                        {
+                            "product_id": line.product_id.id,
+                            "quantity": line.quantity,
+                            "price_unit": line.product_id.sale_price,  # Use product's sale price
+                        },
                     )
-                # Assign the lines to the current order
-                self.order_lines = order_line_vals
-                _logger.info(
-                    f"Draft order lines populated for customer {self.customer_id.name}."
                 )
-            else:
-                # If no draft order is found, prompt user to place a new order
-                _logger.info(
-                    f"No draft order found for customer {self.customer_id.name}. Please place a new order."
-                )
-                raise UserError(
-                    "This customer does not have any draft orders. Please create a new order."
-                )
+            # Assign the lines to the current order
+            self.order_lines = order_line_vals
+            _logger.info(
+                f"Order lines populated for Customer {self.customer_id.name} from Place Order {self.customer_place_order_id.name}."
+            )
 
     @api.depends("order_lines", "order_lines.product_id", "order_lines.quantity")
     def _compute_total_cost_price(self):
@@ -252,6 +243,7 @@ class CustomerSaleOrder(models.Model):
 
                 # Proceed with creating the SaleOrder with the updated vals
                 new_order = super(CustomerSaleOrder, self).create(vals)
+                # ✅ confirm the linked place order, if any
 
                 # Step 3: Create product movements for each order line
                 for line in new_order.order_lines:
@@ -268,11 +260,23 @@ class CustomerSaleOrder(models.Model):
 
                 # Step 4: Book accounting entries for the new order
                 new_order.book_accounting_entry()
+                # after: new_order.book_accounting_entry()
+
+                # ✅ If this sale order came from a Customer Place Order, confirm it and link back
+                if new_order.customer_place_order_id:
+                    new_order.customer_place_order_id.write(
+                        {
+                            "state": "confirmed",
+                            "sale_order_id": new_order.id,  # if you added the field above
+                        }
+                    )
 
                 return new_order
         except Exception as e:
             _logger.error(f"Create transaction failed: {str(e)}")
             raise ValidationError(f"Transaction failed: {str(e)}")
+
+    # inside class CustomerSaleOrder(models.Model):
 
     def _generate_order_reference(self, vals):
         bom_id = vals.get("bom_id", False)
@@ -521,6 +525,8 @@ class CustomerSaleOrder(models.Model):
                                 # Include other necessary fields
                             }
                         )
+                        # After booking the entries, confirm the place order
+
         except Exception as e:
             _logger.error(f"transaction failed: {str(e)}")
             raise ValidationError(f"Transaction failed: {str(e)}")

@@ -7,6 +7,11 @@ class CustomerPlaceOrder(models.Model):
     _description = "Customer Place Order"
     _order = "id desc"
 
+    name = fields.Char(
+        string="Order Reference",
+        required=True,
+        default=lambda self: self._generate_order_reference(),
+    )
     customer_id = fields.Many2one(
         "idil.customer.registration", string="Customer", required=True
     )
@@ -21,6 +26,23 @@ class CustomerPlaceOrder(models.Model):
     total_quantity = fields.Float(
         string="Total Quantity", compute="_compute_total_quantity", store=True
     )
+    # in idil.customer.place.order
+
+    sale_order_id = fields.Many2one(
+        "idil.customer.sale.order",  # ✅ not "idil.sale.order"
+        string="Processed Sale Order",
+        readonly=True,
+    )
+
+    def _generate_order_reference(self):
+        """
+        This method generates the order reference using a sequence and custom logic.
+        You can customize it further to fit your needs (e.g., including the date, customer code, etc.).
+        """
+        sequence = self.env["ir.sequence"].next_by_code(
+            "idil.customer.place.order.sequence"
+        )
+        return sequence or "ORDER"  # Fallback if no sequence is configured
 
     @api.depends("order_lines.quantity")
     def _compute_total_quantity(self):
@@ -45,33 +67,35 @@ class CustomerPlaceOrder(models.Model):
 
         return super(CustomerPlaceOrder, self).create(vals)
 
-    def write(self, vals):
-        # Prevent updates if the order is linked to a confirmed sale order
-        sale_orders = self.env["idil.sale.order"].search(
-            [("customer_place_order_id", "=", self.id)]
-        )
-        if sale_orders:
-            raise UserError(
-                "This Customer Order is already linked to a Sales Order and cannot be edited."
-            )
-        return super(CustomerPlaceOrder, self).write(vals)
+    # def write(self, vals):
+    #     # Prevent updates if the order is linked to a sale order that is not in draft
+    #     sale_orders = self.env["idil.customer.sale.order"].search(
+    #         [("customer_place_order_id", "in", self.ids), ("state", "!=", "draft")],
+    #         limit=1,
+    #     )
+    #     if sale_orders:
+    #         raise UserError(
+    #             "This Customer Order is already linked to a confirmed/cancelled Sales Order and cannot be edited."
+    #         )
+    #     return super(CustomerPlaceOrder, self).write(vals)
 
-    def unlink(self):
-        # Prevent deletion if the order is linked to a confirmed sale order
-        sale_orders = self.env["idil.sale.order"].search(
-            [("customer_place_order_id", "=", self.id)]
-        )
-        if sale_orders:
-            raise UserError(
-                "This Customer Order is already linked to a Sales Order and cannot be deleted."
-            )
-        return super(CustomerPlaceOrder, self).unlink()
+    # def unlink(self):
+    #     # Prevent deletion if the order is linked to a sale order that is not in draft
+    #     sale_orders = self.env["idil.customer.sale.order"].search(
+    #         [("customer_place_order_id", "in", self.ids), ("state", "!=", "draft")],
+    #         limit=1,
+    #     )
+    #     if sale_orders:
+    #         raise UserError(
+    #             "This Customer Order is already linked to a confirmed/cancelled Sales Order and cannot be deleted."
+    #         )
+    #     return super(CustomerPlaceOrder, self).unlink()
 
-    def action_confirm_order(self):
-        self.write({"state": "confirmed"})
+    # def action_confirm_order(self):
+    #     self.write({"state": "confirmed"})
 
-    def action_cancel_order(self):
-        self.write({"state": "cancel"})
+    # def action_cancel_order(self):
+    #     self.write({"state": "cancel"})
 
 
 class CustomerPlaceOrderLine(models.Model):
