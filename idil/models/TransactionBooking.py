@@ -720,6 +720,106 @@ class TransactionBookingline(models.Model):
     #         "target": "new",
     #     }
 
+    # def compute_company_trial_balance(self, report_currency_id, company_id, as_of_date):
+    #     self.env.cr.execute(
+    #         """
+    #         SELECT
+    #             tb.account_number,
+    #             ca.currency_id,
+    #             SUM(tb.dr_amount) AS dr_total,
+    #             SUM(tb.cr_amount) AS cr_total
+    #         FROM
+    #             idil_transaction_bookingline tb
+    #         JOIN idil_chart_account ca ON tb.account_number = ca.id
+    #         WHERE
+    #             tb.company_id = %s
+    #             AND tb.transaction_date <= %s
+    #             AND ca.name != 'Exchange Clearing Account'
+    #         GROUP BY
+    #             tb.account_number, ca.code, ca.currency_id
+    #         HAVING
+    #             SUM(tb.dr_amount) - SUM(tb.cr_amount) <> 0
+    #         ORDER BY
+    #             ca.code
+    #         """,
+    #         (company_id.id, as_of_date),
+    #     )
+
+    #     result = self.env.cr.dictfetchall()
+
+    #     # Clear previous trial balance records
+    #     self.env["idil.company.trial.balance"].search([]).unlink()
+
+    #     usd_currency = self.env["res.currency"].search([("name", "=", "USD")], limit=1)
+
+    #     for line in result:
+    #         account = self.env["idil.chart.account"].browse(line["account_number"])
+    #         dr_total = line["dr_total"] or 0.0
+    #         cr_total = line["cr_total"] or 0.0
+
+    #         if line["currency_id"] != usd_currency.id:
+    #             currency = self.env["res.currency"].browse(line["currency_id"])
+    #             rate_dict = currency._get_rates(company_id, as_of_date)
+    #             rate = rate_dict.get(currency.id, 0)
+    #             if not rate:
+    #                 raise Exception(
+    #                     f"No rate found for {currency.name} on {as_of_date}"
+    #                 )
+    #             dr_total = dr_total / rate
+    #             cr_total = cr_total / rate
+    #             _logger.info(
+    #                 f"Account {account.code}: Converted using rate {rate} | dr_total: {dr_total} | cr_total: {cr_total}"
+    #             )
+    #         else:
+    #             _logger.info(
+    #                 f"Account {account.code}: USD - No conversion | dr_total: {dr_total} | cr_total: {cr_total}"
+    #             )
+
+    #         net_balance = dr_total - cr_total
+
+    #         if net_balance > 0:
+    #             dr_balance = net_balance
+    #             cr_balance = 0.0
+    #         else:
+    #             dr_balance = 0.0
+    #             cr_balance = abs(net_balance)
+
+    #         self.env["idil.company.trial.balance"].create(
+    #             {
+    #                 "account_number": account.id,
+    #                 "header_name": account.header_name,
+    #                 "currency_id": usd_currency.id,
+    #                 "dr_balance": dr_balance,
+    #                 "cr_balance": cr_balance,
+    #             }
+    #         )
+
+    #     # Only sum detail lines for the grand total
+    #     detail_lines = self.env["idil.company.trial.balance"].search(
+    #         [("header_name", "!=", False)]
+    #     )
+
+    #     grand_dr = sum(detail_lines.mapped("dr_balance"))
+    #     grand_cr = sum(detail_lines.mapped("cr_balance"))
+
+    #     self.env["idil.company.trial.balance"].create(
+    #         {
+    #             "account_number": None,
+    #             "currency_id": usd_currency.id,
+    #             "dr_balance": grand_dr,
+    #             "cr_balance": grand_cr,
+    #             "label": "Grand Total",
+    #         }
+    #     )
+
+    #     return {
+    #         "type": "ir.actions.act_window",
+    #         "name": "Company Trial Balance",
+    #         "view_mode": "tree",
+    #         "res_model": "idil.company.trial.balance",
+    #         "target": "new",
+    #     }
+
     def compute_company_trial_balance(self, report_currency_id, company_id, as_of_date):
         self.env.cr.execute(
             """
