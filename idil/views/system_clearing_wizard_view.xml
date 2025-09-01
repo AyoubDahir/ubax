@@ -22,6 +22,6 @@
         <field name="target">new</field>
     </record>
 
-    <!-- <menuitem id="menu_system_clearing_root" name="System Tools"/>
-    <menuitem id="menu_system_clearing" name="System Clearing" parent="menu_system_clearing_root" action="action_system_clearing_wizard"/> -->
+    <menuitem id="menu_system_clearing_root" name="System Tools"/>
+    <menuitem id="menu_system_clearing" name="System Clearing" parent="menu_system_clearing_root" action="action_system_clearing_wizard"/>
 </odoo>
