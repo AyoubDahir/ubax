@@ -1,5 +1,5 @@
 {
-    "name": "idil",
+    "name": "Ubax",
     "version": "1.0.0",
     "category": "Idil",
     "license": "LGPL-3",
